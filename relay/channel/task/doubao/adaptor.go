@@ -18,6 +18,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/video_billing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -136,23 +137,36 @@ func (a *TaskAdaptor) BuildRequestHeader(_ *gin.Context, req *http.Request, _ *r
 }
 
 // EstimateBilling 根据请求 metadata 中的输出分辨率与是否包含视频输入，返回相对基准价的计费 OtherRatio。
+// CUSTOM: 价格表由硬编码迁移至 setting/video_billing 可配置矩阵（默认值与原表一致）。
 func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
 		return nil
 	}
-	hasVideo := hasVideoInMetadata(req.Metadata)
+	mode := video_billing.ModeTextToVideo
+	if contentHasMedia(req.Metadata, "video_url") {
+		mode = video_billing.ModeVideoToVideo
+	} else if req.HasImage() || contentHasMedia(req.Metadata, "image_url") {
+		mode = video_billing.ModeImageToVideo
+	}
 	resolution, _ := req.Metadata["resolution"].(string)
-	ratio, ok := GetVideoInputRatio(info.OriginModelName, resolution, hasVideo)
+	audio := ""
+	if generateAudio, ok := req.Metadata["generate_audio"].(bool); ok {
+		audio = video_billing.AudioOff
+		if generateAudio {
+			audio = video_billing.AudioOn
+		}
+	}
+	ratio, ok := video_billing.GetRatio(info.OriginModelName, mode, resolution, audio)
 	if !ok || ratio == 1.0 {
 		return nil
 	}
 	return map[string]float64{"video_input": ratio}
 }
 
-// hasVideoInMetadata 直接检查 metadata 的 content 数组是否包含 video_url 条目，
+// contentHasMedia 直接检查 metadata 的 content 数组是否包含指定类型的媒体条目，
 // 避免构建完整的上游 requestPayload。
-func hasVideoInMetadata(metadata map[string]interface{}) bool {
+func contentHasMedia(metadata map[string]interface{}, mediaType string) bool {
 	if metadata == nil {
 		return false
 	}
@@ -169,10 +183,10 @@ func hasVideoInMetadata(metadata map[string]interface{}) bool {
 		if !ok {
 			continue
 		}
-		if itemMap["type"] == "video_url" {
+		if itemMap["type"] == mediaType {
 			return true
 		}
-		if _, has := itemMap["video_url"]; has {
+		if _, has := itemMap[mediaType]; has {
 			return true
 		}
 	}

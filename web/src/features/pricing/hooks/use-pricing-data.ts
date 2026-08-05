@@ -66,6 +66,8 @@ export function usePricingData() {
     models,
     vendors: data?.vendors ?? [],
     groupRatio: data?.group_ratio ?? {},
+    // CUSTOM: 视频价格矩阵（fork 扩展）
+    videoPricing: data?.video_pricing ?? {},
     usableGroup: data?.usable_group ?? {},
     endpointMap: data?.supported_endpoint ?? {},
     autoGroups: data?.auto_groups ?? [],

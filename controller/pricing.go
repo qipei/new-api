@@ -5,6 +5,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/setting/video_billing"
 
 	"github.com/gin-gonic/gin"
 )
@@ -72,7 +73,9 @@ func GetPricing(c *gin.Context) {
 		"usable_group":       usableGroup,
 		"supported_endpoint": model.GetSupportedEndpointMap(),
 		"auto_groups":        service.GetUserAutoGroup(group),
-		"pricing_version":    "a42d372ccf0b5dd13ecf71203521f9d2",
+		// CUSTOM: 视频模型分档原价矩阵（模式×分辨率×音轨），供价格页展示
+		"video_pricing":   video_billing.GetAllTablesCopy(),
+		"pricing_version": "a42d372ccf0b5dd13ecf71203521f9d2",
 	})
 }
 

@@ -88,6 +88,19 @@ export type ModelCapability =
   | 'caching'
   | 'embeddings'
 
+// CUSTOM: 视频价格矩阵（fork 扩展），与后端 setting/video_billing 结构一致
+export type VideoPriceTier = {
+  mode?: string
+  resolution?: string
+  audio?: string
+  price: number
+}
+
+export type VideoPriceTable = {
+  base_price: number
+  tiers?: VideoPriceTier[]
+}
+
 export type PricingData = {
   success: boolean
   message?: string
@@ -97,6 +110,7 @@ export type PricingData = {
   usable_group: Record<string, { desc: string; ratio: number }>
   supported_endpoint: Record<string, string>
   auto_groups: string[]
+  video_pricing?: Record<string, VideoPriceTable> | null
 }
 
 export type TokenUnit = 'M' | 'K'

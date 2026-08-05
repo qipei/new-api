@@ -78,6 +78,7 @@ import type {
 import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelDetailsApi } from './model-details-api'
+import { VideoPriceSection } from './video-price-section'
 import { ModelDetailsPerformance } from './model-details-performance'
 
 // ----------------------------------------------------------------------------
@@ -1181,6 +1182,11 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             {isDynamic && (
               <DynamicPricingBreakdown billingExpr={props.model.billing_expr} />
             )}
+            {/* CUSTOM: 视频价格矩阵（fork 扩展） */}
+            <VideoPriceSection
+              model={props.model}
+              usableGroup={props.usableGroup}
+            />
             <GroupPricingSection
               model={props.model}
               groupRatio={props.groupRatio}

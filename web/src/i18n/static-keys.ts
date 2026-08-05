@@ -572,4 +572,18 @@ export const STATIC_I18N_KEYS = [
   'This user account is disabled.',
   'Telegram binding failed. Please try again.',
   'Verification scope is missing',
+
+  // CUSTOM: Video pricing (fork extension)
+  'Video Pricing',
+  'Save video pricing',
+  'Any mode',
+  'Text to video',
+  'Image to video',
+  'Video to video',
+  'Audio agnostic',
+  'With audio',
+  'Without audio',
+  'base price must be greater than 0',
+  'tier price must be greater than 0',
+  'duplicate tier dimensions',
 ] as const

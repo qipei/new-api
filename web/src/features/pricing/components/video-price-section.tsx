@@ -68,13 +68,18 @@ export function VideoPriceSection(props: {
   const unitLabel =
     table.unit === 'per_million_tokens' ? t('per 1M tokens') : t('per second')
 
-  const groups = getAvailableGroups(props.model, props.usableGroup || {}).map(
-    (group) => ({
+  // 多分组时每个分组一列，按倍率从低到高（折扣从优到差）排序，同倍率按名称稳定排序
+  const groups = getAvailableGroups(props.model, props.usableGroup || {})
+    .map((group) => ({
       key: group,
       label: props.usableGroup[group]?.desc || group,
       ratio: getConfiguredGroupRatio(props.groupRatio, group),
-    })
-  )
+    }))
+    .filter((group) => Number.isFinite(group.ratio))
+    .sort((a, b) => a.ratio - b.ratio || a.key.localeCompare(b.key))
+
+  const formatRatio = (ratio: number): string =>
+    Number(ratio.toFixed(4)).toString()
 
   const formatPrice = (usd: number): string => {
     if (!Number.isFinite(usd)) return '-'
@@ -166,7 +171,7 @@ export function VideoPriceSection(props: {
                       >
                         {group.label}
                         <span className='text-muted-foreground/60 ml-1'>
-                          ×{group.ratio}
+                          ×{formatRatio(group.ratio)}
                         </span>
                       </th>
                     ))}

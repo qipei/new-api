@@ -5276,6 +5276,16 @@
     "Official price": "Prix officiel",
     "Your price": "Votre prix",
     "Base tier": "Palier de base",
-    "Video prices share the unit of the base price configured for this model (per second or per million tokens).": "Les prix vidéo utilisent la même unité que le prix de base configuré pour ce modèle (par seconde ou par million de tokens)."
+    "Video prices share the unit of the base price configured for this model (per second or per million tokens).": "Les prix vidéo utilisent la même unité que le prix de base configuré pour ce modèle (par seconde ou par million de tokens).",
+    "Pricing unit": "Unité de tarification",
+    "Per second": "Par seconde",
+    "Per million tokens": "Par million de tokens",
+    "invalid pricing unit": "unité de tarification invalide",
+    "a default tier with no dimensions is required": "un palier par défaut sans dimensions est requis",
+    "Configure original prices per model by generation mode, resolution tier and audio track. Models configured here bypass Model Pricing entirely; the charge is the matched tier price multiplied by the group ratio.": "Configurez les prix d'origine par modèle selon le mode de génération, le palier de résolution et la piste audio. Les modèles configurés ici contournent entièrement la Tarification des modèles ; le montant facturé est le prix du palier correspondant multiplié par le ratio de groupe.",
+    "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.": "Les prix sont des prix d'origine en USD (même convention que la Tarification des modèles). Un palier sans dimensions est le palier par défaut ; la facturation multiplie uniquement le prix du palier correspondant par le ratio de groupe.",
+    "per 1M tokens": "par million de tokens",
+    "per second": "par seconde",
+    "Default tier": "Palier par défaut"
   }
 }

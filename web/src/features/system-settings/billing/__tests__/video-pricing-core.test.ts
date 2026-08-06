@@ -29,21 +29,22 @@ import {
 describe('video pricing core', () => {
   test('round-trips backend payload structure', () => {
     const raw = JSON.stringify({
-      'doubao-seedance-2-0-260128': {
-        base_price: 46,
+      'seedance-2-0': {
+        unit: 'per_million_tokens',
         tiers: [
-          { resolution: '1080p', price: 51 },
-          { mode: 'v2v', resolution: '4k', price: 16 },
-          { mode: 't2v', audio: 'on', price: 60 },
+          { price: 6.3 },
+          { resolution: '1080p', price: 7 },
+          { mode: 'v2v', resolution: '4k', price: 2.2 },
+          { mode: 't2v', audio: 'on', price: 8 },
         ],
       },
     })
 
     const tables = parseVideoPricingTables(raw)
     assert.equal(tables.length, 1)
-    assert.equal(tables[0].model, 'doubao-seedance-2-0-260128')
-    assert.equal(tables[0].basePrice, '46')
-    assert.equal(tables[0].tiers.length, 3)
+    assert.equal(tables[0].model, 'seedance-2-0')
+    assert.equal(tables[0].unit, 'per_million_tokens')
+    assert.equal(tables[0].tiers.length, 4)
 
     const serialized = JSON.parse(serializeVideoPricingTables(tables))
     assert.deepEqual(serialized, JSON.parse(raw))
@@ -54,13 +55,21 @@ describe('video pricing core', () => {
       serializeVideoPricingTables([
         {
           model: 'm',
-          basePrice: '10',
-          tiers: [{ uid: 't1', mode: '', resolution: ' 1080P ', audio: '', price: '20' }],
+          unit: 'per_second',
+          tiers: [
+            {
+              uid: 't1',
+              mode: '',
+              resolution: ' 1080P ',
+              audio: '',
+              price: '0.5',
+            },
+          ],
         },
       ])
     )
     assert.deepEqual(serialized, {
-      m: { base_price: 10, tiers: [{ resolution: '1080p', price: 20 }] },
+      m: { unit: 'per_second', tiers: [{ resolution: '1080p', price: 0.5 }] },
     })
   })
 
@@ -70,16 +79,16 @@ describe('video pricing core', () => {
     assert.deepEqual(parseVideoPricingTables(''), [])
   })
 
-  test('validation flags non-positive prices and duplicate tiers', () => {
+  test('validation flags bad unit, bad prices, duplicates and missing default tier', () => {
     const issues = validateVideoPricingTables([
       {
-        model: 'bad-base',
-        basePrice: '0',
-        tiers: [],
+        model: 'bad-unit',
+        unit: 'per_hour',
+        tiers: [{ uid: 't1', mode: '', resolution: '', audio: '', price: '1' }],
       },
       {
         model: 'bad-tier',
-        basePrice: '10',
+        unit: 'per_second',
         tiers: [
           { uid: 't2', mode: '', resolution: '1080p', audio: '', price: '-1' },
           { uid: 't3', mode: 'v2v', resolution: '4k', audio: '', price: '5' },
@@ -89,7 +98,12 @@ describe('video pricing core', () => {
     ])
     assert.deepEqual(
       issues.map((issue) => `${issue.model}:${issue.reason}`),
-      ['bad-base:base_price', 'bad-tier:tier_price', 'bad-tier:duplicate_tier']
+      [
+        'bad-unit:unit',
+        'bad-tier:tier_price',
+        'bad-tier:duplicate_tier',
+        'bad-tier:missing_default',
+      ]
     )
   })
 
@@ -97,10 +111,10 @@ describe('video pricing core', () => {
     const issues = validateVideoPricingTables([
       {
         model: 'ok',
-        basePrice: '46',
+        unit: 'per_million_tokens',
         tiers: [
-          { uid: 't5', mode: '', resolution: '1080p', audio: '', price: '51' },
-          { uid: 't6', mode: '', resolution: '1080p', audio: 'on', price: '55' },
+          { uid: 't5', mode: '', resolution: '', audio: '', price: '6.3' },
+          { uid: 't6', mode: '', resolution: '1080p', audio: 'on', price: '7' },
         ],
       },
     ])

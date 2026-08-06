@@ -5276,6 +5276,16 @@
     "Official price": "Giá chính thức",
     "Your price": "Giá của bạn",
     "Base tier": "Bậc cơ sở",
-    "Video prices share the unit of the base price configured for this model (per second or per million tokens).": "Giá video dùng cùng đơn vị với giá cơ sở của mô hình này (mỗi giây hoặc mỗi triệu token)."
+    "Video prices share the unit of the base price configured for this model (per second or per million tokens).": "Giá video dùng cùng đơn vị với giá cơ sở của mô hình này (mỗi giây hoặc mỗi triệu token).",
+    "Pricing unit": "Đơn vị tính giá",
+    "Per second": "Mỗi giây",
+    "Per million tokens": "Mỗi triệu token",
+    "invalid pricing unit": "đơn vị tính giá không hợp lệ",
+    "a default tier with no dimensions is required": "cần một bậc mặc định không có thông số",
+    "Configure original prices per model by generation mode, resolution tier and audio track. Models configured here bypass Model Pricing entirely; the charge is the matched tier price multiplied by the group ratio.": "Cấu hình giá gốc cho từng mô hình theo chế độ tạo, bậc độ phân giải và âm thanh. Mô hình cấu hình ở đây bỏ qua hoàn toàn Định giá mô hình; phí = giá bậc khớp × hệ số nhóm.",
+    "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.": "Giá là giá gốc bằng USD (cùng quy ước với Định giá mô hình). Bậc không có thông số là bậc mặc định; phí chỉ nhân giá bậc khớp với hệ số nhóm.",
+    "per 1M tokens": "mỗi triệu token",
+    "per second": "mỗi giây",
+    "Default tier": "Bậc mặc định"
   }
 }

@@ -5276,6 +5276,16 @@
     "Official price": "公式価格",
     "Your price": "ご利用価格",
     "Base tier": "基準ティア",
-    "Video prices share the unit of the base price configured for this model (per second or per million tokens).": "動画価格はこのモデルの基準価格と同じ単位です（秒あたり、または 100 万トークンあたり）。"
+    "Video prices share the unit of the base price configured for this model (per second or per million tokens).": "動画価格はこのモデルの基準価格と同じ単位です（秒あたり、または 100 万トークンあたり）。",
+    "Pricing unit": "課金単位",
+    "Per second": "秒あたり",
+    "Per million tokens": "100万トークンあたり",
+    "invalid pricing unit": "課金単位が無効です",
+    "a default tier with no dimensions is required": "条件なしのデフォルトティアが必要です",
+    "Configure original prices per model by generation mode, resolution tier and audio track. Models configured here bypass Model Pricing entirely; the charge is the matched tier price multiplied by the group ratio.": "モデルごとに生成モード・解像度ティア・音声トラック別の元価格を設定します。ここで設定したモデルはモデル料金を完全にバイパスし、課金額は一致したティア価格 × グループ倍率です。",
+    "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.": "価格は米ドルの元価格です（モデル料金と同じ通貨規約）。条件なしのティアがデフォルトティアです。課金は一致したティア価格にグループ倍率を掛けるだけです。",
+    "per 1M tokens": "100万トークンあたり",
+    "per second": "秒あたり",
+    "Default tier": "デフォルトティア"
   }
 }

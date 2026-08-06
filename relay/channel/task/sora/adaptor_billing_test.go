@@ -8,7 +8,6 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/video_billing"
-	hosttypes "github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -33,15 +32,12 @@ func withPriceTables(t *testing.T, tables map[string]video_billing.ModelPriceTab
 	t.Cleanup(func() { settings.PriceTables = original })
 }
 
-// 按次（每秒）计费模型：矩阵命中时返回 seconds + video_price。
-func TestEstimateBillingMatrixPerCall(t *testing.T) {
+// 每秒计费的矩阵模型：基础价由矩阵接管，只返回 seconds 倍率。
+func TestEstimateBillingMatrixPerSecond(t *testing.T) {
 	withPriceTables(t, map[string]video_billing.ModelPriceTable{
 		"sora-2-pro": {
-			BasePrice: 0.3,
-			Tiers: []video_billing.PriceTier{
-				{Resolution: "1080p", Price: 0.5},
-				{Audio: video_billing.AudioOn, Resolution: "1080p", Price: 0.6},
-			},
+			Unit:  video_billing.UnitPerSecond,
+			Tiers: []video_billing.PriceTier{{Price: 0.3}},
 		},
 	})
 
@@ -49,37 +45,29 @@ func TestEstimateBillingMatrixPerCall(t *testing.T) {
 	c := newTaskContext(t, relaycommon.TaskSubmitReq{Seconds: "8", Size: "1792x1024"})
 	info := &relaycommon.RelayInfo{TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
 	info.OriginModelName = "sora-2-pro"
-	info.PriceData = hosttypes.PriceData{UsePrice: true}
 
 	ratios := adaptor.EstimateBilling(c, info)
 	require.NotNil(t, ratios)
 	assert.InDelta(t, 8.0, ratios["seconds"], 1e-9)
-	assert.InDelta(t, 0.5/0.3, ratios["video_price"], 1e-9)
-	assert.InDelta(t, 1.0, ratios["size"], 1e-9)
+	_, hasSize := ratios["size"]
+	assert.False(t, hasSize, "矩阵模型不应再有 size 倍率")
 }
 
-// 按量（token）计费模型：只返回 video_price，时长由 token 用量体现。
+// 按 token 计费的矩阵模型：时长体现在 usage 中，不返回任何倍率。
 func TestEstimateBillingMatrixTokenBilled(t *testing.T) {
 	withPriceTables(t, map[string]video_billing.ModelPriceTable{
-		"doubao-seedance-2-0-260128-sora": {
-			BasePrice: 46,
-			Tiers: []video_billing.PriceTier{
-				{Resolution: "1080p", Price: 51},
-			},
+		"seedance-via-sora": {
+			Unit:  video_billing.UnitPerMillionToken,
+			Tiers: []video_billing.PriceTier{{Price: 6.3}},
 		},
 	})
 
 	adaptor := &TaskAdaptor{}
 	c := newTaskContext(t, relaycommon.TaskSubmitReq{Seconds: "10", Size: "1080p"})
 	info := &relaycommon.RelayInfo{TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
-	info.OriginModelName = "doubao-seedance-2-0-260128-sora"
-	info.PriceData = hosttypes.PriceData{UsePrice: false}
+	info.OriginModelName = "seedance-via-sora"
 
-	ratios := adaptor.EstimateBilling(c, info)
-	require.NotNil(t, ratios)
-	assert.InDelta(t, 51.0/46.0, ratios["video_price"], 1e-9)
-	_, hasSeconds := ratios["seconds"]
-	assert.False(t, hasSeconds, "token 计费不应包含 seconds 倍率")
+	assert.Nil(t, adaptor.EstimateBilling(c, info))
 }
 
 // 未配置矩阵的模型保持原有硬编码行为。
@@ -90,14 +78,11 @@ func TestEstimateBillingLegacyFallback(t *testing.T) {
 	c := newTaskContext(t, relaycommon.TaskSubmitReq{Seconds: "4", Size: "1792x1024"})
 	info := &relaycommon.RelayInfo{TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
 	info.OriginModelName = "sora-2-pro"
-	info.PriceData = hosttypes.PriceData{UsePrice: true}
 
 	ratios := adaptor.EstimateBilling(c, info)
 	require.NotNil(t, ratios)
 	assert.InDelta(t, 4.0, ratios["seconds"], 1e-9)
 	assert.InDelta(t, 1.666667, ratios["size"], 1e-9)
-	_, hasPrice := ratios["video_price"]
-	assert.False(t, hasPrice)
 }
 
 // remix 在未配置矩阵时返回 nil（保持原有行为）。
@@ -134,21 +119,4 @@ func TestParseTaskResultWithoutUsage(t *testing.T) {
 	require.NoError(t, err)
 	assert.Zero(t, result.TotalTokens)
 	assert.Zero(t, result.CompletionTokens)
-}
-
-// generate_audio 参数决定音轨维度：JSON metadata、显式 false、缺省三种情形。
-func TestRequestAudioDimension(t *testing.T) {
-	c := newTaskContext(t, relaycommon.TaskSubmitReq{})
-
-	req := relaycommon.TaskSubmitReq{Metadata: map[string]interface{}{"generate_audio": true}}
-	assert.Equal(t, video_billing.AudioOn, requestAudioDimension(c, &req))
-
-	req = relaycommon.TaskSubmitReq{Metadata: map[string]interface{}{"generate_audio": false}}
-	assert.Equal(t, video_billing.AudioOff, requestAudioDimension(c, &req))
-
-	req = relaycommon.TaskSubmitReq{Metadata: map[string]interface{}{"generate_audio": "true"}}
-	assert.Equal(t, video_billing.AudioOn, requestAudioDimension(c, &req))
-
-	req = relaycommon.TaskSubmitReq{}
-	assert.Equal(t, "", requestAudioDimension(c, &req))
 }

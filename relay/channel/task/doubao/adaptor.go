@@ -137,31 +137,28 @@ func (a *TaskAdaptor) BuildRequestHeader(_ *gin.Context, req *http.Request, _ *r
 }
 
 // EstimateBilling 根据请求 metadata 中的输出分辨率与是否包含视频输入，返回相对基准价的计费 OtherRatio。
-// CUSTOM: 价格表由硬编码迁移至 setting/video_billing 可配置矩阵（默认值与原表一致）。
+// CUSTOM: 配置了 video_billing 价格矩阵的模型基础价已由矩阵接管（按 token 绝对价），
+// 无需任何倍率；未配置的模型沿用内置价格表的相对倍率（与上游行为一致）。
 func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
+	if _, ok := video_billing.GetPriceTable(info.OriginModelName); ok {
+		return nil
+	}
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
 		return nil
 	}
-	mode := video_billing.ModeTextToVideo
-	if contentHasMedia(req.Metadata, "video_url") {
-		mode = video_billing.ModeVideoToVideo
-	} else if req.HasImage() || contentHasMedia(req.Metadata, "image_url") {
-		mode = video_billing.ModeImageToVideo
-	}
+	hasVideo := contentHasMedia(req.Metadata, "video_url")
 	resolution, _ := req.Metadata["resolution"].(string)
-	audio := ""
-	if generateAudio, ok := req.Metadata["generate_audio"].(bool); ok {
-		audio = video_billing.AudioOff
-		if generateAudio {
-			audio = video_billing.AudioOn
-		}
-	}
-	ratio, ok := video_billing.GetRatio(info.OriginModelName, mode, resolution, audio)
+	ratio, ok := legacyVideoInputRatio(info.OriginModelName, resolution, hasVideo)
 	if !ok || ratio == 1.0 {
 		return nil
 	}
 	return map[string]float64{"video_input": ratio}
+}
+
+// AdjustBillingOnComplete 按 token 计费的矩阵模型在任务完成时用实际 usage 结算。
+func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *relaycommon.TaskInfo) int {
+	return taskcommon.VideoMatrixQuotaOnComplete(task, taskResult)
 }
 
 // contentHasMedia 直接检查 metadata 的 content 数组是否包含指定类型的媒体条目，

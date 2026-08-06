@@ -24,7 +24,7 @@ import { usePricingData } from '../hooks/use-pricing-data'
 import type { PricingModel, VideoPriceTier } from '../types'
 
 // CUSTOM: 视频价格矩阵展示（fork 扩展）。
-// 展示 官方价（矩阵原价）/ 平台价（× 分组倍率）/ 折扣，按生成模式分组。
+// 展示 官方价（矩阵原价，USD）/ 平台价（× 分组倍率）/ 折扣，按生成模式分组。
 
 const MODE_SECTION_KEYS: Array<{ mode: string; labelKey: string }> = [
   { mode: '', labelKey: 'General tiers' },
@@ -40,7 +40,7 @@ const AUDIO_LABEL_KEYS: Record<string, string> = {
 
 function formatPrice(value: number): string {
   if (!Number.isFinite(value)) return '-'
-  return value.toFixed(value < 1 ? 4 : 2).replace(/\.?0+$/, '')
+  return `$${value.toFixed(value < 1 ? 4 : 2).replace(/\.?0+$/, '')}`
 }
 
 export function VideoPriceSection(props: {
@@ -51,7 +51,12 @@ export function VideoPriceSection(props: {
   const { videoPricing } = usePricingData()
 
   const table = videoPricing[props.model.model_name]
-  if (!table || !(table.base_price > 0)) return null
+  if (!table || !Array.isArray(table.tiers) || table.tiers.length === 0) {
+    return null
+  }
+
+  const unitLabel =
+    table.unit === 'per_million_tokens' ? t('per 1M tokens') : t('per second')
 
   const groupRatios = Object.values(props.usableGroup)
     .map((group) => group.ratio)
@@ -59,10 +64,8 @@ export function VideoPriceSection(props: {
   const bestRatio = Math.min(1, ...groupRatios)
   const hasDiscount = bestRatio < 1
 
-  const baseTier: VideoPriceTier = { price: table.base_price }
   const tiersByMode = new Map<string, VideoPriceTier[]>()
-  tiersByMode.set('', [baseTier])
-  for (const tier of table.tiers ?? []) {
+  for (const tier of table.tiers) {
     const mode = tier.mode ?? ''
     const list = tiersByMode.get(mode) ?? []
     list.push(tier)
@@ -70,12 +73,11 @@ export function VideoPriceSection(props: {
   }
 
   const renderRow = (tier: VideoPriceTier) => {
-    const isBase = tier === baseTier
     const rowKey = `${tier.mode ?? ''}|${tier.resolution ?? ''}|${tier.audio ?? ''}|${tier.price}`
     return (
       <tr key={rowKey} className='border-border/50 border-t'>
         <td className='py-1.5 pr-3'>
-          {isBase || !tier.resolution ? t('Base tier') : tier.resolution}
+          {tier.resolution ? tier.resolution : t('Default tier')}
         </td>
         <td className='text-muted-foreground py-1.5 pr-3'>
           {tier.audio ? t(AUDIO_LABEL_KEYS[tier.audio] ?? tier.audio) : '—'}
@@ -107,7 +109,10 @@ export function VideoPriceSection(props: {
 
   return (
     <section>
-      <div className='mb-2 text-sm font-medium'>{t('Video Price')}</div>
+      <div className='mb-2 flex items-baseline gap-2'>
+        <span className='text-sm font-medium'>{t('Video Price')}</span>
+        <span className='text-muted-foreground text-xs'>({unitLabel})</span>
+      </div>
       <div className='space-y-3'>
         {MODE_SECTION_KEYS.map((section) => {
           const tiers = tiersByMode.get(section.mode)
@@ -148,11 +153,6 @@ export function VideoPriceSection(props: {
           )
         })}
       </div>
-      <p className='text-muted-foreground/70 mt-2 text-xs'>
-        {t(
-          'Video prices share the unit of the base price configured for this model (per second or per million tokens).'
-        )}
-      </p>
     </section>
   )
 }

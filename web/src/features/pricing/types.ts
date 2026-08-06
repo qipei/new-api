@@ -97,7 +97,7 @@ export type VideoPriceTier = {
 }
 
 export type VideoPriceTable = {
-  base_price: number
+  unit: string
   tiers?: VideoPriceTier[]
 }
 

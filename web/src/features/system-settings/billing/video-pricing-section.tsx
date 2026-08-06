@@ -57,10 +57,16 @@ const AUDIO_LABEL_KEYS: Record<string, string> = {
   off: 'Without audio',
 }
 
+const UNIT_LABEL_KEYS: Record<string, string> = {
+  per_second: 'Per second',
+  per_million_tokens: 'Per million tokens',
+}
+
 const ISSUE_LABEL_KEYS: Record<string, string> = {
-  base_price: 'base price must be greater than 0',
+  unit: 'invalid pricing unit',
   tier_price: 'tier price must be greater than 0',
   duplicate_tier: 'duplicate tier dimensions',
+  missing_default: 'a default tier with no dimensions is required',
 }
 
 export function VideoPricingSection(props: { defaultValue: string }) {
@@ -114,7 +120,19 @@ export function VideoPricingSection(props: { defaultValue: string }) {
     }
     setTables((prev) => [
       ...prev,
-      { model, basePrice: '', tiers: [] },
+      {
+        model,
+        unit: 'per_second',
+        tiers: [
+          {
+            uid: nextEditableTierUid(),
+            mode: '',
+            resolution: '',
+            audio: '',
+            price: '',
+          },
+        ],
+      },
     ])
     setNewModelName('')
   }
@@ -164,7 +182,7 @@ export function VideoPricingSection(props: { defaultValue: string }) {
     <SettingsSection title={t('Video Pricing')}>
       <p className='text-muted-foreground text-sm'>
         {t(
-          'Configure original prices per model by generation mode, resolution tier and audio track. Billing uses tier price divided by base price as a multiplier on top of the base price configured in Model Pricing.'
+          'Configure original prices per model by generation mode, resolution tier and audio track. Models configured here bypass Model Pricing entirely; the charge is the matched tier price multiplied by the group ratio.'
         )}
       </p>
       <SettingsPageFormActions
@@ -187,17 +205,27 @@ export function VideoPricingSection(props: { defaultValue: string }) {
               </span>
               <div className='ml-auto flex items-center gap-2'>
                 <span className='text-muted-foreground text-sm'>
-                  {t('Base price')}
+                  {t('Pricing unit')}
                 </span>
-                <Input
-                  className='w-28'
-                  inputMode='decimal'
-                  value={table.basePrice}
-                  aria-label={`${table.model} ${t('Base price')}`}
-                  onChange={(e) =>
-                    patchTable(tableIndex, { basePrice: e.target.value })
-                  }
-                />
+                <Select
+                  value={table.unit}
+                  onValueChange={(value) => {
+                    if (value) patchTable(tableIndex, { unit: value })
+                  }}
+                >
+                  <SelectTrigger className='w-44'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(UNIT_LABEL_KEYS).map(
+                      ([value, labelKey]) => (
+                        <SelectItem key={value} value={value}>
+                          {t(labelKey)}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
                 <Button
                   type='button'
                   variant='ghost'
@@ -215,7 +243,7 @@ export function VideoPricingSection(props: { defaultValue: string }) {
             </div>
             <p className='text-muted-foreground text-xs'>
               {t(
-                'Base price must equal the price configured in Model Pricing for this model (per-call price for per-second billing, ratio price for token billing).'
+                'Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.'
               )}
             </p>
             <div className='overflow-x-auto'>

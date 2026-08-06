@@ -583,7 +583,10 @@ export const STATIC_I18N_KEYS = [
   'Audio agnostic',
   'With audio',
   'Without audio',
-  'base price must be greater than 0',
+  'Per second',
+  'Per million tokens',
+  'invalid pricing unit',
   'tier price must be greater than 0',
   'duplicate tier dimensions',
+  'a default tier with no dimensions is required',
 ] as const

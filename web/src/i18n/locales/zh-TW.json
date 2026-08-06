@@ -5276,6 +5276,16 @@
     "Official price": "官方價",
     "Your price": "平台價",
     "Base tier": "基準檔",
-    "Video prices share the unit of the base price configured for this model (per second or per million tokens).": "影片價格與該模型基準價同單位（每秒或每百萬 token）。"
+    "Video prices share the unit of the base price configured for this model (per second or per million tokens).": "影片價格與該模型基準價同單位（每秒或每百萬 token）。",
+    "Pricing unit": "計價單位",
+    "Per second": "每秒",
+    "Per million tokens": "每百萬 token",
+    "invalid pricing unit": "計價單位無效",
+    "a default tier with no dimensions is required": "必須包含一個不帶任何維度的預設檔",
+    "Configure original prices per model by generation mode, resolution tier and audio track. Models configured here bypass Model Pricing entirely; the charge is the matched tier price multiplied by the group ratio.": "按模型配置各生成模式、解析度檔位與音軌的原價。配置在此處的模型完全不再使用「模型定價」中的價格；扣費 = 命中的檔位原價 × 分組倍率。",
+    "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.": "價格為美元原價（與「模型定價」同貨幣約定）。不帶任何維度的檔位是預設檔（兜底）；計費只將命中的檔位原價乘以分組倍率。",
+    "per 1M tokens": "每百萬 token",
+    "per second": "每秒",
+    "Default tier": "預設檔"
   }
 }

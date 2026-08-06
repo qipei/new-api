@@ -5276,6 +5276,16 @@
     "Official price": "Официальная цена",
     "Your price": "Ваша цена",
     "Base tier": "Базовый уровень",
-    "Video prices share the unit of the base price configured for this model (per second or per million tokens).": "Цены на видео используют ту же единицу, что и базовая цена этой модели (за секунду или за миллион токенов)."
+    "Video prices share the unit of the base price configured for this model (per second or per million tokens).": "Цены на видео используют ту же единицу, что и базовая цена этой модели (за секунду или за миллион токенов).",
+    "Pricing unit": "Единица тарификации",
+    "Per second": "За секунду",
+    "Per million tokens": "За миллион токенов",
+    "invalid pricing unit": "недопустимая единица тарификации",
+    "a default tier with no dimensions is required": "требуется уровень по умолчанию без измерений",
+    "Configure original prices per model by generation mode, resolution tier and audio track. Models configured here bypass Model Pricing entirely; the charge is the matched tier price multiplied by the group ratio.": "Настройте исходные цены для каждой модели по режиму генерации, уровню разрешения и аудиодорожке. Настроенные здесь модели полностью обходят «Тарифы моделей»; списание = цена подходящего уровня × коэффициент группы.",
+    "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.": "Цены указаны в долларах США (та же конвенция, что и в «Тарифах моделей»). Уровень без измерений — уровень по умолчанию; при списании цена подходящего уровня умножается только на коэффициент группы.",
+    "per 1M tokens": "за 1 млн токенов",
+    "per second": "за секунду",
+    "Default tier": "Уровень по умолчанию"
   }
 }

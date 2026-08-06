@@ -22,7 +22,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
@@ -103,11 +102,21 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 }
 
 // EstimateBilling 根据用户请求的 seconds 和 size 计算 OtherRatios。
-// CUSTOM: 配置了 video_billing 价格矩阵的模型按 模式×分辨率×音轨 查档定价；
-// 未配置的模型保持原有的固定 size 倍率行为。
+// CUSTOM: 配置了 video_billing 价格矩阵的模型，基础价已由矩阵接管——
+// 每秒计费只需返回 seconds 倍率，按 token 计费返回 nil（时长体现在 usage 中）；
+// 未配置矩阵的模型保持原有的固定 size 倍率行为。
 func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
 	if info.Action == constant.TaskActionRemix {
-		return a.estimateRemixBilling(info)
+		table, ok := video_billing.GetPriceTable(info.OriginModelName)
+		if !ok || table.Unit != video_billing.UnitPerSecond {
+			// 未配置矩阵（原有行为）或按 token 计费：无需 seconds 倍率
+			return nil
+		}
+		seconds := a.originTaskSeconds(info)
+		if seconds <= 0 {
+			seconds = 4
+		}
+		return map[string]float64{"seconds": float64(seconds)}
 	}
 
 	req, err := relaycommon.GetTaskRequest(c)
@@ -123,113 +132,49 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		seconds = 4
 	}
 
+	if table, ok := video_billing.GetPriceTable(info.OriginModelName); ok {
+		if table.Unit != video_billing.UnitPerSecond {
+			return nil
+		}
+		return map[string]float64{"seconds": float64(seconds)}
+	}
+
 	size := req.Size
 	if size == "" {
 		size = "720x1280"
 	}
-
 	ratios := map[string]float64{
 		"seconds": float64(seconds),
 		"size":    1,
 	}
-
-	mode := video_billing.ModeTextToVideo
-	if req.HasImage() {
-		mode = video_billing.ModeImageToVideo
-	}
-	if priceRatio, ok := video_billing.GetRatio(info.OriginModelName, mode, size, requestAudioDimension(c, &req)); ok {
-		if !info.PriceData.UsePrice {
-			// 按量（token）计费：时长已体现在 token 用量中，只保留价格档倍率
-			return map[string]float64{"video_price": priceRatio}
-		}
-		ratios["video_price"] = priceRatio
-		return ratios
-	}
-
 	if size == "1792x1024" || size == "1024x1792" {
 		ratios["size"] = 1.666667
 	}
 	return ratios
 }
 
-// estimateRemixBilling 视频生视频（remix）计费：配置了价格矩阵的模型按 v2v 档定价，
-// 分辨率/时长取自原任务；未配置矩阵时返回 nil，保持原有行为。
-func (a *TaskAdaptor) estimateRemixBilling(info *relaycommon.RelayInfo) map[string]float64 {
-	if _, ok := video_billing.GetPriceTable(info.OriginModelName); !ok {
-		return nil
+// originTaskSeconds 读取 remix 原任务的时长（秒），解析失败返回 0。
+func (a *TaskAdaptor) originTaskSeconds(info *relaycommon.RelayInfo) int {
+	originTask, exist, err := model.GetByTaskId(info.UserId, info.OriginTaskID)
+	if err != nil || !exist {
+		return 0
 	}
-	resolution := ""
-	seconds := 0
-	if originTask, exist, err := model.GetByTaskId(info.UserId, info.OriginTaskID); err == nil && exist {
-		var data struct {
-			Seconds string `json:"seconds"`
-			Size    string `json:"size"`
-		}
-		if err := common.Unmarshal(originTask.Data, &data); err == nil {
-			resolution = data.Size
-			seconds, _ = strconv.Atoi(data.Seconds)
-		}
+	var data struct {
+		Seconds string `json:"seconds"`
 	}
-	priceRatio, ok := video_billing.GetRatio(info.OriginModelName, video_billing.ModeVideoToVideo, resolution, "")
-	if !ok || priceRatio <= 0 {
-		priceRatio = 1
+	if err := common.Unmarshal(originTask.Data, &data); err != nil {
+		return 0
 	}
-	if !info.PriceData.UsePrice {
-		// 按量（token）计费：时长已体现在 token 用量中，只保留价格档倍率
-		return map[string]float64{"video_price": priceRatio}
-	}
-	if seconds <= 0 {
-		seconds = 4
-	}
+	seconds, _ := strconv.Atoi(data.Seconds)
 	if seconds > relaycommon.MaxTaskDurationSeconds {
 		seconds = relaycommon.MaxTaskDurationSeconds
 	}
-	return map[string]float64{
-		"seconds":     float64(seconds),
-		"size":        1,
-		"video_price": priceRatio,
-	}
+	return seconds
 }
 
-// requestAudioDimension 提取请求的音轨意图（generate_audio 参数），
-// 未显式指定时返回空串，匹配音轨无关的价格档。
-func requestAudioDimension(c *gin.Context, req *relaycommon.TaskSubmitReq) string {
-	toDimension := func(on bool) string {
-		if on {
-			return video_billing.AudioOn
-		}
-		return video_billing.AudioOff
-	}
-	if v, ok := req.Metadata["generate_audio"]; ok {
-		switch value := v.(type) {
-		case bool:
-			return toDimension(value)
-		case string:
-			if parsed, err := strconv.ParseBool(value); err == nil {
-				return toDimension(parsed)
-			}
-		}
-		return ""
-	}
-	contentType := c.GetHeader("Content-Type")
-	if strings.Contains(contentType, "multipart/form-data") {
-		if form, err := common.ParseMultipartFormReusable(c); err == nil {
-			if values := form.Value["generate_audio"]; len(values) > 0 {
-				if parsed, err := strconv.ParseBool(values[0]); err == nil {
-					return toDimension(parsed)
-				}
-			}
-		}
-		return ""
-	}
-	if storage, err := common.GetBodyStorage(c); err == nil {
-		if body, err := storage.Bytes(); err == nil {
-			if result := gjson.GetBytes(body, "generate_audio"); result.IsBool() {
-				return toDimension(result.Bool())
-			}
-		}
-	}
-	return ""
+// AdjustBillingOnComplete 按 token 计费的矩阵模型在任务完成时用实际 usage 结算。
+func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *relaycommon.TaskInfo) int {
+	return taskcommon.VideoMatrixQuotaOnComplete(task, taskResult)
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {

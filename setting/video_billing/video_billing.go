@@ -1,7 +1,10 @@
 // CUSTOM: 视频模型分档定价（fork 扩展）。
-// 按模型维护 模式(mode) × 分辨率(resolution) × 音轨(audio) 的原价表，
-// 计费时换算为相对基准价的倍率（OtherRatio），基准价与"模型定价"处
-// 配置的按量倍率（元/百万 token）或按次价格（每秒单价）对应同一档位。
+// 按模型维护 模式(mode) × 分辨率(resolution) × 音轨(audio) 的绝对原价表。
+// 配置了价格表的模型不再使用"模型定价"中的价格：
+//   - 每秒计费：扣费 = 档位原价(USD/秒) × 秒数 × QuotaPerUnit × 分组倍率
+//   - 按 token 计费：结算 = 实际 tokens × 档位原价(USD/百万token)/1M × QuotaPerUnit × 分组倍率
+//
+// 价格单位与"模型定价"的按次价格一致（美元）。
 package video_billing
 
 import (
@@ -24,8 +27,14 @@ const (
 	AudioOff = "off"
 )
 
+// 计价单位。
+const (
+	UnitPerSecond       = "per_second"         // 原价按 USD/秒
+	UnitPerMillionToken = "per_million_tokens" // 原价按 USD/百万 token
+)
+
 // PriceTier 一档价格。Mode/Resolution/Audio 为空串表示"任意"，
-// 查价时取匹配维度最多（最具体）的一档；无任何档匹配时按基准价计费。
+// 查价时取匹配维度最多（最具体）的一档；全空维度的档位是默认档（兜底）。
 type PriceTier struct {
 	Mode       string  `json:"mode,omitempty"`
 	Resolution string  `json:"resolution,omitempty"`
@@ -34,11 +43,9 @@ type PriceTier struct {
 }
 
 // ModelPriceTable 单个模型的视频价格表。
-// BasePrice 是基准档原价，必须与"模型定价"处配置的基准价一致，
-// 计费倍率 = 档位原价 / BasePrice。
 type ModelPriceTable struct {
-	BasePrice float64     `json:"base_price"`
-	Tiers     []PriceTier `json:"tiers,omitempty"`
+	Unit  string      `json:"unit"`
+	Tiers []PriceTier `json:"tiers,omitempty"`
 }
 
 // VideoBillingSettings 由 config.GlobalConfig 管理。
@@ -47,54 +54,41 @@ type VideoBillingSettings struct {
 	PriceTables map[string]ModelPriceTable `json:"price_tables"`
 }
 
-// 默认表：字节 Seedance 2.0 官方刊例价（元/百万 token），
-// 迁移自 relay/channel/task/doubao 原硬编码 videoPriceTable，行为保持一致。
 var videoBillingSettings = VideoBillingSettings{
-	PriceTables: map[string]ModelPriceTable{
-		"doubao-seedance-2-0-260128": {
-			BasePrice: 46.0,
-			Tiers: []PriceTier{
-				{Resolution: "1080p", Price: 51.0},
-				{Resolution: "4k", Price: 26.0},
-				{Mode: ModeVideoToVideo, Price: 28.0},
-				{Mode: ModeVideoToVideo, Resolution: "1080p", Price: 31.0},
-				{Mode: ModeVideoToVideo, Resolution: "4k", Price: 16.0},
-			},
-		},
-		"doubao-seedance-2-0-fast-260128": {
-			BasePrice: 37.0,
-			Tiers: []PriceTier{
-				{Mode: ModeVideoToVideo, Price: 22.0},
-			},
-		},
-	},
+	PriceTables: map[string]ModelPriceTable{},
 }
 
 func init() {
 	config.GlobalConfig.Register("video_billing", &videoBillingSettings)
 }
 
-// GetPriceTable 返回指定模型的价格表；第二个返回值表示是否配置且基准价有效。
+// GetPriceTable 返回指定模型的价格表；第二个返回值表示是否配置且单位合法。
 func GetPriceTable(modelName string) (ModelPriceTable, bool) {
 	table, ok := videoBillingSettings.PriceTables[modelName]
-	if !ok || table.BasePrice <= 0 {
+	if !ok {
+		return ModelPriceTable{}, false
+	}
+	if table.Unit != UnitPerSecond && table.Unit != UnitPerMillionToken {
+		return ModelPriceTable{}, false
+	}
+	if len(table.Tiers) == 0 {
 		return ModelPriceTable{}, false
 	}
 	return table, true
 }
 
-// GetRatio 返回模型在给定 (模式, 分辨率, 音轨) 下相对基准价的计费倍率。
-// 第二个返回值表示该模型是否配置了价格表；未配置时调用方应保持原有计费行为。
-// 无匹配档位、或档位价格非法时按基准价（倍率 1.0）处理。
-func GetRatio(modelName, mode, resolution, audio string) (float64, bool) {
+// GetPrice 返回模型在给定 (模式, 分辨率, 音轨) 下命中的原价与计价单位。
+// 第二个返回值为计价单位；第三个返回值表示是否命中（模型未配置、或没有任何
+// 档位匹配且没有默认档时为 false，调用方应拒绝请求或走原有计费逻辑）。
+func GetPrice(modelName, mode, resolution, audio string) (float64, string, bool) {
 	table, ok := GetPriceTable(modelName)
 	if !ok {
-		return 0, false
+		return 0, "", false
 	}
 
 	resolution = NormalizeResolution(resolution)
 	bestScore := -1
-	bestPrice := table.BasePrice
+	bestPrice := 0.0
 	for _, tier := range table.Tiers {
 		score := tierMatchScore(tier, mode, resolution, audio)
 		if score < 0 || tier.Price <= 0 {
@@ -105,7 +99,10 @@ func GetRatio(modelName, mode, resolution, audio string) (float64, bool) {
 			bestPrice = tier.Price
 		}
 	}
-	return bestPrice / table.BasePrice, true
+	if bestScore < 0 || bestPrice <= 0 {
+		return 0, "", false
+	}
+	return bestPrice, table.Unit, true
 }
 
 // tierMatchScore 返回档位与请求维度的匹配度：-1 不匹配，否则为精确匹配的维度数。

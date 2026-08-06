@@ -5276,6 +5276,16 @@
     "Official price": "官方价",
     "Your price": "平台价",
     "Base tier": "基准档",
-    "Video prices share the unit of the base price configured for this model (per second or per million tokens).": "视频价格与该模型基准价同单位（每秒或每百万 token）。"
+    "Video prices share the unit of the base price configured for this model (per second or per million tokens).": "视频价格与该模型基准价同单位（每秒或每百万 token）。",
+    "Pricing unit": "计价单位",
+    "Per second": "每秒",
+    "Per million tokens": "每百万 token",
+    "invalid pricing unit": "计价单位无效",
+    "a default tier with no dimensions is required": "必须包含一个不带任何维度的默认档",
+    "Configure original prices per model by generation mode, resolution tier and audio track. Models configured here bypass Model Pricing entirely; the charge is the matched tier price multiplied by the group ratio.": "按模型配置各生成模式、分辨率档位与音轨的原价。配置在此处的模型完全不再使用\"模型定价\"中的价格；扣费 = 命中的档位原价 × 分组倍率。",
+    "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.": "价格为美元原价（与\"模型定价\"同货币约定）。不带任何维度的档位是默认档（兜底）；计费只将命中的档位原价乘以分组倍率。",
+    "per 1M tokens": "每百万 token",
+    "per second": "每秒",
+    "Default tier": "默认档"
   }
 }

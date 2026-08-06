@@ -166,6 +166,23 @@ func requestAudioDimension(c *gin.Context, req *relaycommon.TaskSubmitReq) strin
 		}
 		return ""
 	}
+	// 兼容 metadata.OutputConfig.AudioGeneration: "Enabled"/"Disabled" 形态
+	for _, configKey := range []string{"OutputConfig", "output_config"} {
+		outputConfig, ok := req.Metadata[configKey].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		for _, audioKey := range []string{"AudioGeneration", "audio_generation"} {
+			if value, ok := outputConfig[audioKey].(string); ok {
+				switch strings.ToLower(strings.TrimSpace(value)) {
+				case "enabled":
+					return video_billing.AudioOn
+				case "disabled":
+					return video_billing.AudioOff
+				}
+			}
+		}
+	}
 	contentType := c.GetHeader("Content-Type")
 	if strings.Contains(contentType, "multipart/form-data") {
 		if form, err := common.ParseMultipartFormReusable(c); err == nil {

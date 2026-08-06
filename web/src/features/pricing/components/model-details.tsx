@@ -1186,6 +1186,9 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             <VideoPriceSection
               model={props.model}
               usableGroup={props.usableGroup}
+              priceRate={props.priceRate}
+              usdExchangeRate={props.usdExchangeRate}
+              showRechargePrice={showRechargePrice}
             />
             <GroupPricingSection
               model={props.model}

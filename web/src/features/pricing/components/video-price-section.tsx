@@ -19,12 +19,14 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
+import { formatCurrencyFromUSD } from '@/lib/currency'
 
 import { usePricingData } from '../hooks/use-pricing-data'
 import type { PricingModel, VideoPriceTier } from '../types'
 
 // CUSTOM: 视频价格矩阵展示（fork 扩展）。
-// 展示 官方价（矩阵原价，USD）/ 平台价（× 分组倍率）/ 折扣，按生成模式分组。
+// 展示 官方价（矩阵原价）/ 平台价（× 分组倍率）/ 折扣，按生成模式分组，
+// 币种跟随系统"货币显示"设置；全空维度的默认档只参与后台兜底计费，不对外展示。
 
 const MODE_SECTION_KEYS: Array<{ mode: string; labelKey: string }> = [
   { mode: '', labelKey: 'General tiers' },
@@ -38,14 +40,16 @@ const AUDIO_LABEL_KEYS: Record<string, string> = {
   off: 'Without audio',
 }
 
-function formatPrice(value: number): string {
-  if (!Number.isFinite(value)) return '-'
-  return `$${value.toFixed(value < 1 ? 4 : 2).replace(/\.?0+$/, '')}`
+function isDefaultTier(tier: VideoPriceTier): boolean {
+  return !tier.mode && !tier.resolution && !tier.audio
 }
 
 export function VideoPriceSection(props: {
   model: PricingModel
   usableGroup: Record<string, { desc: string; ratio: number }>
+  priceRate: number
+  usdExchangeRate: number
+  showRechargePrice: boolean
 }) {
   const { t } = useTranslation()
   const { videoPricing } = usePricingData()
@@ -54,6 +58,8 @@ export function VideoPriceSection(props: {
   if (!table || !Array.isArray(table.tiers) || table.tiers.length === 0) {
     return null
   }
+  const visibleTiers = table.tiers.filter((tier) => !isDefaultTier(tier))
+  if (visibleTiers.length === 0) return null
 
   const unitLabel =
     table.unit === 'per_million_tokens' ? t('per 1M tokens') : t('per second')
@@ -64,8 +70,20 @@ export function VideoPriceSection(props: {
   const bestRatio = Math.min(1, ...groupRatios)
   const hasDiscount = bestRatio < 1
 
+  const formatPrice = (usd: number): string => {
+    if (!Number.isFinite(usd)) return '-'
+    const value = props.showRechargePrice
+      ? (usd * props.priceRate) / props.usdExchangeRate
+      : usd
+    return formatCurrencyFromUSD(value, {
+      digitsLarge: 4,
+      digitsSmall: 4,
+      abbreviate: false,
+    })
+  }
+
   const tiersByMode = new Map<string, VideoPriceTier[]>()
-  for (const tier of table.tiers) {
+  for (const tier of visibleTiers) {
     const mode = tier.mode ?? ''
     const list = tiersByMode.get(mode) ?? []
     list.push(tier)
@@ -76,9 +94,7 @@ export function VideoPriceSection(props: {
     const rowKey = `${tier.mode ?? ''}|${tier.resolution ?? ''}|${tier.audio ?? ''}|${tier.price}`
     return (
       <tr key={rowKey} className='border-border/50 border-t'>
-        <td className='py-1.5 pr-3'>
-          {tier.resolution ? tier.resolution : t('Default tier')}
-        </td>
+        <td className='py-1.5 pr-3'>{tier.resolution ? tier.resolution : '—'}</td>
         <td className='text-muted-foreground py-1.5 pr-3'>
           {tier.audio ? t(AUDIO_LABEL_KEYS[tier.audio] ?? tier.audio) : '—'}
         </td>

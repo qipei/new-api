@@ -21,6 +21,19 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// videoTokensPerSecond 各分辨率档的预估 token/秒（参考 Seedance 官方刊例：
+// 5 秒视频 480p≈50220、720p≈108000、1080p≈243000、4k≈972000）。
+// 仅用于预扣估算，结算以上游实际 usage 为准。
+var videoTokensPerSecond = map[string]float64{
+	"480p":  10044,
+	"720p":  21600,
+	"1080p": 48600,
+	"2k":    97200,
+	"4k":    194400,
+}
+
+const defaultVideoEstimateSeconds = 5
+
 // resolveTaskPriceData 任务提交期的价格解析：视频价格矩阵优先，
 // 未配置矩阵的模型回退到原有的 ModelPriceHelperPerCall 逻辑。
 func resolveTaskPriceData(c *gin.Context, info *relaycommon.RelayInfo) (hosttypes.PriceData, error) {
@@ -28,7 +41,7 @@ func resolveTaskPriceData(c *gin.Context, info *relaycommon.RelayInfo) (hosttype
 		return helper.ModelPriceHelperPerCall(c, info)
 	}
 
-	mode, resolution, audio := taskVideoDims(c, info)
+	mode, resolution, audio, seconds := taskVideoDims(c, info)
 	price, unit, ok := video_billing.GetPrice(info.OriginModelName, mode, resolution, audio)
 	if !ok {
 		return hosttypes.PriceData{}, &videoPriceNotMatchedError{model: info.OriginModelName, mode: mode, resolution: resolution}
@@ -52,10 +65,18 @@ func resolveTaskPriceData(c *gin.Context, info *relaycommon.RelayInfo) (hosttype
 	}
 
 	// 按 token 计费：ModelRatio 换算为每 token 额度（用于日志展示一致性），
-	// 预扣按约 0.25M token 粗估（与上游"倍率一半"启发式同量级），完成后差额结算。
+	// 预扣按 分辨率档 token/秒 × 时长 估算，完成后按实际 usage 差额结算。
 	priceData.UsePrice = false
 	priceData.ModelRatio = price * common.QuotaPerUnit / 1_000_000
-	quota, err := common.QuotaFromFloatStrict(price * 0.25 * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+	if seconds <= 0 {
+		seconds = defaultVideoEstimateSeconds
+	}
+	tokensPerSecond, ok := videoTokensPerSecond[video_billing.NormalizeResolution(resolution)]
+	if !ok {
+		tokensPerSecond = videoTokensPerSecond["720p"]
+	}
+	estimatedTokens := tokensPerSecond * float64(seconds)
+	quota, err := common.QuotaFromFloatStrict(estimatedTokens / 1_000_000 * price * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
 	if err != nil {
 		return hosttypes.PriceData{}, err
 	}
@@ -74,17 +95,17 @@ func (e *videoPriceNotMatchedError) Error() string {
 		" resolution=" + e.resolution + "; add a default tier or the missing tier in Video Pricing settings"
 }
 
-// taskVideoDims 提取本次请求的 (模式, 分辨率, 音轨) 维度。
-// remix 请求的模式固定为 v2v，分辨率取自原任务。
-func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string, string) {
+// taskVideoDims 提取本次请求的 (模式, 分辨率, 音轨, 时长秒数) 维度。
+// remix 请求的模式固定为 v2v，分辨率与时长取自原任务。
+func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string, string, int) {
 	if info.Action == constant.TaskActionRemix {
-		_, size := originTaskSecondsAndSize(info)
-		return video_billing.ModeVideoToVideo, size, ""
+		seconds, size := originTaskSecondsAndSize(info)
+		return video_billing.ModeVideoToVideo, size, "", seconds
 	}
 
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
-		return video_billing.ModeTextToVideo, "", ""
+		return video_billing.ModeTextToVideo, "", "", 0
 	}
 
 	mode := video_billing.ModeTextToVideo
@@ -99,7 +120,15 @@ func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string,
 		resolution = metaResolution
 	}
 
-	return mode, resolution, requestAudioDimension(c, &req)
+	seconds, _ := strconv.Atoi(req.Seconds)
+	if seconds == 0 {
+		seconds = req.Duration
+	}
+	if seconds > relaycommon.MaxTaskDurationSeconds {
+		seconds = relaycommon.MaxTaskDurationSeconds
+	}
+
+	return mode, resolution, requestAudioDimension(c, &req), seconds
 }
 
 // originTaskSecondsAndSize 读取 remix 原任务的时长与分辨率（解析失败时返回零值）。

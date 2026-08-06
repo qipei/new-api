@@ -18,14 +18,17 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 
-import { Badge } from '@/components/ui/badge'
 import { formatCurrencyFromUSD } from '@/lib/currency'
 
 import { usePricingData } from '../hooks/use-pricing-data'
+import {
+  getAvailableGroups,
+  getConfiguredGroupRatio,
+} from '../lib/model-helpers'
 import type { PricingModel, VideoPriceTier } from '../types'
 
 // CUSTOM: 视频价格矩阵展示（fork 扩展）。
-// 展示 官方价（矩阵原价）/ 平台价（× 分组倍率）/ 折扣，按生成模式分组，
+// 按生成模式分组展示各档官方价，并按模型可用的每个分组展示折后价；
 // 币种跟随系统"货币显示"设置；全空维度的默认档只参与后台兜底计费，不对外展示。
 
 const MODE_SECTION_KEYS: Array<{ mode: string; labelKey: string }> = [
@@ -46,6 +49,7 @@ function isDefaultTier(tier: VideoPriceTier): boolean {
 
 export function VideoPriceSection(props: {
   model: PricingModel
+  groupRatio: Record<string, number>
   usableGroup: Record<string, { desc: string; ratio: number }>
   priceRate: number
   usdExchangeRate: number
@@ -64,11 +68,13 @@ export function VideoPriceSection(props: {
   const unitLabel =
     table.unit === 'per_million_tokens' ? t('per 1M tokens') : t('per second')
 
-  const groupRatios = Object.values(props.usableGroup)
-    .map((group) => group.ratio)
-    .filter((ratio) => ratio > 0)
-  const bestRatio = Math.min(1, ...groupRatios)
-  const hasDiscount = bestRatio < 1
+  const groups = getAvailableGroups(props.model, props.usableGroup || {}).map(
+    (group) => ({
+      key: group,
+      label: props.usableGroup[group]?.desc || group,
+      ratio: getConfiguredGroupRatio(props.groupRatio, group),
+    })
+  )
 
   const formatPrice = (usd: number): string => {
     if (!Number.isFinite(usd)) return '-'
@@ -94,31 +100,33 @@ export function VideoPriceSection(props: {
     const rowKey = `${tier.mode ?? ''}|${tier.resolution ?? ''}|${tier.audio ?? ''}|${tier.price}`
     return (
       <tr key={rowKey} className='border-border/50 border-t'>
-        <td className='py-1.5 pr-3'>{tier.resolution ? tier.resolution : '—'}</td>
+        <td className='py-1.5 pr-3'>
+          {tier.resolution ? tier.resolution : '—'}
+        </td>
         <td className='text-muted-foreground py-1.5 pr-3'>
           {tier.audio ? t(AUDIO_LABEL_KEYS[tier.audio] ?? tier.audio) : '—'}
         </td>
-        <td className='py-1.5 pr-3 text-right font-mono tabular-nums'>
-          {hasDiscount ? (
-            <span className='text-muted-foreground line-through'>
-              {formatPrice(tier.price)}
-            </span>
+        <td
+          className={
+            groups.length > 0
+              ? 'text-muted-foreground py-1.5 pr-3 text-right font-mono tabular-nums'
+              : 'py-1.5 pr-3 text-right font-mono tabular-nums'
+          }
+        >
+          {groups.length > 0 ? (
+            <span className='line-through'>{formatPrice(tier.price)}</span>
           ) : (
             formatPrice(tier.price)
           )}
         </td>
-        {hasDiscount && (
-          <td className='text-foreground py-1.5 pr-3 text-right font-mono font-semibold tabular-nums'>
-            {formatPrice(tier.price * bestRatio)}
+        {groups.map((group) => (
+          <td
+            key={group.key}
+            className='text-foreground py-1.5 pl-3 text-right font-mono font-semibold tabular-nums'
+          >
+            {formatPrice(tier.price * group.ratio)}
           </td>
-        )}
-        {hasDiscount && (
-          <td className='py-1.5 text-right'>
-            <Badge variant='secondary' className='text-xs'>
-              -{Math.round((1 - bestRatio) * 100)}%
-            </Badge>
-          </td>
-        )}
+        ))}
       </tr>
     )
   }
@@ -151,16 +159,17 @@ export function VideoPriceSection(props: {
                     <th className='py-1 pr-3 text-right font-normal'>
                       {t('Official price')}
                     </th>
-                    {hasDiscount && (
-                      <th className='py-1 pr-3 text-right font-normal'>
-                        {t('Your price')}
+                    {groups.map((group) => (
+                      <th
+                        key={group.key}
+                        className='py-1 pl-3 text-right font-normal whitespace-nowrap'
+                      >
+                        {group.label}
+                        <span className='text-muted-foreground/60 ml-1'>
+                          ×{group.ratio}
+                        </span>
                       </th>
-                    )}
-                    {hasDiscount && (
-                      <th className='py-1 text-right font-normal'>
-                        {t('Discount')}
-                      </th>
-                    )}
+                    ))}
                   </tr>
                 </thead>
                 <tbody>{tiers.map(renderRow)}</tbody>

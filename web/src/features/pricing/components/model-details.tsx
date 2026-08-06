@@ -1142,6 +1142,13 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
   const { t } = useTranslation()
   const showRechargePrice = props.showRechargePrice ?? false
 
+  // CUSTOM: 视频价格矩阵模型的分组折后价由 VideoPriceSection 按档位展示，
+  // 隐藏基于兜底模型定价的 token 分组定价区块
+  const { videoPricing } = usePricingData()
+  const hasVideoMatrix = Boolean(
+    videoPricing[props.model.model_name]?.tiers?.length
+  )
+
   const isDynamic =
     props.model.billing_mode === 'tiered_expr' &&
     Boolean(props.model.billing_expr)
@@ -1185,21 +1192,24 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             {/* CUSTOM: 视频价格矩阵（fork 扩展） */}
             <VideoPriceSection
               model={props.model}
-              usableGroup={props.usableGroup}
-              priceRate={props.priceRate}
-              usdExchangeRate={props.usdExchangeRate}
-              showRechargePrice={showRechargePrice}
-            />
-            <GroupPricingSection
-              model={props.model}
               groupRatio={props.groupRatio}
               usableGroup={props.usableGroup}
-              autoGroups={props.autoGroups}
               priceRate={props.priceRate}
               usdExchangeRate={props.usdExchangeRate}
-              tokenUnit={props.tokenUnit}
               showRechargePrice={showRechargePrice}
             />
+            {!hasVideoMatrix && (
+              <GroupPricingSection
+                model={props.model}
+                groupRatio={props.groupRatio}
+                usableGroup={props.usableGroup}
+                autoGroups={props.autoGroups}
+                priceRate={props.priceRate}
+                usdExchangeRate={props.usdExchangeRate}
+                tokenUnit={props.tokenUnit}
+                showRechargePrice={showRechargePrice}
+              />
+            )}
           </section>
 
           <ModelBackendDetailsSection model={props.model} />

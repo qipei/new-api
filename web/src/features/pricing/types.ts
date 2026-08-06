@@ -99,6 +99,8 @@ export type VideoPriceTier = {
 export type VideoPriceTable = {
   unit: string
   tiers?: VideoPriceTier[]
+  input_image_price?: number
+  input_token_price?: number
 }
 
 export type PricingData = {

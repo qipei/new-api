@@ -5286,6 +5286,17 @@
     "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.": "Les prix sont des prix d'origine en USD (même convention que la Tarification des modèles). Un palier sans dimensions est le palier par défaut ; la facturation multiplie uniquement le prix du palier correspondant par le ratio de groupe.",
     "per 1M tokens": "par million de tokens",
     "per second": "par seconde",
-    "Default tier": "Palier par défaut"
+    "Default tier": "Palier par défaut",
+    "Per image": "Par image",
+    "Text to image": "Texte vers image",
+    "Image to image": "Image vers image",
+    "Input image price": "Prix par image d'entrée",
+    "Input token price": "Prix des tokens d'entrée",
+    "Optional": "Facultatif",
+    "Optional additive components: per input image, and per million prompt tokens.": "Composants additifs facultatifs : par image d'entrée et par million de tokens de prompt.",
+    "input prices must be greater than 0 when set": "les prix d'entrée doivent être supérieurs à 0 s'ils sont définis",
+    "per image": "par image",
+    "per input image": "par image d'entrée",
+    "Image Price": "Prix des images"
   }
 }

@@ -5286,6 +5286,17 @@
     "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.": "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.",
     "per 1M tokens": "per 1M tokens",
     "per second": "per second",
-    "Default tier": "Default tier"
+    "Default tier": "Default tier",
+    "Per image": "Per image",
+    "Text to image": "Text to image",
+    "Image to image": "Image to image",
+    "Input image price": "Input image price",
+    "Input token price": "Input token price",
+    "Optional": "Optional",
+    "Optional additive components: per input image, and per million prompt tokens.": "Optional additive components: per input image, and per million prompt tokens.",
+    "input prices must be greater than 0 when set": "input prices must be greater than 0 when set",
+    "per image": "per image",
+    "per input image": "per input image",
+    "Image Price": "Image Price"
   }
 }

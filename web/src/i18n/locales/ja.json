@@ -5286,6 +5286,17 @@
     "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.": "価格は米ドルの元価格です（モデル料金と同じ通貨規約）。条件なしのティアがデフォルトティアです。課金は一致したティア価格にグループ倍率を掛けるだけです。",
     "per 1M tokens": "100万トークンあたり",
     "per second": "秒あたり",
-    "Default tier": "デフォルトティア"
+    "Default tier": "デフォルトティア",
+    "Per image": "1枚あたり",
+    "Text to image": "テキストから画像",
+    "Image to image": "画像から画像",
+    "Input image price": "入力画像単価",
+    "Input token price": "入力トークン単価",
+    "Optional": "任意",
+    "Optional additive components: per input image, and per million prompt tokens.": "任意の加算コンポーネント：入力画像 1 枚あたり、およびプロンプト 100 万トークンあたり。",
+    "input prices must be greater than 0 when set": "入力単価を設定する場合は 0 より大きくしてください",
+    "per image": "1枚あたり",
+    "per input image": "入力画像1枚あたり",
+    "Image Price": "画像価格"
   }
 }

@@ -38,13 +38,27 @@ describe('video pricing core', () => {
           { mode: 't2v', audio: 'on', price: 8 },
         ],
       },
+      'qwen-image-3.0': {
+        unit: 'per_image',
+        input_image_price: 0.02,
+        input_token_price: 6.82,
+        tiers: [
+          { price: 0.18 },
+          { mode: 'i2i', resolution: '2k', price: 0.5 },
+        ],
+      },
     })
 
     const tables = parseVideoPricingTables(raw)
-    assert.equal(tables.length, 1)
-    assert.equal(tables[0].model, 'seedance-2-0')
-    assert.equal(tables[0].unit, 'per_million_tokens')
-    assert.equal(tables[0].tiers.length, 4)
+    assert.equal(tables.length, 2)
+    const image = tables.find((t) => t.model === 'qwen-image-3.0')
+    const video = tables.find((t) => t.model === 'seedance-2-0')
+    assert.ok(image && video)
+    assert.equal(video.unit, 'per_million_tokens')
+    assert.equal(video.tiers.length, 4)
+    assert.equal(image.unit, 'per_image')
+    assert.equal(image.inputImagePrice, '0.02')
+    assert.equal(image.inputTokenPrice, '6.82')
 
     const serialized = JSON.parse(serializeVideoPricingTables(tables))
     assert.deepEqual(serialized, JSON.parse(raw))
@@ -56,6 +70,8 @@ describe('video pricing core', () => {
         {
           model: 'm',
           unit: 'per_second',
+          inputImagePrice: '',
+          inputTokenPrice: '',
           tiers: [
             {
               uid: 't1',
@@ -84,11 +100,15 @@ describe('video pricing core', () => {
       {
         model: 'bad-unit',
         unit: 'per_hour',
+        inputImagePrice: '',
+        inputTokenPrice: '',
         tiers: [{ uid: 't1', mode: '', resolution: '', audio: '', price: '1' }],
       },
       {
         model: 'bad-tier',
         unit: 'per_second',
+        inputImagePrice: '',
+        inputTokenPrice: '',
         tiers: [
           { uid: 't2', mode: '', resolution: '1080p', audio: '', price: '-1' },
           { uid: 't3', mode: 'v2v', resolution: '4k', audio: '', price: '5' },
@@ -112,6 +132,8 @@ describe('video pricing core', () => {
       {
         model: 'ok',
         unit: 'per_million_tokens',
+        inputImagePrice: '',
+        inputTokenPrice: '',
         tiers: [
           { uid: 't5', mode: '', resolution: '', audio: '', price: '6.3' },
           { uid: 't6', mode: '', resolution: '1080p', audio: 'on', price: '7' },

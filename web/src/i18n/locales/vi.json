@@ -5286,6 +5286,17 @@
     "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.": "Giá là giá gốc bằng USD (cùng quy ước với Định giá mô hình). Bậc không có thông số là bậc mặc định; phí chỉ nhân giá bậc khớp với hệ số nhóm.",
     "per 1M tokens": "mỗi triệu token",
     "per second": "mỗi giây",
-    "Default tier": "Bậc mặc định"
+    "Default tier": "Bậc mặc định",
+    "Per image": "Mỗi ảnh",
+    "Text to image": "Văn bản thành ảnh",
+    "Image to image": "Ảnh thành ảnh",
+    "Input image price": "Giá ảnh đầu vào",
+    "Input token price": "Giá token đầu vào",
+    "Optional": "Tùy chọn",
+    "Optional additive components: per input image, and per million prompt tokens.": "Thành phần cộng thêm tùy chọn: theo ảnh đầu vào và theo triệu token prompt.",
+    "input prices must be greater than 0 when set": "giá đầu vào phải lớn hơn 0 nếu được đặt",
+    "per image": "mỗi ảnh",
+    "per input image": "mỗi ảnh đầu vào",
+    "Image Price": "Giá ảnh"
   }
 }

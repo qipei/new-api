@@ -5286,6 +5286,17 @@
     "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.": "Цены указаны в долларах США (та же конвенция, что и в «Тарифах моделей»). Уровень без измерений — уровень по умолчанию; при списании цена подходящего уровня умножается только на коэффициент группы.",
     "per 1M tokens": "за 1 млн токенов",
     "per second": "за секунду",
-    "Default tier": "Уровень по умолчанию"
+    "Default tier": "Уровень по умолчанию",
+    "Per image": "За изображение",
+    "Text to image": "Текст в изображение",
+    "Image to image": "Изображение в изображение",
+    "Input image price": "Цена входного изображения",
+    "Input token price": "Цена входных токенов",
+    "Optional": "Необязательно",
+    "Optional additive components: per input image, and per million prompt tokens.": "Необязательные аддитивные компоненты: за входное изображение и за миллион токенов промпта.",
+    "input prices must be greater than 0 when set": "входные цены должны быть больше 0, если заданы",
+    "per image": "за изображение",
+    "per input image": "за входное изображение",
+    "Image Price": "Цена изображений"
   }
 }

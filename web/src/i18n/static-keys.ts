@@ -585,8 +585,13 @@ export const STATIC_I18N_KEYS = [
   'Without audio',
   'Per second',
   'Per million tokens',
+  'Per image',
+  'Text to image',
+  'Image to image',
+  'Image Price',
   'invalid pricing unit',
   'tier price must be greater than 0',
   'duplicate tier dimensions',
   'a default tier with no dimensions is required',
+  'input prices must be greater than 0 when set',
 ] as const

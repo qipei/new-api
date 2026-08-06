@@ -21,6 +21,12 @@ const (
 	ModeVideoToVideo = "v2v" // 视频生视频（含视频输入）
 )
 
+// 图片生成模式（矩阵 v2）。
+const (
+	ModeTextToImage  = "t2i" // 文生图
+	ModeImageToImage = "i2i" // 图生图
+)
+
 // 音轨维度取值；空串表示该档价格与音轨无关。
 const (
 	AudioOn  = "on"
@@ -31,6 +37,7 @@ const (
 const (
 	UnitPerSecond       = "per_second"         // 原价按 USD/秒
 	UnitPerMillionToken = "per_million_tokens" // 原价按 USD/百万 token
+	UnitPerImage        = "per_image"          // 原价按 USD/张（图片，矩阵 v2）
 )
 
 // PriceTier 一档价格。Mode/Resolution/Audio 为空串表示"任意"，
@@ -42,10 +49,14 @@ type PriceTier struct {
 	Price      float64 `json:"price"`
 }
 
-// ModelPriceTable 单个模型的视频价格表。
+// ModelPriceTable 单个模型的价格表。
+// per_image 单位额外支持两个可选附加单价（加法组件）：
+// 输入图按张、输入 prompt 按百万 token，与输出档价相加构成单次费用。
 type ModelPriceTable struct {
-	Unit  string      `json:"unit"`
-	Tiers []PriceTier `json:"tiers,omitempty"`
+	Unit            string      `json:"unit"`
+	Tiers           []PriceTier `json:"tiers,omitempty"`
+	InputImagePrice float64     `json:"input_image_price,omitempty"` // USD/张，仅 per_image
+	InputTokenPrice float64     `json:"input_token_price,omitempty"` // USD/百万 token，仅 per_image
 }
 
 // VideoBillingSettings 由 config.GlobalConfig 管理。
@@ -68,7 +79,7 @@ func GetPriceTable(modelName string) (ModelPriceTable, bool) {
 	if !ok {
 		return ModelPriceTable{}, false
 	}
-	if table.Unit != UnitPerSecond && table.Unit != UnitPerMillionToken {
+	if table.Unit != UnitPerSecond && table.Unit != UnitPerMillionToken && table.Unit != UnitPerImage {
 		return ModelPriceTable{}, false
 	}
 	if len(table.Tiers) == 0 {
@@ -80,17 +91,19 @@ func GetPriceTable(modelName string) (ModelPriceTable, bool) {
 // GetPrice 返回模型在给定 (模式, 分辨率, 音轨) 下命中的原价与计价单位。
 // 第二个返回值为计价单位；第三个返回值表示是否命中（模型未配置、或没有任何
 // 档位匹配且没有默认档时为 false，调用方应拒绝请求或走原有计费逻辑）。
+// 分辨率匹配优先级：精确尺寸串（如 "1440x1440"）> 归档标签（1k/2k/...）> 任意。
 func GetPrice(modelName, mode, resolution, audio string) (float64, string, bool) {
 	table, ok := GetPriceTable(modelName)
 	if !ok {
 		return 0, "", false
 	}
 
-	resolution = NormalizeResolution(resolution)
+	rawResolution := strings.ToLower(strings.TrimSpace(resolution))
+	normResolution := normalizeForUnit(rawResolution, table.Unit)
 	bestScore := -1
 	bestPrice := 0.0
 	for _, tier := range table.Tiers {
-		score := tierMatchScore(tier, mode, resolution, audio)
+		score := tierMatchScore(tier, mode, rawResolution, normResolution, audio, table.Unit)
 		if score < 0 || tier.Price <= 0 {
 			continue
 		}
@@ -105,8 +118,9 @@ func GetPrice(modelName, mode, resolution, audio string) (float64, string, bool)
 	return bestPrice, table.Unit, true
 }
 
-// tierMatchScore 返回档位与请求维度的匹配度：-1 不匹配，否则为精确匹配的维度数。
-func tierMatchScore(tier PriceTier, mode, resolution, audio string) int {
+// tierMatchScore 返回档位与请求维度的匹配度：-1 不匹配；否则数值越大越具体
+// （精确尺寸串命中记 2 分，归档标签命中记 1 分，模式/音轨命中各记 1 分）。
+func tierMatchScore(tier PriceTier, mode, rawResolution, normResolution, audio, unit string) int {
 	score := 0
 	if tier.Mode != "" {
 		if tier.Mode != mode {
@@ -115,10 +129,14 @@ func tierMatchScore(tier PriceTier, mode, resolution, audio string) int {
 		score++
 	}
 	if tier.Resolution != "" {
-		if NormalizeResolution(tier.Resolution) != resolution {
+		tierRaw := strings.ToLower(strings.TrimSpace(tier.Resolution))
+		if tierRaw == rawResolution && rawResolution != "" {
+			score += 2
+		} else if normalizeForUnit(tierRaw, unit) == normResolution && normResolution != "" {
+			score++
+		} else {
 			return -1
 		}
-		score++
 	}
 	if tier.Audio != "" {
 		if tier.Audio != audio {
@@ -127,6 +145,38 @@ func tierMatchScore(tier PriceTier, mode, resolution, audio string) int {
 		score++
 	}
 	return score
+}
+
+// normalizeForUnit 按计价单位选择归档规则：图片按长边归档，视频按短边归档。
+func normalizeForUnit(res, unit string) string {
+	if unit == UnitPerImage {
+		return NormalizeImageResolution(res)
+	}
+	return NormalizeResolution(res)
+}
+
+// NormalizeImageResolution 将图片分辨率归档：按长边 ≤1024→1k、≤2048→2k、其余→4k；
+// 非 宽x高 形式的标签（如 "1k"）原样返回。
+func NormalizeImageResolution(res string) string {
+	res = strings.ToLower(strings.TrimSpace(res))
+	if res == "" {
+		return ""
+	}
+	if w, h, ok := parseSize(res); ok {
+		long := w
+		if h > w {
+			long = h
+		}
+		switch {
+		case long <= 1024:
+			return "1k"
+		case long <= 2048:
+			return "2k"
+		default:
+			return "4k"
+		}
+	}
+	return res
 }
 
 // NormalizeResolution 将分辨率表述归一到档位标签。

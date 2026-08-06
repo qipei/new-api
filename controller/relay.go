@@ -153,7 +153,8 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	relayInfo.SetEstimatePromptTokens(tokens)
 
-	priceData, err := helper.ModelPriceHelper(c, relayInfo, tokens, meta)
+	// CUSTOM: 图片价格矩阵优先，未配置矩阵走原有价格逻辑
+	priceData, err := resolveRelayPriceData(c, relayInfo, tokens, meta, request)
 	if err != nil {
 		newAPIError = types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithStatusCode(http.StatusBadRequest))
 		return

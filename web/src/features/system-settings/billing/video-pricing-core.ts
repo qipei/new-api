@@ -32,6 +32,8 @@ export type VideoPriceTierPayload = {
 export type VideoPriceTablePayload = {
   unit: string
   tiers?: VideoPriceTierPayload[]
+  input_image_price?: number
+  input_token_price?: number
 }
 
 export type EditableVideoTier = {
@@ -46,10 +48,13 @@ export type EditableVideoTable = {
   model: string
   unit: string
   tiers: EditableVideoTier[]
+  inputImagePrice: string
+  inputTokenPrice: string
 }
 
 export const VIDEO_UNIT_PER_SECOND = 'per_second'
 export const VIDEO_UNIT_PER_MILLION_TOKENS = 'per_million_tokens'
+export const VIDEO_UNIT_PER_IMAGE = 'per_image'
 
 let editableTierSeq = 0
 
@@ -78,6 +83,14 @@ export function parseVideoPricingTables(raw: string): EditableVideoTable[] {
     tables.push({
       model,
       unit: typeof table.unit === 'string' ? table.unit : VIDEO_UNIT_PER_SECOND,
+      inputImagePrice:
+        typeof table.input_image_price === 'number'
+          ? String(table.input_image_price)
+          : '',
+      inputTokenPrice:
+        typeof table.input_token_price === 'number'
+          ? String(table.input_token_price)
+          : '',
       tiers: tiers.map((tier) => ({
         uid: nextEditableTierUid(),
         mode: typeof tier.mode === 'string' ? tier.mode : '',
@@ -99,6 +112,16 @@ export function serializeVideoPricingTables(
     const model = table.model.trim()
     if (!model) continue
     const entry: VideoPriceTablePayload = { unit: table.unit }
+    if (table.unit === VIDEO_UNIT_PER_IMAGE) {
+      const inputImagePrice = Number(table.inputImagePrice)
+      if (table.inputImagePrice.trim() && inputImagePrice > 0) {
+        entry.input_image_price = inputImagePrice
+      }
+      const inputTokenPrice = Number(table.inputTokenPrice)
+      if (table.inputTokenPrice.trim() && inputTokenPrice > 0) {
+        entry.input_token_price = inputTokenPrice
+      }
+    }
     const tiers: VideoPriceTierPayload[] = []
     for (const tier of table.tiers) {
       const payloadTier: VideoPriceTierPayload = { price: Number(tier.price) }
@@ -117,7 +140,12 @@ export function serializeVideoPricingTables(
 
 export type VideoPricingIssue = {
   model: string
-  reason: 'unit' | 'tier_price' | 'duplicate_tier' | 'missing_default'
+  reason:
+    | 'unit'
+    | 'tier_price'
+    | 'duplicate_tier'
+    | 'missing_default'
+    | 'input_price'
 }
 
 export function validateVideoPricingTables(
@@ -129,9 +157,15 @@ export function validateVideoPricingTables(
     if (!model) continue
     if (
       table.unit !== VIDEO_UNIT_PER_SECOND &&
-      table.unit !== VIDEO_UNIT_PER_MILLION_TOKENS
+      table.unit !== VIDEO_UNIT_PER_MILLION_TOKENS &&
+      table.unit !== VIDEO_UNIT_PER_IMAGE
     ) {
       issues.push({ model, reason: 'unit' })
+    }
+    for (const value of [table.inputImagePrice, table.inputTokenPrice]) {
+      if (value.trim() && !(Number(value) > 0)) {
+        issues.push({ model, reason: 'input_price' })
+      }
     }
     const seen = new Set<string>()
     let hasDefault = false

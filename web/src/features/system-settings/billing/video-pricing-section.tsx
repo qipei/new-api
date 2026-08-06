@@ -44,11 +44,21 @@ import {
 
 // CUSTOM: 视频定价矩阵设置卡片（fork 扩展）。
 
-const MODE_LABEL_KEYS: Record<string, string> = {
+const VIDEO_MODE_LABEL_KEYS: Record<string, string> = {
   '': 'Any mode',
   t2v: 'Text to video',
   i2v: 'Image to video',
   v2v: 'Video to video',
+}
+
+const IMAGE_MODE_LABEL_KEYS: Record<string, string> = {
+  '': 'Any mode',
+  t2i: 'Text to image',
+  i2i: 'Image to image',
+}
+
+function modeLabelKeysForUnit(unit: string): Record<string, string> {
+  return unit === 'per_image' ? IMAGE_MODE_LABEL_KEYS : VIDEO_MODE_LABEL_KEYS
 }
 
 const AUDIO_LABEL_KEYS: Record<string, string> = {
@@ -60,6 +70,7 @@ const AUDIO_LABEL_KEYS: Record<string, string> = {
 const UNIT_LABEL_KEYS: Record<string, string> = {
   per_second: 'Per second',
   per_million_tokens: 'Per million tokens',
+  per_image: 'Per image',
 }
 
 const ISSUE_LABEL_KEYS: Record<string, string> = {
@@ -67,6 +78,7 @@ const ISSUE_LABEL_KEYS: Record<string, string> = {
   tier_price: 'tier price must be greater than 0',
   duplicate_tier: 'duplicate tier dimensions',
   missing_default: 'a default tier with no dimensions is required',
+  input_price: 'input prices must be greater than 0 when set',
 }
 
 export function VideoPricingSection(props: { defaultValue: string }) {
@@ -123,6 +135,8 @@ export function VideoPricingSection(props: { defaultValue: string }) {
       {
         model,
         unit: 'per_second',
+        inputImagePrice: '',
+        inputTokenPrice: '',
         tiers: [
           {
             uid: nextEditableTierUid(),
@@ -246,6 +260,49 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                 'Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.'
               )}
             </p>
+            {table.unit === 'per_image' && (
+              <div className='flex flex-wrap items-center gap-4'>
+                <div className='flex items-center gap-2'>
+                  <span className='text-muted-foreground text-sm'>
+                    {t('Input image price')}
+                  </span>
+                  <Input
+                    className='w-28'
+                    inputMode='decimal'
+                    placeholder={t('Optional')}
+                    value={table.inputImagePrice}
+                    aria-label={`${table.model} ${t('Input image price')}`}
+                    onChange={(e) =>
+                      patchTable(tableIndex, {
+                        inputImagePrice: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className='flex items-center gap-2'>
+                  <span className='text-muted-foreground text-sm'>
+                    {t('Input token price')}
+                  </span>
+                  <Input
+                    className='w-28'
+                    inputMode='decimal'
+                    placeholder={t('Optional')}
+                    value={table.inputTokenPrice}
+                    aria-label={`${table.model} ${t('Input token price')}`}
+                    onChange={(e) =>
+                      patchTable(tableIndex, {
+                        inputTokenPrice: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <span className='text-muted-foreground/70 text-xs'>
+                  {t(
+                    'Optional additive components: per input image, and per million prompt tokens.'
+                  )}
+                </span>
+              </div>
+            )}
             <div className='overflow-x-auto'>
               <table className='w-full min-w-[560px] text-sm'>
                 <thead>
@@ -275,7 +332,7 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(MODE_LABEL_KEYS).map(
+                            {Object.entries(modeLabelKeysForUnit(table.unit)).map(
                               ([value, labelKey]) => (
                                 <SelectItem
                                   key={value || 'any'}

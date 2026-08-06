@@ -5286,6 +5286,17 @@
     "Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.": "价格为美元原价（与\"模型定价\"同货币约定）。不带任何维度的档位是默认档（兜底）；计费只将命中的档位原价乘以分组倍率。",
     "per 1M tokens": "每百万 token",
     "per second": "每秒",
-    "Default tier": "默认档"
+    "Default tier": "默认档",
+    "Per image": "每张",
+    "Text to image": "文生图",
+    "Image to image": "图生图",
+    "Input image price": "输入图单价",
+    "Input token price": "输入 token 单价",
+    "Optional": "选填",
+    "Optional additive components: per input image, and per million prompt tokens.": "可选加法组件：输入图按张、输入 prompt 按百万 token，与输出档价相加。",
+    "input prices must be greater than 0 when set": "输入单价填写时必须大于 0",
+    "per image": "每张",
+    "per input image": "每张输入图",
+    "Image Price": "图片价格"
   }
 }

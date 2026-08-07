@@ -107,6 +107,10 @@ const defaultBillingSettings: BillingSettings = {
   'checkin_setting.enabled': false,
   'checkin_setting.min_quota': 1000,
   'checkin_setting.max_quota': 10000,
+  'commission_setting.enabled': false,
+  'commission_setting.type': 'percent',
+  'commission_setting.value': 0,
+  'commission_setting.topup_count_limit': 0,
 }
 
 export function BillingSettings() {

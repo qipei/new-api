@@ -1,0 +1,5 @@
+{
+  "Commission = credited quota of the order × value ÷ 100": "Commission = credited quota of the order × value ÷ 100",
+  "0 means every paid top-up earns commission; N means only the invitee's first N paid orders": "0 means every paid top-up earns commission; N means only the invitee's first N paid orders",
+  "When commission type is percentage, the value must be between 0 and 100": "When commission type is percentage, the value must be between 0 and 100"
+}

@@ -32,6 +32,7 @@ import type {
   AffiliateCodeResponse,
   AffiliateTransferResponse,
   BillingHistoryResponse,
+  CommissionRecordsResponse,
   CompleteOrderRequest,
   CreemPaymentRequest,
   CreemPaymentResponse,
@@ -215,6 +216,21 @@ export async function getUserBillingHistory(
     params.append('keyword', keyword)
   }
   const res = await api.get(`/api/user/topup/self?${params.toString()}`)
+  return res.data
+}
+
+/**
+ * Get current user's referral commission records (as inviter)
+ */
+export async function getUserCommissionRecords(
+  page: number,
+  pageSize: number
+): Promise<CommissionRecordsResponse> {
+  const params = new URLSearchParams({
+    p: page.toString(),
+    page_size: pageSize.toString(),
+  })
+  const res = await api.get(`/api/user/commission/records?${params.toString()}`)
   return res.data
 }
 

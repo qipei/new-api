@@ -287,3 +287,46 @@ export interface BillingHistoryResponse {
 export interface CompleteOrderRequest {
   trade_no: string
 }
+
+/**
+ * Single referral commission record
+ */
+export interface CommissionRecord {
+  /** Record ID */
+  id: number
+  /** Related top-up order ID */
+  topup_id: number
+  /** Inviter user ID */
+  inviter_id: number
+  /** Invitee user ID */
+  invitee_id: number
+  /** Invitee username (masked by backend) */
+  invitee_username: string
+  /** Order paid money snapshot */
+  topup_money: number
+  /** Credited quota of the order */
+  credited_quota: number
+  /** Commission quota granted */
+  commission_quota: number
+  /** Commission type at grant time: fixed / percent */
+  commission_type: string
+  /** Commission value at grant time */
+  commission_value: number
+  /** Grant timestamp (unix seconds) */
+  created_time: number
+}
+
+/**
+ * Commission records page data (backend PageInfo shape)
+ */
+export interface CommissionRecordsData {
+  items: CommissionRecord[]
+  total: number
+  page: number
+  page_size: number
+}
+
+/**
+ * Commission records response
+ */
+export type CommissionRecordsResponse = ApiResponse<CommissionRecordsData>

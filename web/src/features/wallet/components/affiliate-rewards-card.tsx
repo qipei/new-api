@@ -33,6 +33,7 @@ interface AffiliateRewardsCardProps {
   user: UserWalletData | null
   affiliateLink: string
   onTransfer: () => void
+  onShowCommissions: () => void
   complianceConfirmed?: boolean
   loading?: boolean
 }
@@ -41,6 +42,7 @@ export function AffiliateRewardsCard({
   user,
   affiliateLink,
   onTransfer,
+  onShowCommissions,
   complianceConfirmed = true,
   loading,
 }: AffiliateRewardsCardProps) {
@@ -112,6 +114,14 @@ export function AffiliateRewardsCard({
             tooltip={t('Copy referral link')}
             aria-label={t('Copy referral link')}
           />
+          <Button
+            variant='outline'
+            onClick={onShowCommissions}
+            className='h-9 shrink-0 px-3'
+            size='sm'
+          >
+            {t('Commission Details')}
+          </Button>
           {hasRewards && (
             <Button
               onClick={onTransfer}

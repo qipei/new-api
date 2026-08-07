@@ -250,7 +250,8 @@ func EnsureCommissionScanIndex() {
 		DB.Raw("SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?",
 			table, indexName).Scan(&cnt)
 		if cnt == 0 {
-			err = DB.Exec(fmt.Sprintf("CREATE INDEX %s ON %s (status, complete_time)", indexName, table)).Error
+			// status 在 MySQL 下是 TEXT 列, 索引必须指定前缀长度(错误 1170)
+			err = DB.Exec(fmt.Sprintf("CREATE INDEX %s ON %s (status(16), complete_time)", indexName, table)).Error
 		}
 	} else {
 		// SQLite / PostgreSQL 均支持 IF NOT EXISTS

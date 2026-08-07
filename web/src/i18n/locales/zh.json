@@ -5248,6 +5248,27 @@
     "Zero retention": "零数据保留",
     "Zhipu": "智谱",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Referral Commission": "推广返佣",
+    "Enable Recharge Commission": "启用充值返佣",
+    "When enabled, inviters automatically earn commission when invited users make paid top-ups": "开启后,被邀请用户完成真实付费充值时,邀请人自动获得返佣",
+    "Commission Type": "返佣类型",
+    "Percentage": "按比例",
+    "Fixed Amount": "固定额度",
+    "Commission = credited quota of the order × value ÷ 100": "返佣 = 订单到账额度 × 数值 ÷ 100",
+    "Each qualifying order grants a fixed quota amount": "每笔合格订单发放固定额度",
+    "Commission Value": "返佣数值",
+    "e.g. 10 means 10%": "例如:10 表示 10%",
+    "Quota amount granted per qualifying order": "每笔合格订单发放的额度",
+    "Commission Count Limit": "返佣次数限制",
+    "0 means every paid top-up earns commission; N means only the invitee's first N paid orders": "0 表示每笔付费充值都返佣;N 表示仅被邀请人前 N 笔付费订单返佣",
+    "When commission type is percentage, the value must be between 0 and 100": "返佣类型为按比例时,数值须在 0-100 之间",
+    "Commission Details": "佣金明细",
+    "Earned commissions from your referrals' paid top-ups": "来自被邀请用户付费充值的佣金记录",
+    "No commission records yet": "暂无佣金记录",
+    "Invitee": "被邀请人",
+    "Credited": "到账",
+    "Page {{page}} of {{totalPages}}": "第 {{page}} / {{totalPages}} 页",
+    "Save referral commission settings": "保存推广返佣设置"
   }
 }

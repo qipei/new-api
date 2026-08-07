@@ -5319,8 +5319,8 @@
     "Page {{page}} of {{totalPages}}": "第 {{page}} / {{totalPages}} 页",
     "Save referral commission settings": "保存推广返佣设置",
     "Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.": "通过邀请链接邀请用户注册即可获得奖励,好友付费充值还能赚取返佣。累计奖励可随时划转到余额。",
-    "Show referral QR code": "显示邀请二维码",
-    "Referral QR Code": "邀请二维码",
+    "Show referral QR code": "Show referral QR code",
+    "Referral QR Code": "Referral QR Code",
     "Scan to open your referral sign-up link": "扫码打开你的邀请注册链接"
   }
 }

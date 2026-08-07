@@ -16,13 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { QrCode, Share2 } from 'lucide-react'
+import { Share2 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
-import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
@@ -50,7 +48,6 @@ export function AffiliateRewardsCard({
   loading,
 }: AffiliateRewardsCardProps) {
   const { t } = useTranslation()
-  const [qrOpen, setQrOpen] = useState(false)
   if (loading) {
     return (
       <Card data-card-hover='false' className='bg-muted/20 py-0'>
@@ -70,7 +67,7 @@ export function AffiliateRewardsCard({
 
   return (
     <Card data-card-hover='false' className='bg-muted/20 py-0'>
-      <CardContent className='grid gap-3 p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(200px,1fr)_minmax(180px,0.65fr)_minmax(280px,1fr)] lg:items-center'>
+      <CardContent className='grid gap-3 p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(200px,1fr)_minmax(180px,0.65fr)_minmax(280px,1fr)_auto] lg:items-center'>
         <div className='flex min-w-0 items-center gap-2.5'>
           <IconBadge tone='chart-3'>
             <Share2 />
@@ -79,7 +76,7 @@ export function AffiliateRewardsCard({
             <h3 className='truncate text-sm font-semibold'>
               {t('Referral Program')}
             </h3>
-            <p className='text-muted-foreground line-clamp-1 text-xs'>
+            <p className='text-muted-foreground text-xs'>
               {t(
                 'Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.'
               )}
@@ -120,15 +117,6 @@ export function AffiliateRewardsCard({
           />
           <Button
             variant='outline'
-            onClick={() => setQrOpen(true)}
-            className='bg-background size-9 shrink-0 p-0'
-            size='sm'
-            aria-label={t('Show referral QR code')}
-          >
-            <QrCode className='size-4' />
-          </Button>
-          <Button
-            variant='outline'
             onClick={onShowCommissions}
             className='h-9 shrink-0 px-3'
             size='sm'
@@ -146,43 +134,23 @@ export function AffiliateRewardsCard({
             </Button>
           )}
         </div>
+        <div className='flex items-center justify-center lg:justify-end'>
+          <div
+            className='rounded-lg bg-white p-1.5'
+            title={t('Scan to open your referral sign-up link')}
+          >
+            <QRCodeSVG value={affiliateLink} size={88} />
+          </div>
+        </div>
+
         {!complianceConfirmed ? (
-          <p className='text-muted-foreground text-xs lg:col-span-3'>
+          <p className='text-muted-foreground text-xs lg:col-span-4'>
             {t(
               'Referral reward transfer is disabled until the administrator confirms compliance terms.'
             )}
           </p>
         ) : null}
       </CardContent>
-
-      <Dialog
-        open={qrOpen}
-        onOpenChange={setQrOpen}
-        title={t('Referral QR Code')}
-        description={t('Scan to open your referral sign-up link')}
-        contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-xs'
-        contentHeight='auto'
-        bodyClassName='flex flex-col items-center gap-3'
-      >
-        <div className='rounded-lg bg-white p-3'>
-          <QRCodeSVG value={affiliateLink} size={200} />
-        </div>
-        <div className='flex w-full items-center gap-2'>
-          <Input
-            value={affiliateLink}
-            readOnly
-            className='border-muted bg-background/70 h-8 min-w-0 flex-1 font-mono text-xs'
-          />
-          <CopyButton
-            value={affiliateLink}
-            variant='outline'
-            className='bg-background size-8 shrink-0'
-            iconClassName='size-4'
-            tooltip={t('Copy referral link')}
-            aria-label={t('Copy referral link')}
-          />
-        </div>
-      </Dialog>
     </Card>
   )
 }

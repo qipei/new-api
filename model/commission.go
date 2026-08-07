@@ -183,3 +183,33 @@ func saveCommissionScanCursor(ts int64) error {
 	// 写 options 表并经 handleConfigUpdate 回填 commissionSetting.ScanCursor, 多节点经 SyncOptions 同步
 	return UpdateOption("commission_setting.scan_cursor", strconv.FormatInt(ts, 10))
 }
+
+// EnsureCommissionScanIndex 为扫描查询补建 (status, complete_time) 复合索引。
+// topups 表由上游 TopUp 结构体定义, 不在其 gorm tag 上加索引以免产生上游 diff。
+// 幂等, 失败仅告警(无索引时扫描退化为过滤全表, 功能仍正确)。
+func EnsureCommissionScanIndex() {
+	stmt := &gorm.Statement{DB: DB}
+	if err := stmt.Parse(&TopUp{}); err != nil {
+		common.SysError("commission: parse topup table name failed: " + err.Error())
+		return
+	}
+	table := stmt.Schema.Table
+	const indexName = "idx_topups_commission_scan"
+
+	var err error
+	if common.UsingMainDatabase(common.DatabaseTypeMySQL) {
+		// MySQL 5.7 不支持 CREATE INDEX IF NOT EXISTS, 先查 information_schema
+		var cnt int64
+		DB.Raw("SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = ? AND index_name = ?",
+			table, indexName).Scan(&cnt)
+		if cnt == 0 {
+			err = DB.Exec(fmt.Sprintf("CREATE INDEX %s ON %s (status, complete_time)", indexName, table)).Error
+		}
+	} else {
+		// SQLite / PostgreSQL 均支持 IF NOT EXISTS
+		err = DB.Exec(fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s (status, complete_time)", indexName, table)).Error
+	}
+	if err != nil {
+		common.SysError("commission: create scan index failed: " + err.Error())
+	}
+}

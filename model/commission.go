@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -130,4 +131,55 @@ func ProcessCommissionForTopUp(topUp *TopUp, setting operation_setting.Commissio
 	RecordLog(record.InviterId, LogTypeSystem, fmt.Sprintf("邀请用户充值返佣 %s(订单到账 %s)",
 		logger.LogQuota(record.CommissionQuota), logger.LogQuota(record.CreditedQuota)))
 	return nil
+}
+
+const (
+	commissionScanOverlapSeconds = int64(600) // 回看窗口: 容忍订单乱序完成/时钟偏移, 重复扫到靠唯一索引去重
+	commissionScanBatchSize      = 200
+)
+
+// ScanAndProcessCommissions 供后台 worker 调用: 读取当前配置执行一轮扫描。
+func ScanAndProcessCommissions() (int, error) {
+	return scanAndProcessCommissions(operation_setting.GetCommissionSetting(), common.GetTimestamp())
+}
+
+func scanAndProcessCommissions(setting operation_setting.CommissionSetting, now int64) (int, error) {
+	// 游标未初始化(首次部署): 从当前时间开始, 历史订单不补发。
+	// 功能关闭时游标照常推进, 避免重新开启后回溯补发关闭期间的订单。
+	if setting.ScanCursor == 0 || !setting.Enabled {
+		return 0, saveCommissionScanCursor(now)
+	}
+
+	since := setting.ScanCursor - commissionScanOverlapSeconds
+	lastId := 0
+	processed := 0
+	for {
+		var topUps []*TopUp
+		err := DB.Where(
+			"status = ? AND id > ? AND (complete_time >= ? OR (complete_time = 0 AND create_time >= ?))",
+			common.TopUpStatusSuccess, lastId, since, since,
+		).Order("id asc").Limit(commissionScanBatchSize).Find(&topUps).Error
+		if err != nil {
+			// 查询失败不推进游标, 下一轮从原水位重试
+			return processed, err
+		}
+		if len(topUps) == 0 {
+			break
+		}
+		for _, topUp := range topUps {
+			lastId = topUp.Id
+			if err := ProcessCommissionForTopUp(topUp, setting); err != nil {
+				// 单笔失败只记日志不阻塞: 回看窗口内下一轮会重试, 超窗后可据日志人工处理
+				common.SysError(fmt.Sprintf("commission: process topup %d failed: %s", topUp.Id, err.Error()))
+			} else {
+				processed++
+			}
+		}
+	}
+	return processed, saveCommissionScanCursor(now)
+}
+
+func saveCommissionScanCursor(ts int64) error {
+	// 写 options 表并经 handleConfigUpdate 回填 commissionSetting.ScanCursor, 多节点经 SyncOptions 同步
+	return UpdateOption("commission_setting.scan_cursor", strconv.FormatInt(ts, 10))
 }

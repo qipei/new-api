@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -8,6 +9,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// initOptionMapForTest 保证 common.OptionMap 可写(UpdateOption 持久化游标时需要)
+func initOptionMapForTest(t *testing.T) {
+	t.Helper()
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = make(map[string]string)
+	}
+	common.OptionMapRWMutex.Unlock()
+}
 
 func commissionTestSetting(cType string, value float64, limit int) operation_setting.CommissionSetting {
 	return operation_setting.CommissionSetting{
@@ -137,6 +148,93 @@ func TestProcessCommissionCountLimit(t *testing.T) {
 	inviter, err := GetUserById(inviterId, true)
 	require.NoError(t, err)
 	assert.Equal(t, 2000, inviter.AffQuota)
+}
+
+func TestScanAndProcessCommissionsBasic(t *testing.T) {
+	truncateTables(t)
+	initOptionMapForTest(t)
+	inviterId, inviteeId := setupInvitePair(t)
+	now := common.GetTimestamp()
+	createSuccessTopUp(t, inviteeId, "alipay", 1, 7.0, now-10)
+
+	setting := commissionTestSetting(operation_setting.CommissionTypeFixed, 1000, 0)
+	setting.ScanCursor = now - 100
+
+	processed, err := scanAndProcessCommissions(setting, now)
+	require.NoError(t, err)
+	assert.Equal(t, 1, processed)
+
+	inviter, err := GetUserById(inviterId, true)
+	require.NoError(t, err)
+	assert.Equal(t, 1000, inviter.AffQuota)
+
+	// 游标已持久化为本轮扫描时间
+	var opt Option
+	require.NoError(t, DB.Where(commonKeyCol+" = ?", "commission_setting.scan_cursor").First(&opt).Error)
+	assert.Equal(t, strconv.FormatInt(now, 10), opt.Value)
+}
+
+func TestScanCompleteTimeZeroFallback(t *testing.T) {
+	truncateTables(t)
+	initOptionMapForTest(t)
+	_, inviteeId := setupInvitePair(t)
+	now := common.GetTimestamp()
+	// 模拟易支付订单: complete_time 为 0, 只有 create_time
+	topUp := &TopUp{
+		UserId: inviteeId, Amount: 1, Money: 7.0,
+		TradeNo: common.GetRandomString(16), PaymentMethod: "alipay",
+		Status: common.TopUpStatusSuccess, CreateTime: now - 10, CompleteTime: 0,
+	}
+	require.NoError(t, DB.Create(topUp).Error)
+
+	setting := commissionTestSetting(operation_setting.CommissionTypeFixed, 1000, 0)
+	setting.ScanCursor = now - 100
+
+	processed, err := scanAndProcessCommissions(setting, now)
+	require.NoError(t, err)
+	assert.Equal(t, 1, processed)
+}
+
+func TestScanCursorInitAndDisabled(t *testing.T) {
+	truncateTables(t)
+	initOptionMapForTest(t)
+	_, inviteeId := setupInvitePair(t)
+	now := common.GetTimestamp()
+	createSuccessTopUp(t, inviteeId, "alipay", 1, 7.0, now-10)
+
+	// 游标为 0(首次启动): 只初始化游标, 不发佣(历史订单不补发)
+	setting := commissionTestSetting(operation_setting.CommissionTypeFixed, 1000, 0)
+	setting.ScanCursor = 0
+	processed, err := scanAndProcessCommissions(setting, now)
+	require.NoError(t, err)
+	assert.Equal(t, 0, processed)
+
+	// 功能关闭: 不扫描但游标照常推进
+	setting.Enabled = false
+	setting.ScanCursor = now - 100
+	processed, err = scanAndProcessCommissions(setting, now)
+	require.NoError(t, err)
+	assert.Equal(t, 0, processed)
+
+	var count int64
+	require.NoError(t, DB.Model(&CommissionRecord{}).Count(&count).Error)
+	assert.Equal(t, int64(0), count)
+}
+
+func TestScanWindowExcludesOldOrders(t *testing.T) {
+	truncateTables(t)
+	initOptionMapForTest(t)
+	_, inviteeId := setupInvitePair(t)
+	now := common.GetTimestamp()
+	// 完成时间在窗口之前的订单不应被扫到
+	createSuccessTopUp(t, inviteeId, "alipay", 1, 7.0, now-10000)
+
+	setting := commissionTestSetting(operation_setting.CommissionTypeFixed, 1000, 0)
+	setting.ScanCursor = now - 100
+
+	processed, err := scanAndProcessCommissions(setting, now)
+	require.NoError(t, err)
+	assert.Equal(t, 0, processed)
 }
 
 func TestCreditedTopUpQuotaBranches(t *testing.T) {

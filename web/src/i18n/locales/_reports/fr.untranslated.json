@@ -1,5 +1,7 @@
 {
   "Commission = credited quota of the order × value ÷ 100": "Commission = credited quota of the order × value ÷ 100",
   "0 means every paid top-up earns commission; N means only the invitee's first N paid orders": "0 means every paid top-up earns commission; N means only the invitee's first N paid orders",
-  "When commission type is percentage, the value must be between 0 and 100": "When commission type is percentage, the value must be between 0 and 100"
+  "When commission type is percentage, the value must be between 0 and 100": "When commission type is percentage, the value must be between 0 and 100",
+  "Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.": "Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.",
+  "Scan to open your referral sign-up link": "Scan to open your referral sign-up link"
 }

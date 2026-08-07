@@ -1519,7 +1519,6 @@
     "Each tier supports 0~2 conditions (over len, p, c); the last tier is the catch-all without conditions. Use len (full input length, including cache hits) for tier conditions to avoid mis-routing when cache hits reduce p.": "Каждый уровень поддерживает 0–2 условия (по len, p, c); последний уровень — резервный, без условий. Используйте len (полная длина ввода, включая попадания в кэш) для условий уровня, чтобы избежать ошибочной маршрутизации, когда попадания в кэш уменьшают p.",
     "Each tier supports up to 2 conditions; the last tier is the catch-all without conditions. Use full input length for tier conditions to avoid mis-routing when cache hits reduce billable input tokens.": "Каждый уровень поддерживает до 2 условий; последний уровень является резервным и не содержит условий. Используйте полную длину входа для условий уровня, чтобы кэш-попадания не снижали оплачиваемые входные токены и не приводили к неверному маршруту.",
     "Each tier supports up to 2 conditions. The last tier without conditions is the fallback.": "Каждый уровень поддерживает до 2 условий. Последний уровень без условий используется как резервный.",
-    "Earn rewards when users join through your referral link. Transfer accumulated rewards to your balance anytime.": "Получайте вознаграждения, когда пользователи регистрируются по вашей реферальной ссылке. Переводите накопленные вознаграждения на баланс в любое время.",
     "Edit": "Редактировать",
     "Edit {{title}}": "Редактировать {{title}}",
     "Edit all channels with tag:": "Редактировать все каналы с тегом:",
@@ -5318,6 +5317,10 @@
     "Invitee": "Invitee",
     "Credited": "Credited",
     "Page {{page}} of {{totalPages}}": "Page {{page}} of {{totalPages}}",
-    "Save referral commission settings": "Save referral commission settings"
+    "Save referral commission settings": "Save referral commission settings",
+    "Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.": "Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.",
+    "Show referral QR code": "Show referral QR code",
+    "Referral QR Code": "Referral QR Code",
+    "Scan to open your referral sign-up link": "Scan to open your referral sign-up link"
   }
 }

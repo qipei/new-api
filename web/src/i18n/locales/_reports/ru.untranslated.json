@@ -19,5 +19,9 @@
   "Invitee": "Invitee",
   "Credited": "Credited",
   "Page {{page}} of {{totalPages}}": "Page {{page}} of {{totalPages}}",
-  "Save referral commission settings": "Save referral commission settings"
+  "Save referral commission settings": "Save referral commission settings",
+  "Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.": "Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.",
+  "Show referral QR code": "Show referral QR code",
+  "Referral QR Code": "Referral QR Code",
+  "Scan to open your referral sign-up link": "Scan to open your referral sign-up link"
 }

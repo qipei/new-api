@@ -1519,7 +1519,6 @@
     "Each tier supports 0~2 conditions (over len, p, c); the last tier is the catch-all without conditions. Use len (full input length, including cache hits) for tier conditions to avoid mis-routing when cache hits reduce p.": "Each tier supports 0~2 conditions (over len, p, c); the last tier is the catch-all without conditions. Use len (full input length, including cache hits) for tier conditions to avoid mis-routing when cache hits reduce p.",
     "Each tier supports up to 2 conditions; the last tier is the catch-all without conditions. Use full input length for tier conditions to avoid mis-routing when cache hits reduce billable input tokens.": "Each tier supports up to 2 conditions; the last tier is the catch-all without conditions. Use full input length for tier conditions to avoid mis-routing when cache hits reduce billable input tokens.",
     "Each tier supports up to 2 conditions. The last tier without conditions is the fallback.": "Each tier supports up to 2 conditions. The last tier without conditions is the fallback.",
-    "Earn rewards when users join through your referral link. Transfer accumulated rewards to your balance anytime.": "Earn rewards when users join through your referral link. Transfer accumulated rewards to your balance anytime.",
     "Edit": "Edit",
     "Edit {{title}}": "Edit {{title}}",
     "Edit all channels with tag:": "Edit all channels with tag:",
@@ -5318,6 +5317,10 @@
     "Invitee": "Invitee",
     "Credited": "Credited",
     "Page {{page}} of {{totalPages}}": "Page {{page}} of {{totalPages}}",
-    "Save referral commission settings": "Save referral commission settings"
+    "Save referral commission settings": "Save referral commission settings",
+    "Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.": "Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.",
+    "Show referral QR code": "Show referral QR code",
+    "Referral QR Code": "Referral QR Code",
+    "Scan to open your referral sign-up link": "Scan to open your referral sign-up link"
   }
 }

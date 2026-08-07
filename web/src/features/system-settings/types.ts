@@ -330,6 +330,10 @@ export type BillingSettings = {
   'checkin_setting.enabled': boolean
   'checkin_setting.min_quota': number
   'checkin_setting.max_quota': number
+  'commission_setting.enabled': boolean
+  'commission_setting.type': string
+  'commission_setting.value': number
+  'commission_setting.topup_count_limit': number
 }
 
 export type OperationsSettings = {

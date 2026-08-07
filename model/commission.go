@@ -184,6 +184,53 @@ func saveCommissionScanCursor(ts int64) error {
 	return UpdateOption("commission_setting.scan_cursor", strconv.FormatInt(ts, 10))
 }
 
+// CommissionRecordView 佣金流水 + 被邀请人用户名(供用户端明细展示)
+type CommissionRecordView struct {
+	CommissionRecord
+	InviteeUsername string `json:"invitee_username" gorm:"-"`
+}
+
+// GetInviterCommissionRecords 分页查询某邀请人的佣金流水, 按 id 倒序
+func GetInviterCommissionRecords(inviterId int, pageInfo *common.PageInfo) ([]*CommissionRecordView, int64, error) {
+	var total int64
+	if err := DB.Model(&CommissionRecord{}).Where("inviter_id = ?", inviterId).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var records []*CommissionRecord
+	err := DB.Where("inviter_id = ?", inviterId).
+		Order("id desc").Limit(pageInfo.GetPageSize()).Offset(pageInfo.GetStartIdx()).
+		Find(&records).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	inviteeIds := make([]int, 0, len(records))
+	seen := make(map[int]bool)
+	for _, r := range records {
+		if !seen[r.InviteeId] {
+			seen[r.InviteeId] = true
+			inviteeIds = append(inviteeIds, r.InviteeId)
+		}
+	}
+	usernames := make(map[int]string)
+	if len(inviteeIds) > 0 {
+		var users []*User
+		if err := DB.Select("id", "username").Where("id IN ?", inviteeIds).Find(&users).Error; err != nil {
+			return nil, 0, err
+		}
+		for _, u := range users {
+			usernames[u.Id] = u.Username
+		}
+	}
+
+	views := make([]*CommissionRecordView, 0, len(records))
+	for _, r := range records {
+		views = append(views, &CommissionRecordView{CommissionRecord: *r, InviteeUsername: usernames[r.InviteeId]})
+	}
+	return views, total, nil
+}
+
 // EnsureCommissionScanIndex 为扫描查询补建 (status, complete_time) 复合索引。
 // topups 表由上游 TopUp 结构体定义, 不在其 gorm tag 上加索引以免产生上游 diff。
 // 幂等, 失败仅告警(无索引时扫描退化为过滤全表, 功能仍正确)。

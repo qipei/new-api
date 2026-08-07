@@ -237,6 +237,27 @@ func TestScanWindowExcludesOldOrders(t *testing.T) {
 	assert.Equal(t, 0, processed)
 }
 
+func TestGetInviterCommissionRecords(t *testing.T) {
+	truncateTables(t)
+	inviterId, inviteeId := setupInvitePair(t)
+	setting := commissionTestSetting(operation_setting.CommissionTypeFixed, 1000, 0)
+	now := common.GetTimestamp()
+	for i := 0; i < 3; i++ {
+		topUp := createSuccessTopUp(t, inviteeId, "alipay", 1, 7.0, now+int64(i))
+		require.NoError(t, ProcessCommissionForTopUp(topUp, setting))
+	}
+
+	pageInfo := &common.PageInfo{Page: 1, PageSize: 2}
+	records, total, err := GetInviterCommissionRecords(inviterId, pageInfo)
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), total)
+	require.Len(t, records, 2)
+	assert.Equal(t, "invitee_u", records[0].InviteeUsername)
+	assert.Equal(t, 1000, records[0].CommissionQuota)
+	// 按 id 倒序
+	assert.Greater(t, records[0].Id, records[1].Id)
+}
+
 func TestCreditedTopUpQuotaBranches(t *testing.T) {
 	oldQPU := common.QuotaPerUnit
 	common.QuotaPerUnit = 500000

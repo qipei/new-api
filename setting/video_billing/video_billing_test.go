@@ -113,3 +113,140 @@ func TestNormalizeResolution(t *testing.T) {
 		assert.Equal(t, tt.want, NormalizeResolution(tt.in), "input %q", tt.in)
 	}
 }
+
+func TestNormalizeImageResolutionByShortEdge(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"明确的 1K 标签", "1K", "1k"},
+		{"明确的 2K 标签", "2k", "2k"},
+		{"明确的 4K 标签", " 4K ", "4k"},
+		{"1K 下边界", "768x1024", "1k"},
+		{"1K 上边界", "4096x1024", "1k"},
+		{"刚进入 2K", "1025x4096", "2k"},
+		{"2K 上边界", "2048x4096", "2k"},
+		{"刚进入 4K", "4096x2049", "4k"},
+		{"横竖图归档一致", "2049x4096", "4k"},
+		{"未知标签原样保留", "auto", "auto"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, NormalizeImageResolution(tt.in))
+		})
+	}
+}
+
+func TestGetPriceMatchesArbitraryImageSizeByShortEdge(t *testing.T) {
+	withTables(t, map[string]ModelPriceTable{
+		"resolution-priced-image": {
+			Unit: UnitPerImage,
+			Tiers: []PriceTier{
+				{Resolution: "1k", Price: 0.1},
+				{Resolution: "2k", Price: 0.2},
+				{Resolution: "4k", Price: 0.4},
+			},
+		},
+	})
+
+	tests := []struct {
+		resolution string
+		want       float64
+	}{
+		{"1k", 0.1},
+		{"2K", 0.2},
+		{"4k", 0.4},
+		{"4096x1024", 0.1},
+		{"4096x1025", 0.2},
+		{"2048x4096", 0.2},
+		{"2049x4096", 0.4},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.resolution, func(t *testing.T) {
+			price, unit, ok := GetPrice("resolution-priced-image", ModeTextToImage, tt.resolution, "")
+			require.True(t, ok)
+			assert.Equal(t, UnitPerImage, unit)
+			assert.InDelta(t, tt.want, price, 1e-9)
+		})
+	}
+}
+
+func TestGetPricePrefersConfiguredResolutionBuckets(t *testing.T) {
+	withTables(t, map[string]ModelPriceTable{
+		"vidu-image": {
+			Unit: UnitPerImage,
+			ResolutionBuckets: []ResolutionBucket{
+				{Name: "1k", Sizes: []string{"1920*1088"}},
+				{Name: "2k", Sizes: []string{"3072x2048"}},
+				{Name: "4k", Sizes: []string{"3840x1648"}},
+			},
+			Tiers: []PriceTier{
+				{Resolution: "1k", Price: 0.1},
+				{Resolution: "2k", Price: 0.2},
+				{Resolution: "4k", Price: 0.4},
+			},
+		},
+	})
+
+	tests := []struct {
+		name       string
+		resolution string
+		want       float64
+	}{
+		{"星号尺寸归入官方 1K", "1920*1088", 0.1},
+		{"横竖方向使用同一档位", "1088x1920", 0.1},
+		{"官方 2K 覆盖通用 4K 推断", "3072x2048", 0.2},
+		{"官方 4K 覆盖通用 2K 推断", "3840x1648", 0.4},
+		{"直接档位标签仍然可用", "4K", 0.4},
+		{"未配置尺寸回退短边规则", "1500x3000", 0.2},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			price, unit, ok := GetPrice("vidu-image", ModeTextToImage, tt.resolution, "")
+			require.True(t, ok)
+			assert.Equal(t, UnitPerImage, unit)
+			assert.InDelta(t, tt.want, price, 1e-9)
+		})
+	}
+}
+
+func TestGetPriceMatchesImagePixelRanges(t *testing.T) {
+	withTables(t, map[string]ModelPriceTable{
+		"pixel-priced-image": {
+			Unit: UnitPerImage,
+			Tiers: []PriceTier{
+				{Price: 0.6},
+				{MaxPixels: 2_610_000, Price: 0.3},
+				{MinPixels: 2_610_001, Price: 0.6},
+				{Resolution: "1920x1920", Price: 0.8},
+				{MinPixels: 3_000_000, MaxPixels: 2_000_000, Price: 0.1},
+			},
+		},
+	})
+
+	tests := []struct {
+		name       string
+		resolution string
+		want       float64
+	}{
+		{"低于边界", "1920x1080", 0.3},
+		{"等于边界", "2610x1000", 0.3},
+		{"高于边界", "1800x1800", 0.6},
+		{"精确尺寸优先于像素范围", "1920x1920", 0.8},
+		{"无法计算像素时回退默认档", "2k", 0.6},
+		{"像素乘法溢出时回退默认档", "9223372036854775807x2", 0.6},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			price, unit, ok := GetPrice("pixel-priced-image", ModeTextToImage, tt.resolution, "")
+			require.True(t, ok)
+			assert.Equal(t, UnitPerImage, unit)
+			assert.InDelta(t, tt.want, price, 1e-9)
+		})
+	}
+}

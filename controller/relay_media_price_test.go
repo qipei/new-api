@@ -35,7 +35,7 @@ func imageTestContext(t *testing.T) *gin.Context {
 }
 
 // 图片矩阵计费契约：费用 = 输出档价×n + 输入图单价×张数 + token单价×promptTokens/1M，
-// 折算为 等效每张价(ModelPrice) × n 后预扣与结算一致。
+// 输出档价由 n 放大，一次性输入组件不随实际输出张数重复放大。
 func TestResolveRelayPriceDataImageMatrix(t *testing.T) {
 	withImageTables(t, map[string]video_billing.ModelPriceTable{
 		"qwen-image-3.0": {
@@ -68,11 +68,11 @@ func TestResolveRelayPriceDataImageMatrix(t *testing.T) {
 	require.True(t, priceData.UsePrice)
 
 	extra := 1*0.02 + 1000.0/1_000_000*6.82
-	expectedEffective := 0.5 + extra/2
-	assert.InDelta(t, expectedEffective, priceData.ModelPrice, 1e-9)
+	assert.InDelta(t, 0.5, priceData.ModelPrice, 1e-9)
+	assert.InDelta(t, extra, priceData.FixedPrice, 1e-9)
 	assert.InDelta(t, 2.0, priceData.OtherRatios()["n"], 1e-9)
 
-	expectedQuota := common.QuotaFromFloat(expectedEffective * 2 * common.QuotaPerUnit * 1.0)
+	expectedQuota := common.QuotaFromFloat((0.5*2 + extra) * common.QuotaPerUnit * 1.0)
 	assert.Equal(t, expectedQuota, priceData.QuotaToPreConsume)
 }
 

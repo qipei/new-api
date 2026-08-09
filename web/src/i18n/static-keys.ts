@@ -574,7 +574,7 @@ export const STATIC_I18N_KEYS = [
   'Verification scope is missing',
 
   // CUSTOM: Video pricing (fork extension)
-  'Video Pricing',
+  'Video and Image Pricing',
   'Save video pricing',
   'Any mode',
   'Text to video',

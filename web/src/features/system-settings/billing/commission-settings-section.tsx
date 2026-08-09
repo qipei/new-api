@@ -209,8 +209,12 @@ export function CommissionSettingsSection({
                     </Select>
                     <FormDescription>
                       {commissionType === 'percent'
-                        ? t('Commission = credited quota of the order × value ÷ 100')
-                        : t('Each qualifying order grants a fixed quota amount')}
+                        ? t(
+                            'Commission = credited quota of the order × value ÷ 100'
+                          )
+                        : t(
+                            'Each qualifying order grants a fixed quota amount'
+                          )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

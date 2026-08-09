@@ -46,17 +46,27 @@ type PriceTier struct {
 	Mode       string  `json:"mode,omitempty"`
 	Resolution string  `json:"resolution,omitempty"`
 	Audio      string  `json:"audio,omitempty"`
+	MinPixels  int64   `json:"min_pixels,omitempty"`
+	MaxPixels  int64   `json:"max_pixels,omitempty"`
 	Price      float64 `json:"price"`
+}
+
+// ResolutionBucket 将平台或模型自定义的具体尺寸归入一个计费档位。
+// 例如部分 Vidu 模型会把 1920x1088 定义为 1k，不能用通用短边规则推断。
+type ResolutionBucket struct {
+	Name  string   `json:"name"`
+	Sizes []string `json:"sizes,omitempty"`
 }
 
 // ModelPriceTable 单个模型的价格表。
 // per_image 单位额外支持两个可选附加单价（加法组件）：
 // 输入图按张、输入 prompt 按百万 token，与输出档价相加构成单次费用。
 type ModelPriceTable struct {
-	Unit            string      `json:"unit"`
-	Tiers           []PriceTier `json:"tiers,omitempty"`
-	InputImagePrice float64     `json:"input_image_price,omitempty"` // USD/张，仅 per_image
-	InputTokenPrice float64     `json:"input_token_price,omitempty"` // USD/百万 token，仅 per_image
+	Unit              string             `json:"unit"`
+	Tiers             []PriceTier        `json:"tiers,omitempty"`
+	ResolutionBuckets []ResolutionBucket `json:"resolution_buckets,omitempty"`
+	InputImagePrice   float64            `json:"input_image_price,omitempty"` // USD/张，仅 per_image
+	InputTokenPrice   float64            `json:"input_token_price,omitempty"` // USD/百万 token，仅 per_image
 }
 
 // VideoBillingSettings 由 config.GlobalConfig 管理。
@@ -99,11 +109,11 @@ func GetPrice(modelName, mode, resolution, audio string) (float64, string, bool)
 	}
 
 	rawResolution := strings.ToLower(strings.TrimSpace(resolution))
-	normResolution := normalizeForUnit(rawResolution, table.Unit)
+	normResolution := normalizeForTable(rawResolution, table)
 	bestScore := -1
 	bestPrice := 0.0
 	for _, tier := range table.Tiers {
-		score := tierMatchScore(tier, mode, rawResolution, normResolution, audio, table.Unit)
+		score := tierMatchScore(tier, mode, rawResolution, normResolution, audio, table)
 		if score < 0 || tier.Price <= 0 {
 			continue
 		}
@@ -120,7 +130,7 @@ func GetPrice(modelName, mode, resolution, audio string) (float64, string, bool)
 
 // tierMatchScore 返回档位与请求维度的匹配度：-1 不匹配；否则数值越大越具体
 // （精确尺寸串命中记 2 分，归档标签命中记 1 分，模式/音轨命中各记 1 分）。
-func tierMatchScore(tier PriceTier, mode, rawResolution, normResolution, audio, unit string) int {
+func tierMatchScore(tier PriceTier, mode, rawResolution, normResolution, audio string, table ModelPriceTable) int {
 	score := 0
 	if tier.Mode != "" {
 		if tier.Mode != mode {
@@ -131,12 +141,26 @@ func tierMatchScore(tier PriceTier, mode, rawResolution, normResolution, audio, 
 	if tier.Resolution != "" {
 		tierRaw := strings.ToLower(strings.TrimSpace(tier.Resolution))
 		if tierRaw == rawResolution && rawResolution != "" {
-			score += 2
-		} else if normalizeForUnit(tierRaw, unit) == normResolution && normResolution != "" {
+			score += 4
+		} else if _, _, tierIsExactSize := parseSize(tierRaw); tierIsExactSize {
+			return -1
+		} else if normalizeForTable(tierRaw, table) == normResolution && normResolution != "" {
 			score++
 		} else {
 			return -1
 		}
+	}
+	if tier.MinPixels != 0 || tier.MaxPixels != 0 {
+		if table.Unit != UnitPerImage || tier.MinPixels < 0 || tier.MaxPixels < 0 ||
+			(tier.MinPixels > 0 && tier.MaxPixels > 0 && tier.MinPixels > tier.MaxPixels) {
+			return -1
+		}
+		pixelCount, ok := parsePixelCount(rawResolution)
+		if !ok || (tier.MinPixels > 0 && pixelCount < tier.MinPixels) ||
+			(tier.MaxPixels > 0 && pixelCount > tier.MaxPixels) {
+			return -1
+		}
+		score += 2
 	}
 	if tier.Audio != "" {
 		if tier.Audio != audio {
@@ -147,15 +171,74 @@ func tierMatchScore(tier PriceTier, mode, rawResolution, normResolution, audio, 
 	return score
 }
 
-// normalizeForUnit 按计价单位选择归档规则：图片按长边归档，视频按短边归档。
-func normalizeForUnit(res, unit string) string {
-	if unit == UnitPerImage {
-		return NormalizeImageResolution(res)
+func parsePixelCount(res string) (int64, bool) {
+	parts := strings.Split(normalizeSizeSeparator(res), "x")
+	if len(parts) != 2 {
+		return 0, false
 	}
-	return NormalizeResolution(res)
+	w, err1 := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
+	h, err2 := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
+	if err1 != nil || err2 != nil || w <= 0 || h <= 0 || w > int64(^uint64(0)>>1)/h {
+		return 0, false
+	}
+	return w * h, true
 }
 
-// NormalizeImageResolution 将图片分辨率归档：按长边 ≤1024→1k、≤2048→2k、其余→4k；
+func normalizeSizeSeparator(res string) string {
+	return strings.ReplaceAll(strings.ToLower(strings.TrimSpace(res)), "*", "x")
+}
+
+func canonicalSize(res string) (string, bool) {
+	w, h, ok := parseSize(res)
+	if !ok {
+		return "", false
+	}
+	if w > h {
+		w, h = h, w
+	}
+	return strconv.Itoa(w) + "x" + strconv.Itoa(h), true
+}
+
+func normalizeForTable(res string, table ModelPriceTable) string {
+	res = strings.ToLower(strings.TrimSpace(res))
+	if table.Unit != UnitPerImage {
+		return NormalizeResolution(res)
+	}
+	for _, bucket := range table.ResolutionBuckets {
+		name := strings.ToLower(strings.TrimSpace(bucket.Name))
+		if name != "" && res == name {
+			return name
+		}
+	}
+	requestSize, requestIsSize := canonicalSize(res)
+	if requestIsSize {
+		for _, bucket := range table.ResolutionBuckets {
+			name := strings.ToLower(strings.TrimSpace(bucket.Name))
+			if name == "" {
+				continue
+			}
+			for _, size := range bucket.Sizes {
+				bucketSize, ok := canonicalSize(size)
+				if ok && bucketSize == requestSize {
+					return name
+				}
+			}
+		}
+	}
+	return NormalizeImageResolution(res)
+}
+
+// ResolveImageResolution applies a model's exact resolution buckets first,
+// then falls back to the generic short-edge 1K/2K/4K classification.
+func ResolveImageResolution(modelName, resolution string) string {
+	table, ok := GetPriceTable(modelName)
+	if !ok || table.Unit != UnitPerImage {
+		return NormalizeImageResolution(resolution)
+	}
+	return normalizeForTable(resolution, table)
+}
+
+// NormalizeImageResolution 将图片分辨率归档：按短边 ≤1024→1k、≤2048→2k、其余→4k；
 // 非 宽x高 形式的标签（如 "1k"）原样返回。
 func NormalizeImageResolution(res string) string {
 	res = strings.ToLower(strings.TrimSpace(res))
@@ -163,14 +246,14 @@ func NormalizeImageResolution(res string) string {
 		return ""
 	}
 	if w, h, ok := parseSize(res); ok {
-		long := w
-		if h > w {
-			long = h
+		short := w
+		if h < w {
+			short = h
 		}
 		switch {
-		case long <= 1024:
+		case short <= 1024:
 			return "1k"
-		case long <= 2048:
+		case short <= 2048:
 			return "2k"
 		default:
 			return "4k"
@@ -208,7 +291,7 @@ func NormalizeResolution(res string) string {
 }
 
 func parseSize(res string) (int, int, bool) {
-	parts := strings.Split(res, "x")
+	parts := strings.Split(normalizeSizeSeparator(res), "x")
 	if len(parts) != 2 {
 		return 0, 0, false
 	}

@@ -158,3 +158,62 @@ func TestGetAndValidOpenAIImageRequestNBounds(t *testing.T) {
 		require.Contains(t, err.Error(), boundErr)
 	})
 }
+
+func TestGetAndValidOpenAIImageRequestNormalizesProviderParameters(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name       string
+		body       string
+		wantSize   string
+		wantN      uint
+		wantPrompt string
+		wantImages int
+		wantErr    string
+	}{
+		{
+			name:     "aliyun vidu nested request",
+			body:     `{"model":"vidu-q2","input":{"messages":[{"role":"user","content":[{"text":"flower shop"},{"image":"https://example.com/a.png"}]}]},"parameters":{"size":"1920*1088","n":2}}`,
+			wantSize: "1920x1088", wantN: 2, wantPrompt: "flower shop", wantImages: 1,
+		},
+		{
+			name:     "aliyun kling series count",
+			body:     `{"model":"kling","parameters":{"resolution":"4k","result_type":"series","series_amount":4}}`,
+			wantSize: "4k", wantN: 4,
+		},
+		{
+			name:  "volcengine sequential images",
+			body:  `{"model":"seedream","prompt":"cat","sequential_image_generation":"auto","sequential_image_generation_options":{"max_images":6}}`,
+			wantN: 6,
+		},
+		{
+			name:    "provider count is bounded",
+			body:    fmt.Sprintf(`{"model":"seedream","sequential_image_generation_options":{"max_images":%d}}`, dto.MaxImageN+1),
+			wantErr: "max_images",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewBufferString(tt.body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			request, err := GetAndValidOpenAIImageRequest(c, relayconstant.RelayModeImagesGenerations)
+			if tt.wantErr != "" {
+				require.ErrorContains(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantSize, request.Size)
+			require.NotNil(t, request.N)
+			require.Equal(t, tt.wantN, *request.N)
+			require.Equal(t, tt.wantPrompt, request.Prompt)
+			if tt.wantImages > 0 {
+				var images []string
+				require.NoError(t, common.Unmarshal(request.Images, &images))
+				require.Len(t, images, tt.wantImages)
+			}
+		})
+	}
+}

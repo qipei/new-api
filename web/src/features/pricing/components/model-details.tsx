@@ -78,8 +78,8 @@ import type {
 import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelDetailsApi } from './model-details-api'
-import { VideoPriceSection } from './video-price-section'
 import { ModelDetailsPerformance } from './model-details-performance'
+import { VideoPriceSection } from './video-price-section'
 
 // ----------------------------------------------------------------------------
 // Local UI helpers
@@ -1142,10 +1142,10 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
   const { t } = useTranslation()
   const showRechargePrice = props.showRechargePrice ?? false
 
-  // CUSTOM: 视频价格矩阵模型的分组折后价由 VideoPriceSection 按档位展示，
-  // 隐藏基于兜底模型定价的 token 分组定价区块
+  // CUSTOM: 矩阵定价模型的完整价格由 VideoPriceSection 展示，
+  // 隐藏仅用于兼容和兜底的模型基础价与 token 分组定价区块。
   const { videoPricing } = usePricingData()
-  const hasVideoMatrix = Boolean(
+  const hasMatrixPricing = Boolean(
     videoPricing[props.model.model_name]?.tiers?.length
   )
 
@@ -1179,13 +1179,15 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
 
           <section className='bg-card/60 space-y-5 rounded-xl border p-4 shadow-sm'>
             <SectionTitle>{t('Pricing')}</SectionTitle>
-            <PriceSection
-              model={props.model}
-              priceRate={props.priceRate}
-              usdExchangeRate={props.usdExchangeRate}
-              tokenUnit={props.tokenUnit}
-              showRechargePrice={showRechargePrice}
-            />
+            {!hasMatrixPricing && (
+              <PriceSection
+                model={props.model}
+                priceRate={props.priceRate}
+                usdExchangeRate={props.usdExchangeRate}
+                tokenUnit={props.tokenUnit}
+                showRechargePrice={showRechargePrice}
+              />
+            )}
             {isDynamic && (
               <DynamicPricingBreakdown billingExpr={props.model.billing_expr} />
             )}
@@ -1198,7 +1200,7 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
               usdExchangeRate={props.usdExchangeRate}
               showRechargePrice={showRechargePrice}
             />
-            {!hasVideoMatrix && (
+            {!hasMatrixPricing && (
               <GroupPricingSection
                 model={props.model}
                 groupRatio={props.groupRatio}

@@ -104,9 +104,10 @@ func (o *AliOutput) ChoicesToOpenAIImageDate(c *gin.Context, responseFormat stri
 	var imageData []dto.ImageData
 	if len(o.Choices) > 0 {
 		for _, choice := range o.Choices {
-			var data dto.ImageData
+			revisedPrompt := ""
 			for _, content := range choice.Message.Content {
 				if content.Image != "" {
+					data := dto.ImageData{RevisedPrompt: revisedPrompt}
 					if strings.HasPrefix(content.Image, "http") {
 						var b64Json string
 						if responseFormat == "b64_json" {
@@ -122,11 +123,11 @@ func (o *AliOutput) ChoicesToOpenAIImageDate(c *gin.Context, responseFormat stri
 					} else {
 						data.B64Json = content.Image
 					}
+					imageData = append(imageData, data)
 				} else if content.Text != "" {
-					data.RevisedPrompt = content.Text
+					revisedPrompt = content.Text
 				}
 			}
-			imageData = append(imageData, data)
 		}
 	}
 
@@ -182,6 +183,10 @@ type AliImageParameters struct {
 	BboxList         any    `json:"bbox_list,omitempty"`
 	ColorPalette     any    `json:"color_palette,omitempty"`
 	Seed             *int   `json:"seed,omitempty"`
+	Resolution       string `json:"resolution,omitempty"`
+	AspectRatio      string `json:"aspect_ratio,omitempty"`
+	ResultType       string `json:"result_type,omitempty"`
+	SeriesAmount     int    `json:"series_amount,omitempty"`
 }
 
 func (p *AliImageParameters) PromptExtendValue() bool {

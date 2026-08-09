@@ -51,13 +51,16 @@ export function AffiliateRewardsCard({
   if (loading) {
     return (
       <Card data-card-hover='false' className='bg-muted/20 py-0'>
-        <CardContent className='grid gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(220px,1fr)_minmax(220px,0.72fr)_minmax(320px,1.15fr)] lg:items-center'>
-          <div>
-            <Skeleton className='h-5 w-32' />
-            <Skeleton className='mt-2 h-4 w-48' />
+        <CardContent className='grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center'>
+          <div className='space-y-4'>
+            <div>
+              <Skeleton className='h-5 w-32' />
+              <Skeleton className='mt-2 h-4 w-80 max-w-full' />
+            </div>
+            <Skeleton className='h-16 w-full max-w-lg rounded-xl' />
+            <Skeleton className='h-10 w-full rounded-lg' />
           </div>
-          <Skeleton className='h-14 rounded-lg' />
-          <Skeleton className='h-10 rounded-lg' />
+          <Skeleton className='mx-auto size-[100px] rounded-lg' />
         </CardContent>
       </Card>
     )
@@ -67,89 +70,114 @@ export function AffiliateRewardsCard({
 
   return (
     <Card data-card-hover='false' className='bg-muted/20 py-0'>
-      <CardContent className='grid gap-3 p-3 sm:gap-4 sm:p-4 lg:grid-cols-[minmax(200px,1fr)_minmax(180px,0.65fr)_minmax(280px,1fr)_auto] lg:items-center'>
-        <div className='flex min-w-0 items-center gap-2.5'>
-          <IconBadge tone='chart-3'>
-            <Share2 />
-          </IconBadge>
-          <div className='min-w-0'>
-            <h3 className='truncate text-sm font-semibold'>
-              {t('Referral Program')}
-            </h3>
-            <p className='text-muted-foreground text-xs'>
-              {t(
-                'Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.'
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div className='grid grid-cols-3 gap-1.5 text-center'>
-          {[
-            [t('Pending'), formatQuota(user?.aff_quota ?? 0)],
-            [t('Total Earned'), formatQuota(user?.aff_history_quota ?? 0)],
-            [t('Invites'), String(user?.aff_count ?? 0)],
-          ].map(([label, value]) => (
-            <div key={label}>
-              <div className='text-muted-foreground truncate text-[10px] font-medium tracking-wider uppercase'>
-                {label}
-              </div>
-              <div className='mt-0.5 truncate text-sm font-semibold tabular-nums'>
-                {value}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className='flex items-center gap-2'>
-          <Input
-            value={affiliateLink}
-            readOnly
-            className='border-muted bg-background/70 h-9 min-w-0 flex-1 font-mono text-xs'
-          />
-          <CopyButton
-            value={affiliateLink}
-            variant='outline'
-            className='bg-background size-9 shrink-0'
-            iconClassName='size-4'
-            tooltip={t('Copy referral link')}
-            aria-label={t('Copy referral link')}
-          />
-          <Button
-            variant='outline'
-            onClick={onShowCommissions}
-            className='h-9 shrink-0 px-3'
-            size='sm'
+      <CardContent className='grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center'>
+        <div className='min-w-0 space-y-4'>
+          <div
+            data-slot='affiliate-rewards-summary'
+            className='flex min-w-0 items-start gap-3'
           >
-            {t('Commission Details')}
-          </Button>
-          {hasRewards && (
+            <IconBadge tone='chart-3'>
+              <Share2 />
+            </IconBadge>
+            <div className='min-w-0'>
+              <h3 className='text-sm font-semibold'>{t('Referral Program')}</h3>
+              <p className='text-muted-foreground mt-1 max-w-3xl text-xs leading-relaxed'>
+                {t(
+                  'Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.'
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className='grid w-full max-w-2xl gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center'>
+            <div
+              data-slot='affiliate-rewards-stats'
+              className='bg-background/50 grid w-full grid-cols-3 gap-2 rounded-xl border p-3 text-center'
+            >
+              {[
+                [t('Pending'), formatQuota(user?.aff_quota ?? 0)],
+                [t('Total Earned'), formatQuota(user?.aff_history_quota ?? 0)],
+                [t('Invites'), String(user?.aff_count ?? 0)],
+              ].map(([label, value]) => (
+                <div key={label} className='min-w-0 px-1'>
+                  <div className='text-muted-foreground truncate text-[10px] font-medium tracking-wider uppercase'>
+                    {label}
+                  </div>
+                  <div className='mt-1 truncate text-sm font-semibold tabular-nums'>
+                    {value}
+                  </div>
+                </div>
+              ))}
+            </div>
             <Button
-              onClick={onTransfer}
-              disabled={!complianceConfirmed}
+              variant='outline'
+              onClick={onShowCommissions}
               className='h-9 shrink-0 px-3'
               size='sm'
             >
-              {t('Transfer to Balance')}
+              {t('Commission Details')}
             </Button>
-          )}
+          </div>
+
+          <div
+            data-slot='affiliate-rewards-actions'
+            className='w-full max-w-2xl space-y-2'
+          >
+            <div
+              data-slot='affiliate-rewards-link-row'
+              className='grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2'
+            >
+              <Input
+                value={affiliateLink}
+                readOnly
+                className='border-muted bg-background/70 h-9 min-w-0 font-mono text-xs'
+              />
+              <CopyButton
+                value={affiliateLink}
+                variant='outline'
+                className='bg-background size-9 shrink-0'
+                iconClassName='size-4'
+                tooltip={t('Copy referral link')}
+                aria-label={t('Copy referral link')}
+              />
+            </div>
+            {hasRewards && (
+              <div className='flex flex-wrap items-center justify-end gap-2'>
+                <Button
+                  onClick={onTransfer}
+                  disabled={!complianceConfirmed}
+                  className='h-9 px-3'
+                  size='sm'
+                >
+                  {t('Transfer to Balance')}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {!complianceConfirmed ? (
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'Referral reward transfer is disabled until the administrator confirms compliance terms.'
+              )}
+            </p>
+          ) : null}
         </div>
-        <div className='flex items-center justify-center lg:justify-end'>
+
+        <div
+          data-slot='affiliate-rewards-qr'
+          className='flex flex-col items-center justify-center gap-1.5 lg:justify-self-end'
+        >
           <div
             className='rounded-lg bg-white p-1.5'
             title={t('Scan to open your referral sign-up link')}
           >
-            <QRCodeSVG value={affiliateLink} size={88} />
+            <QRCodeSVG value={affiliateLink} size={100} />
           </div>
+          <span className='text-muted-foreground text-xs font-medium'>
+            {t('Invitation QR code')}
+          </span>
         </div>
-
-        {!complianceConfirmed ? (
-          <p className='text-muted-foreground text-xs lg:col-span-4'>
-            {t(
-              'Referral reward transfer is disabled until the administrator confirms compliance terms.'
-            )}
-          </p>
-        ) : null}
       </CardContent>
     </Card>
   )

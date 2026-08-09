@@ -242,6 +242,10 @@ func GetAndValidOpenAIImageRequest(c *gin.Context, relayMode int) (*dto.ImageReq
 			return nil, errors.New("model is required")
 		}
 
+		if err = normalizeProviderImageParameters(imageRequest); err != nil {
+			return nil, err
+		}
+
 		if strings.Contains(imageRequest.Size, "×") {
 			return nil, errors.New("size an unexpected error occurred in the parameter, please use 'x' instead of the multiplication sign '×'")
 		}
@@ -284,6 +288,101 @@ func GetAndValidOpenAIImageRequest(c *gin.Context, relayMode int) (*dto.ImageReq
 	}
 
 	return imageRequest, nil
+}
+
+// normalizeProviderImageParameters projects provider-native image parameters
+// onto the OpenAI-compatible fields used by validation and matrix billing.
+// The original Extra values remain intact for the provider adaptor.
+func normalizeProviderImageParameters(request *dto.ImageRequest) error {
+	type aliParameters struct {
+		Size         string `json:"size"`
+		Resolution   string `json:"resolution"`
+		N            int    `json:"n"`
+		ResultType   string `json:"result_type"`
+		SeriesAmount int    `json:"series_amount"`
+	}
+	type aliContent struct {
+		Text  string `json:"text"`
+		Image string `json:"image"`
+	}
+	type aliInput struct {
+		Messages []struct {
+			Content []aliContent `json:"content"`
+		} `json:"messages"`
+	}
+
+	if raw, ok := request.Extra["parameters"]; ok {
+		var parameters aliParameters
+		if err := common.Unmarshal(raw, &parameters); err != nil {
+			return fmt.Errorf("invalid parameters field: %w", err)
+		}
+		providerSize := strings.TrimSpace(parameters.Size)
+		if providerSize == "" {
+			providerSize = strings.TrimSpace(parameters.Resolution)
+		}
+		providerSize = strings.ReplaceAll(providerSize, "*", "x")
+		if request.Size == "" {
+			request.Size = providerSize
+		} else if providerSize != "" && !strings.EqualFold(request.Size, providerSize) {
+			return errors.New("size conflicts with parameters.size or parameters.resolution")
+		}
+
+		providerN := parameters.N
+		if parameters.ResultType == "series" && parameters.SeriesAmount > 0 {
+			providerN = parameters.SeriesAmount
+		}
+		if providerN < 0 || providerN > dto.MaxImageN {
+			return fmt.Errorf("provider image count must be an integer between 1 and %d", dto.MaxImageN)
+		}
+		if providerN > 0 {
+			if request.N != nil && *request.N > 0 && int(*request.N) != providerN {
+				return errors.New("n conflicts with provider image count")
+			}
+			request.N = common.GetPointer(uint(providerN))
+		}
+	}
+
+	if raw, ok := request.Extra["input"]; ok {
+		var input aliInput
+		if err := common.Unmarshal(raw, &input); err != nil {
+			return fmt.Errorf("invalid input field: %w", err)
+		}
+		var images []string
+		for _, message := range input.Messages {
+			for _, content := range message.Content {
+				if request.Prompt == "" && content.Text != "" {
+					request.Prompt = content.Text
+				}
+				if content.Image != "" {
+					images = append(images, content.Image)
+				}
+			}
+		}
+		if len(images) > 0 && len(request.Image) == 0 && len(request.Images) == 0 {
+			encoded, err := common.Marshal(images)
+			if err != nil {
+				return err
+			}
+			request.Images = encoded
+		}
+	}
+
+	if raw, ok := request.Extra["sequential_image_generation_options"]; ok {
+		var options struct {
+			MaxImages int `json:"max_images"`
+		}
+		if err := common.Unmarshal(raw, &options); err != nil {
+			return fmt.Errorf("invalid sequential_image_generation_options field: %w", err)
+		}
+		if options.MaxImages < 0 || options.MaxImages > dto.MaxImageN {
+			return fmt.Errorf("max_images must be an integer between 1 and %d", dto.MaxImageN)
+		}
+		if options.MaxImages > 0 {
+			request.N = common.GetPointer(uint(options.MaxImages))
+		}
+	}
+
+	return nil
 }
 
 func GetAndValidateClaudeRequest(c *gin.Context) (textRequest *dto.ClaudeRequest, err error) {

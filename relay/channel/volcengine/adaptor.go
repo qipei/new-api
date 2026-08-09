@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	channelconstant "github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
@@ -108,7 +109,28 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	switch info.RelayMode {
 	case constant.RelayModeImagesGenerations:
-		return request, nil
+		// ImageRequest intentionally excludes Extra from its generic MarshalJSON.
+		// Ark image generation exposes provider-specific controls (seed,
+		// sequential generation, guidance scale, prompt optimization), so merge
+		// those fields explicitly here. N may have been populated internally from
+		// max_images for billing and is not an Ark request parameter.
+		body, err := common.Marshal(request)
+		if err != nil {
+			return nil, err
+		}
+		var payload map[string]any
+		if err = common.Unmarshal(body, &payload); err != nil {
+			return nil, err
+		}
+		delete(payload, "n")
+		for key, raw := range request.Extra {
+			var value any
+			if err = common.Unmarshal(raw, &value); err != nil {
+				return nil, fmt.Errorf("invalid volcengine image parameter %s: %w", key, err)
+			}
+			payload[key] = value
+		}
+		return payload, nil
 	// 根据官方文档,并没有发现豆包生图支持表单请求:https://www.volcengine.com/docs/82379/1824121
 	//case constant.RelayModeImagesEdits:
 	//

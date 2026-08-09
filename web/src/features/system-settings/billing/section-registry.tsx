@@ -19,13 +19,13 @@ For commercial licensing, please contact support@quantumnous.com
 import { parseCurrencyDisplayType } from '@/lib/currency'
 
 import { CheckinSettingsSection } from '../general/checkin-settings-section'
-import { CommissionSettingsSection } from './commission-settings-section'
 import { PricingSection } from '../general/pricing-section'
 import { QuotaSettingsSection } from '../general/quota-settings-section'
 import { PaymentSettingsSection } from '../integrations/payment-settings-section'
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { CommissionSettingsSection } from './commission-settings-section'
 import { VideoPricingSection } from './video-pricing-section'
 
 const getModelDefaults = (settings: BillingSettings) => ({
@@ -120,7 +120,7 @@ const BILLING_SECTIONS = [
   // CUSTOM: 视频定价矩阵（fork 扩展）
   {
     id: 'video-pricing',
-    titleKey: 'Video Pricing',
+    titleKey: 'Video and Image Pricing',
     build: (settings: BillingSettings) => (
       <VideoPricingSection
         defaultValue={settings['video_billing.price_tables']}

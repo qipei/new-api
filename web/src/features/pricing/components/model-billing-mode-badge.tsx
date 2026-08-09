@@ -34,7 +34,16 @@ export function ModelBillingModeBadge(props: ModelBillingModeBadgeProps) {
   let label = t('Per Request')
   let variant: StatusVariant = 'purple'
 
-  if (isDynamicPricingModel(props.model)) {
+  if (props.model.matrix_price_unit === 'per_image') {
+    label = t('Per image')
+    variant = 'success'
+  } else if (props.model.matrix_price_unit === 'per_second') {
+    label = t('Per second')
+    variant = 'success'
+  } else if (props.model.matrix_price_unit === 'per_million_tokens') {
+    label = t('Per 1M tokens')
+    variant = 'success'
+  } else if (isDynamicPricingModel(props.model)) {
     label = t('Dynamic Pricing')
     variant = 'warning'
   } else if (isTokenBasedModel(props.model)) {

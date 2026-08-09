@@ -369,6 +369,10 @@ func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInf
 		quotaCalculateDecimal := dModelPrice.Mul(dQuotaPerUnit).Mul(dGroupRatio)
 		quotaCalculateDecimal = quotaCalculateDecimal.Add(audioInputQuota)
 		quotaCalculateDecimal = relayInfo.PriceData.ApplyOtherRatiosToDecimal(quotaCalculateDecimal)
+		if relayInfo.PriceData.FixedPrice > 0 {
+			fixedQuota := decimal.NewFromFloat(relayInfo.PriceData.FixedPrice).Mul(dQuotaPerUnit).Mul(dGroupRatio)
+			quotaCalculateDecimal = quotaCalculateDecimal.Add(fixedQuota)
+		}
 		quotaCalculateDecimal = quotaCalculateDecimal.Add(summary.ToolCallSurchargeQuota)
 		quota, clamp := common.QuotaFromDecimalChecked(quotaCalculateDecimal)
 		summary.Quota = quota

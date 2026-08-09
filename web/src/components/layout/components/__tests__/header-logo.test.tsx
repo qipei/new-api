@@ -16,37 +16,26 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { cn } from '@/lib/utils'
+import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
 
-interface HeaderLogoProps {
-  src: string
-  alt?: string
-  loading: boolean
-  logoLoaded: boolean
-  className?: string
-}
+import { renderToStaticMarkup } from 'react-dom/server'
 
-/**
- * Logo component for header with loading state
- * Shows image only when fully loaded for smooth UX
- */
-export function HeaderLogo({
-  src,
-  alt = 'logo',
-  loading,
-  logoLoaded,
-  className,
-}: HeaderLogoProps) {
-  return (
-    <img
-      src={src}
-      alt={alt}
-      className={cn(
-        'h-6 w-6 transition-opacity duration-200',
-        !loading && logoLoaded ? 'opacity-100' : 'opacity-0',
-        className,
-        'rounded-[6px] object-contain'
-      )}
-    />
-  )
-}
+import { HeaderLogo } from '../header-logo'
+
+describe('HeaderLogo', () => {
+  test('renders the system logo with rounded corners instead of a circle', () => {
+    const markup = renderToStaticMarkup(
+      <HeaderLogo
+        src='/token01-arcade.gif'
+        loading={false}
+        logoLoaded
+        className='rounded-lg'
+      />
+    )
+
+    assert.match(markup, /rounded-\[6px\]/)
+    assert.doesNotMatch(markup, /rounded-full/)
+    assert.doesNotMatch(markup, /rounded-lg/)
+  })
+})

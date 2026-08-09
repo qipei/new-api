@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/video_billing"
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
@@ -25,18 +26,23 @@ func oaiImage2AliImageRequest(info *relaycommon.RelayInfo, request dto.ImageRequ
 	var imageRequest AliImageRequest
 	imageRequest.Model = request.Model
 	imageRequest.ResponseFormat = request.ResponseFormat
+	imageRequest.Parameters = AliImageParameters{
+		Size:      strings.ReplaceAll(request.Size, "x", "*"),
+		N:         int(lo.FromPtrOr(request.N, uint(1))),
+		Watermark: request.Watermark,
+	}
+	if isAliUnifiedImageModel(info.UpstreamModelName) {
+		imageRequest.Model = info.UpstreamModelName
+		if strings.HasPrefix(strings.ToLower(info.UpstreamModelName), "kling/") {
+			imageRequest.Parameters.Size = ""
+			imageRequest.Parameters.Resolution = video_billing.ResolveImageResolution(info.OriginModelName, request.Size)
+		}
+	}
 	if request.Extra != nil {
 		if val, ok := request.Extra["parameters"]; ok {
 			err := common.Unmarshal(val, &imageRequest.Parameters)
 			if err != nil {
 				return nil, fmt.Errorf("invalid parameters field: %w", err)
-			}
-		} else {
-			// 兼容没有parameters字段的情况，从openai标准字段中提取参数
-			imageRequest.Parameters = AliImageParameters{
-				Size:      strings.Replace(request.Size, "x", "*", -1),
-				N:         int(lo.FromPtrOr(request.N, uint(1))),
-				Watermark: request.Watermark,
 			}
 		}
 		if val, ok := request.Extra["input"]; ok {
@@ -64,18 +70,35 @@ func oaiImage2AliImageRequest(info *relaycommon.RelayInfo, request dto.ImageRequ
 		info.PriceData.AddOtherRatio("n", float64(imageRequest.Parameters.N))
 	}
 
-	// 同步图片模型和异步图片模型请求格式不一样
-	if isSync {
+	// The Vidu and Kling unified image API always uses multimodal messages,
+	// despite being asynchronous.
+	if isSync || isAliUnifiedImageModel(info.UpstreamModelName) {
 		if imageRequest.Input == nil {
+			contents := make([]AliMediaContent, 0)
+			for _, raw := range [][]byte{request.Image, request.Images} {
+				if len(raw) == 0 {
+					continue
+				}
+				var images []string
+				if err := common.Unmarshal(raw, &images); err == nil {
+					for _, image := range images {
+						contents = append(contents, AliMediaContent{Image: image})
+					}
+					continue
+				}
+				var image string
+				if err := common.Unmarshal(raw, &image); err == nil && image != "" {
+					contents = append(contents, AliMediaContent{Image: image})
+				}
+			}
+			if request.Prompt != "" {
+				contents = append(contents, AliMediaContent{Text: request.Prompt})
+			}
 			imageRequest.Input = AliImageInput{
 				Messages: []AliMessage{
 					{
-						Role: "user",
-						Content: []AliMediaContent{
-							{
-								Text: request.Prompt,
-							},
-						},
+						Role:    "user",
+						Content: contents,
 					},
 				},
 			}

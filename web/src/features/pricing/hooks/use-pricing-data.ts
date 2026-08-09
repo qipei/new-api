@@ -54,6 +54,8 @@ export function usePricingData() {
       return {
         ...model,
         key: model.model_name,
+        matrix_price_unit:
+          data.video_pricing?.[model.model_name]?.unit ?? undefined,
         vendor_name: vendor?.name,
         vendor_icon: vendor?.icon,
         vendor_description: vendor?.description,

@@ -46,7 +46,13 @@ const AUDIO_LABEL_KEYS: Record<string, string> = {
 }
 
 function isDefaultTier(tier: VideoPriceTier): boolean {
-  return !tier.mode && !tier.resolution && !tier.audio
+  return (
+    !tier.mode &&
+    !tier.resolution &&
+    !tier.audio &&
+    !tier.min_pixels &&
+    !tier.max_pixels
+  )
 }
 
 export function VideoPriceSection(props: {
@@ -65,13 +71,18 @@ export function VideoPriceSection(props: {
     return null
   }
   const visibleTiers = table.tiers.filter((tier) => !isDefaultTier(tier))
-  if (visibleTiers.length === 0) return null
+  const hasInputImagePrice = Number(table.input_image_price) > 0
+  const hasInputTokenPrice = Number(table.input_token_price) > 0
+  if (visibleTiers.length === 0 && !hasInputImagePrice && !hasInputTokenPrice) {
+    return null
+  }
 
   let unitLabel = t('per second')
   if (table.unit === 'per_million_tokens') unitLabel = t('per 1M tokens')
   if (table.unit === 'per_image') unitLabel = t('per image')
   const sectionTitleKey =
     table.unit === 'per_image' ? 'Image Price' : 'Video Price'
+  const showAudioColumn = table.unit !== 'per_image'
 
   // 多分组时每个分组一列，按倍率从低到高（折扣从优到差）排序，同倍率按名称稳定排序
   const groups = getAvailableGroups(props.model, props.usableGroup || {})
@@ -106,16 +117,32 @@ export function VideoPriceSection(props: {
     tiersByMode.set(mode, list)
   }
 
+  const formatTierDimension = (tier: VideoPriceTier): string => {
+    if (tier.resolution) return tier.resolution
+    const minPixels = Number(tier.min_pixels)
+    const maxPixels = Number(tier.max_pixels)
+    if (minPixels > 0 && maxPixels > 0) {
+      return `${minPixels.toLocaleString()}–${maxPixels.toLocaleString()} ${t('pixels')}`
+    }
+    if (minPixels > 0) {
+      return `>${(minPixels - 1).toLocaleString()} ${t('pixels')}`
+    }
+    if (maxPixels > 0) {
+      return `≤${maxPixels.toLocaleString()} ${t('pixels')}`
+    }
+    return '—'
+  }
+
   const renderRow = (tier: VideoPriceTier) => {
-    const rowKey = `${tier.mode ?? ''}|${tier.resolution ?? ''}|${tier.audio ?? ''}|${tier.price}`
+    const rowKey = `${tier.mode ?? ''}|${tier.resolution ?? ''}|${tier.audio ?? ''}|${tier.min_pixels ?? ''}|${tier.max_pixels ?? ''}|${tier.price}`
     return (
       <tr key={rowKey} className='border-border/50 border-t'>
-        <td className='py-1.5 pr-3'>
-          {tier.resolution ? tier.resolution : '—'}
-        </td>
-        <td className='text-muted-foreground py-1.5 pr-3'>
-          {tier.audio ? t(AUDIO_LABEL_KEYS[tier.audio] ?? tier.audio) : '—'}
-        </td>
+        <td className='py-1.5 pr-3'>{formatTierDimension(tier)}</td>
+        {showAudioColumn ? (
+          <td className='text-muted-foreground py-1.5 pr-3'>
+            {tier.audio ? t(AUDIO_LABEL_KEYS[tier.audio] ?? tier.audio) : '—'}
+          </td>
+        ) : null}
         <td
           className={
             groups.length > 0
@@ -148,54 +175,14 @@ export function VideoPriceSection(props: {
         <span className='text-muted-foreground text-xs'>({unitLabel})</span>
       </div>
       <div className='space-y-3'>
-        {MODE_SECTION_KEYS.map((section) => {
-          const tiers = tiersByMode.get(section.mode)
-          if (!tiers || tiers.length === 0) return null
-          return (
-            <div
-              key={section.mode || 'general'}
-              className='bg-muted/20 overflow-x-auto rounded-lg border px-3 py-2.5'
-            >
-              <div className='text-muted-foreground mb-1 text-xs font-medium'>
-                {t(section.labelKey)}
-              </div>
-              <table className='w-full min-w-[360px] text-sm'>
-                <thead>
-                  <tr className='text-muted-foreground text-left text-xs'>
-                    <th className='py-1 pr-3 font-normal'>{t('Resolution')}</th>
-                    <th className='py-1 pr-3 font-normal'>
-                      {t('Audio track')}
-                    </th>
-                    <th className='py-1 pr-3 text-right font-normal'>
-                      {t('Official price')}
-                    </th>
-                    {groups.map((group) => (
-                      <th
-                        key={group.key}
-                        className='py-1 pl-3 text-right font-normal whitespace-nowrap'
-                      >
-                        {group.label}
-                        <span className='text-muted-foreground/60 ml-1'>
-                          ×{formatRatio(group.ratio)}
-                        </span>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>{tiers.map(renderRow)}</tbody>
-              </table>
-            </div>
-          )
-        })}
-        {(Number(table.input_image_price) > 0 ||
-          Number(table.input_token_price) > 0) && (
+        {hasInputImagePrice || hasInputTokenPrice ? (
           <div className='bg-muted/20 overflow-x-auto rounded-lg border px-3 py-2.5'>
             <div className='text-muted-foreground mb-1 text-xs font-medium'>
               {t('Input price')}
             </div>
             <table className='w-full min-w-[360px] text-sm'>
               <tbody>
-                {Number(table.input_image_price) > 0 && (
+                {hasInputImagePrice ? (
                   <tr className='border-border/50 border-t'>
                     <td className='py-1.5 pr-3'>{t('Input image price')}</td>
                     <td className='text-muted-foreground py-1.5 pr-3'>
@@ -227,8 +214,8 @@ export function VideoPriceSection(props: {
                       </td>
                     ))}
                   </tr>
-                )}
-                {Number(table.input_token_price) > 0 && (
+                ) : null}
+                {hasInputTokenPrice ? (
                   <tr className='border-border/50 border-t'>
                     <td className='py-1.5 pr-3'>{t('Input token price')}</td>
                     <td className='text-muted-foreground py-1.5 pr-3'>
@@ -260,11 +247,57 @@ export function VideoPriceSection(props: {
                       </td>
                     ))}
                   </tr>
-                )}
+                ) : null}
               </tbody>
             </table>
           </div>
-        )}
+        ) : null}
+        {MODE_SECTION_KEYS.map((section) => {
+          const tiers = tiersByMode.get(section.mode)
+          if (!tiers || tiers.length === 0) return null
+          return (
+            <div
+              key={section.mode || 'general'}
+              className='bg-muted/20 overflow-x-auto rounded-lg border px-3 py-2.5'
+            >
+              <div className='text-muted-foreground mb-1 text-xs font-medium'>
+                {t(section.labelKey)}
+              </div>
+              <table className='w-full min-w-[360px] text-sm'>
+                <thead>
+                  <tr className='text-muted-foreground text-left text-xs'>
+                    <th className='py-1 pr-3 font-normal'>
+                      {table.unit === 'per_image'
+                        ? t('Resolution / pixels')
+                        : t('Resolution')}
+                    </th>
+                    {showAudioColumn ? (
+                      <th className='py-1 pr-3 font-normal'>
+                        {t('Audio track')}
+                      </th>
+                    ) : null}
+                    <th className='py-1 pr-3 text-right font-normal'>
+                      {t('Official price')}
+                      {table.unit === 'per_image' ? ` ${t('/image')}` : null}
+                    </th>
+                    {groups.map((group) => (
+                      <th
+                        key={group.key}
+                        className='py-1 pl-3 text-right font-normal whitespace-nowrap'
+                      >
+                        {group.label}
+                        <span className='text-muted-foreground/60 ml-1'>
+                          ×{formatRatio(group.ratio)}
+                        </span>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>{tiers.map(renderRow)}</tbody>
+              </table>
+            </div>
+          )
+        })}
       </div>
     </section>
   )

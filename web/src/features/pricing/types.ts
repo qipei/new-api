@@ -56,6 +56,8 @@ export type PricingModel = {
   billing_expr?: string
   /** Pricing version returned by backend, useful for cache busting */
   pricing_version?: string
+  /** Matrix pricing unit when this model overrides the regular model price. */
+  matrix_price_unit?: string
   /**
    * Optional model metadata fields reserved for backend-provided catalog data.
    * Keep them data-driven; do not synthesize display values on the client.
@@ -93,6 +95,8 @@ export type VideoPriceTier = {
   mode?: string
   resolution?: string
   audio?: string
+  min_pixels?: number
+  max_pixels?: number
   price: number
 }
 

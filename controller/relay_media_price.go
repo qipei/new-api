@@ -3,8 +3,8 @@
 //
 //	费用 = 输出档价(模式×分辨率) × 张数 n + 输入图单价 × 输入图张数 + 输入token单价 × promptTokens/1M
 //
-// 实现上折算为"等效每张价 × n"（ModelPrice = 组件总价 ÷ n），使按次结算路径
-// (PostTextConsumeQuota UsePrice 分支) 复算结果与预扣完全一致，一次结清。
+// 输出价格由 n 倍率结算；输入图与提示词价格作为每请求固定组件单独结算，
+// 避免上游返回的实际图片数覆盖 n 后重复放大一次性费用。
 package controller
 
 import (
@@ -55,19 +55,18 @@ func resolveRelayPriceData(c *gin.Context, info *relaycommon.RelayInfo, promptTo
 		imageN = int(*imageRequest.N)
 	}
 
-	// 等效每张价 = 输出档价 + 附加组件均摊到每张
 	extraCost := float64(inputImages)*table.InputImagePrice +
 		float64(promptTokens)/1_000_000*table.InputTokenPrice
-	effectivePrice := outputPrice + extraCost/float64(imageN)
 
 	groupRatioInfo := helper.HandleGroupRatio(c, info)
 	priceData := hosttypes.PriceData{
 		UsePrice:       true,
-		ModelPrice:     effectivePrice,
+		ModelPrice:     outputPrice,
+		FixedPrice:     extraCost,
 		GroupRatioInfo: groupRatioInfo,
 	}
 	priceData.AddOtherRatio("n", float64(imageN))
-	quota, err := common.QuotaFromFloatStrict(effectivePrice * float64(imageN) * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+	quota, err := common.QuotaFromFloatStrict((outputPrice*float64(imageN) + extraCost) * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
 	if err != nil {
 		return hosttypes.PriceData{}, err
 	}

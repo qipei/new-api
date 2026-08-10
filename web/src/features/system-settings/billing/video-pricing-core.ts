@@ -60,6 +60,7 @@ export type EditableVideoTable = {
   tiers: EditableVideoTier[]
   inputImagePrice: string
   inputTokenPrice: string
+  resolutionTemplate?: string
   resolutionBuckets: EditableResolutionBucket[]
 }
 
@@ -162,6 +163,7 @@ export function parseVideoPricingTables(raw: string): EditableVideoTable[] {
         typeof table.input_token_price === 'number'
           ? String(table.input_token_price)
           : '',
+      resolutionTemplate: '',
       resolutionBuckets: resolutionBuckets.map((bucket) => ({
         uid: nextEditableBucketUid(),
         name: typeof bucket.name === 'string' ? bucket.name : '',

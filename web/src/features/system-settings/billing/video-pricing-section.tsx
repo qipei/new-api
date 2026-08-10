@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, X } from 'lucide-react'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -186,6 +186,7 @@ export function VideoPricingSection(props: { defaultValue: string }) {
         unit: 'per_second',
         inputImagePrice: '',
         inputTokenPrice: '',
+        resolutionTemplate: '',
         resolutionBuckets: [],
         tiers: [
           {
@@ -426,35 +427,55 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                             )}
                           </p>
                         </div>
-                        <Select
-                          onValueChange={(value) => {
-                            if (typeof value !== 'string') return
-                            const template = IMAGE_RESOLUTION_TEMPLATES[value]
-                            if (!template) return
-                            patchTable(tableIndex, {
-                              resolutionBuckets:
-                                editableBucketsFromTemplate(template),
-                            })
-                          }}
-                        >
-                          <SelectTrigger
-                            className='ml-auto w-72'
-                            aria-label={`${table.model} ${t('Apply resolution template')}`}
+                        <div className='ml-auto flex items-center gap-1'>
+                          <Select
+                            value={table.resolutionTemplate || null}
+                            onValueChange={(value) => {
+                              if (typeof value !== 'string') return
+                              const template = IMAGE_RESOLUTION_TEMPLATES[value]
+                              if (!template) return
+                              patchTable(tableIndex, {
+                                resolutionTemplate: value,
+                                resolutionBuckets:
+                                  editableBucketsFromTemplate(template),
+                              })
+                            }}
                           >
-                            <SelectValue
-                              placeholder={t('Apply resolution template')}
-                            />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(IMAGE_RESOLUTION_TEMPLATES).map(
-                              ([value, template]) => (
-                                <SelectItem key={value} value={value}>
-                                  {t(template.labelKey)}
-                                </SelectItem>
-                              )
-                            )}
-                          </SelectContent>
-                        </Select>
+                            <SelectTrigger
+                              className='w-72'
+                              aria-label={`${table.model} ${t('Apply resolution template')}`}
+                            >
+                              <SelectValue
+                                placeholder={t('Apply resolution template')}
+                              />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(IMAGE_RESOLUTION_TEMPLATES).map(
+                                ([value, template]) => (
+                                  <SelectItem key={value} value={value}>
+                                    {t(template.labelKey)}
+                                  </SelectItem>
+                                )
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='icon'
+                            disabled={table.resolutionBuckets.length === 0}
+                            aria-label={`${table.model} ${t('Clear')} ${t('Resolution bucket definitions')}`}
+                            title={t('Clear')}
+                            onClick={() =>
+                              patchTable(tableIndex, {
+                                resolutionTemplate: '',
+                                resolutionBuckets: [],
+                              })
+                            }
+                          >
+                            <X className='size-4' />
+                          </Button>
+                        </div>
                       </div>
                       {table.resolutionBuckets.map((bucket, bucketIndex) => (
                         <div

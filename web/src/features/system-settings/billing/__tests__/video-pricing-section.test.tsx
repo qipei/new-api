@@ -24,8 +24,8 @@ import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
 
-import { VideoPricingSection } from '../video-pricing-section'
 import { IMAGE_RESOLUTION_TEMPLATES } from '../image-resolution-templates'
+import { VideoPricingSection } from '../video-pricing-section'
 
 const i18n = createInstance()
 await i18n.use(initReactI18next).init({ lng: 'en' })
@@ -70,13 +70,17 @@ describe('VideoPricingSection', () => {
     assert.doesNotMatch(markup, />Audio track</)
   })
 
-  test('offers Alibaba image resolution templates for image pricing', () => {
+  test('offers Alibaba templates and enables clearing configured resolution buckets', () => {
     const markup = renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>
         <I18nextProvider i18n={i18n}>
           <VideoPricingSection
             defaultValue={JSON.stringify({
-              image: { unit: 'per_image', tiers: [{ price: 0.3 }] },
+              image: {
+                unit: 'per_image',
+                tiers: [{ price: 0.3 }],
+                resolution_buckets: [{ name: '1k', sizes: ['1024x1024'] }],
+              },
             })}
           />
         </I18nextProvider>
@@ -85,6 +89,14 @@ describe('VideoPricingSection', () => {
 
     assert.match(markup, />Resolution bucket definitions</)
     assert.match(markup, />Apply resolution template</)
+    assert.match(
+      markup,
+      /aria-label="image Clear Resolution bucket definitions"/
+    )
+    assert.doesNotMatch(
+      markup,
+      /disabled=""[^>]*aria-label="image Clear Resolution bucket definitions"/
+    )
     assert.deepEqual(
       IMAGE_RESOLUTION_TEMPLATES['bailian-vidu-image'].buckets.map(
         (bucket) => bucket.name

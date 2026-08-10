@@ -17,6 +17,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/video_billing"
 	"github.com/samber/lo"
 
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,16 @@ type AliVideoMedia struct {
 	URL  string `json:"url"`
 }
 
+type AliVideoMultiPrompt struct {
+	Index    int    `json:"index"`
+	Prompt   string `json:"prompt"`
+	Duration int    `json:"duration"`
+}
+
+type AliVideoElement struct {
+	ElementID int `json:"element_id"`
+}
+
 // AliVideoInput 视频输入参数
 type AliVideoInput struct {
 	Prompt         string          `json:"prompt,omitempty"`          // 文本提示词
@@ -50,17 +61,25 @@ type AliVideoInput struct {
 	Media          []AliVideoMedia `json:"media,omitempty"`           // 媒体列表（wan2.7-i2v新协议）
 	NegativePrompt string          `json:"negative_prompt,omitempty"` // 反向提示词
 	Template       string          `json:"template,omitempty"`        // 视频特效模板
+	// Kling v3 fields.
+	KeepOriginalSound *string               `json:"keep_original_sound,omitempty"`
+	MultiShot         *bool                 `json:"multi_shot,omitempty"`
+	ShotType          *string               `json:"shot_type,omitempty"`
+	MultiPrompt       []AliVideoMultiPrompt `json:"multi_prompt,omitempty"`
+	ElementList       []AliVideoElement     `json:"element_list,omitempty"`
 }
 
 // AliVideoParameters 视频参数
 type AliVideoParameters struct {
-	Resolution   string `json:"resolution,omitempty"`    // 分辨率: 480P/720P/1080P（图生视频、首尾帧生视频）
-	Size         string `json:"size,omitempty"`          // 尺寸: 如 "832*480"（文生视频）
-	Duration     int    `json:"duration,omitempty"`      // 时长: 3-10秒
-	PromptExtend bool   `json:"prompt_extend,omitempty"` // 是否开启prompt智能改写
-	Watermark    bool   `json:"watermark,omitempty"`     // 是否添加水印
-	Audio        *bool  `json:"audio,omitempty"`         // 是否添加音频（wan2.5）
-	Seed         int    `json:"seed,omitempty"`          // 随机数种子
+	Resolution   *string `json:"resolution,omitempty"`    // 分辨率: 480P/720P/1080P
+	Size         *string `json:"size,omitempty"`          // 尺寸: 如 "832*480"
+	Duration     *int    `json:"duration,omitempty"`      // 时长
+	PromptExtend *bool   `json:"prompt_extend,omitempty"` // 是否开启prompt智能改写
+	Watermark    *bool   `json:"watermark,omitempty"`     // 是否添加水印
+	Audio        *bool   `json:"audio,omitempty"`         // 是否添加音频
+	Seed         *int    `json:"seed,omitempty"`          // 随机数种子
+	Mode         *string `json:"mode,omitempty"`          // Kling 生成模式: std/pro
+	AspectRatio  *string `json:"aspect_ratio,omitempty"`  // Kling 输出比例
 }
 
 // AliVideoResponse 阿里通义万相响应
@@ -74,16 +93,17 @@ type AliVideoResponse struct {
 
 // AliVideoOutput 输出信息
 type AliVideoOutput struct {
-	TaskID        string `json:"task_id"`
-	TaskStatus    string `json:"task_status"`
-	SubmitTime    string `json:"submit_time,omitempty"`
-	ScheduledTime string `json:"scheduled_time,omitempty"`
-	EndTime       string `json:"end_time,omitempty"`
-	OrigPrompt    string `json:"orig_prompt,omitempty"`
-	ActualPrompt  string `json:"actual_prompt,omitempty"`
-	VideoURL      string `json:"video_url,omitempty"`
-	Code          string `json:"code,omitempty"`
-	Message       string `json:"message,omitempty"`
+	TaskID            string `json:"task_id"`
+	TaskStatus        string `json:"task_status"`
+	SubmitTime        string `json:"submit_time,omitempty"`
+	ScheduledTime     string `json:"scheduled_time,omitempty"`
+	EndTime           string `json:"end_time,omitempty"`
+	OrigPrompt        string `json:"orig_prompt,omitempty"`
+	ActualPrompt      string `json:"actual_prompt,omitempty"`
+	VideoURL          string `json:"video_url,omitempty"`
+	WatermarkVideoURL string `json:"watermark_video_url,omitempty"`
+	Code              string `json:"code,omitempty"`
+	Message           string `json:"message,omitempty"`
 }
 
 // AliUsage 使用统计
@@ -241,14 +261,20 @@ func ProcessAliOtherRatios(aliReq *AliVideoRequest) (map[string]float64, error) 
 	var resolution string
 
 	// size match
-	if aliReq.Parameters.Size != "" {
-		toResolution, err := sizeToResolution(aliReq.Parameters.Size)
+	if aliReq.Parameters == nil {
+		return otherRatios, nil
+	}
+	if size := pointerString(aliReq.Parameters.Size); size != "" {
+		toResolution, err := sizeToResolution(size)
 		if err != nil {
 			return nil, err
 		}
 		resolution = toResolution
 	} else {
-		resolution = strings.ToUpper(aliReq.Parameters.Resolution)
+		resolution = strings.ToUpper(pointerString(aliReq.Parameters.Resolution))
+		if resolution == "" {
+			return otherRatios, nil
+		}
 		if !strings.HasSuffix(resolution, "P") {
 			resolution = resolution + "P"
 		}
@@ -261,8 +287,38 @@ func ProcessAliOtherRatios(aliReq *AliVideoRequest) (map[string]float64, error) 
 	return otherRatios, nil
 }
 
+func pointerString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func pointerInt(value *int) int {
+	if value == nil {
+		return 0
+	}
+	return *value
+}
+
 func isWan27I2VModel(model string) bool {
 	return strings.HasPrefix(model, "wan2.7-i2v")
+}
+
+func isWanVideoModel(model string) bool {
+	return strings.HasPrefix(model, "wan")
+}
+
+func isAliKlingVideoModel(model string) bool {
+	return strings.HasPrefix(model, "kling/kling-v3-")
+}
+
+func isAliViduReferenceVideoModel(model string) bool {
+	return strings.HasPrefix(model, "vidu/vidu") && strings.HasSuffix(model, "_reference2video")
+}
+
+func isAliViduDramaModel(model string) bool {
+	return model == "vidu/viduq3-drama_reference2video"
 }
 
 func firstNonEmpty(values ...string) string {
@@ -303,6 +359,250 @@ func secondTaskImage(req relaycommon.TaskSubmitReq) string {
 		}
 	}
 	return ""
+}
+
+func taskImages(req relaycommon.TaskSubmitReq) []string {
+	images := make([]string, 0, len(req.Images)+1)
+	seen := make(map[string]struct{}, len(req.Images)+1)
+	appendImage := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		if _, ok := seen[value]; ok {
+			return
+		}
+		seen[value] = struct{}{}
+		images = append(images, value)
+	}
+	appendImage(req.Image)
+	for _, image := range req.Images {
+		appendImage(image)
+	}
+	appendImage(req.InputReference)
+	return images
+}
+
+func normalizeAliThirdPartyMedia(aliReq *AliVideoRequest, req relaycommon.TaskSubmitReq) error {
+	if !isAliKlingVideoModel(aliReq.Model) && !isAliViduReferenceVideoModel(aliReq.Model) {
+		return nil
+	}
+
+	if len(aliReq.Input.Media) == 0 {
+		images := taskImages(req)
+		if isAliViduReferenceVideoModel(aliReq.Model) {
+			for _, image := range images {
+				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "image", URL: image})
+			}
+		} else if len(images) > 0 {
+			aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "first_frame", URL: images[0]})
+			if len(images) > 1 {
+				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "last_frame", URL: images[1]})
+			}
+		}
+	}
+
+	// Kling v3 and Vidu reference-to-video both use input.media. Legacy Wan
+	// image fields are rejected by these third-party protocols.
+	aliReq.Input.ImgURL = ""
+	aliReq.Input.FirstFrameURL = ""
+	aliReq.Input.LastFrameURL = ""
+	aliReq.Input.AudioURL = ""
+
+	if isAliViduReferenceVideoModel(aliReq.Model) && len(aliReq.Input.Media) == 0 {
+		return fmt.Errorf("%s requires at least one input.media item or image", aliReq.Model)
+	}
+	return nil
+}
+
+func applyKlingSize(parameters *AliVideoParameters, size string) error {
+	normalized := strings.ToLower(strings.TrimSpace(size))
+	switch normalized {
+	case "std", "720p":
+		parameters.Mode = lo.ToPtr("std")
+		return nil
+	case "pro", "1080p":
+		parameters.Mode = lo.ToPtr("pro")
+		return nil
+	case "16:9", "9:16", "1:1":
+		parameters.AspectRatio = lo.ToPtr(normalized)
+		return nil
+	}
+
+	type klingSize struct {
+		mode  string
+		ratio string
+	}
+	knownSizes := map[string]klingSize{
+		"1280*720":  {mode: "std", ratio: "16:9"},
+		"720*1280":  {mode: "std", ratio: "9:16"},
+		"1280*1280": {mode: "std", ratio: "1:1"},
+		"1920*1080": {mode: "pro", ratio: "16:9"},
+		"1080*1920": {mode: "pro", ratio: "9:16"},
+		"1920*1920": {mode: "pro", ratio: "1:1"},
+	}
+	mapped, ok := knownSizes[strings.ReplaceAll(normalized, "x", "*")]
+	if !ok {
+		return fmt.Errorf("unsupported Kling size %q; use 720p, 1080p, std, pro, 16:9, 9:16, or 1:1", size)
+	}
+	parameters.Mode = lo.ToPtr(mapped.mode)
+	parameters.AspectRatio = lo.ToPtr(mapped.ratio)
+	return nil
+}
+
+func mediaTypeCounts(media []AliVideoMedia) map[string]int {
+	counts := make(map[string]int)
+	for _, item := range media {
+		counts[item.Type]++
+	}
+	return counts
+}
+
+func validateAliThirdPartyVideoRequest(aliReq *AliVideoRequest) error {
+	if isAliKlingVideoModel(aliReq.Model) {
+		return validateAliKlingRequest(aliReq)
+	}
+	if isAliViduReferenceVideoModel(aliReq.Model) {
+		return validateAliViduRequest(aliReq)
+	}
+	return nil
+}
+
+func validateAliKlingRequest(aliReq *AliVideoRequest) error {
+	parameters := aliReq.Parameters
+	if mode := pointerString(parameters.Mode); mode != "" && mode != "std" && mode != "pro" {
+		return fmt.Errorf("Kling parameters.mode must be std or pro")
+	}
+	if ratio := pointerString(parameters.AspectRatio); ratio != "" && ratio != "16:9" && ratio != "9:16" && ratio != "1:1" {
+		return fmt.Errorf("Kling parameters.aspect_ratio must be 16:9, 9:16, or 1:1")
+	}
+	duration := pointerInt(parameters.Duration)
+	if duration < 3 || duration > 15 {
+		return fmt.Errorf("Kling duration must be between 3 and 15 seconds")
+	}
+
+	counts := mediaTypeCounts(aliReq.Input.Media)
+	isOmni := aliReq.Model == "kling/kling-v3-omni-video-generation"
+	for mediaType, count := range counts {
+		if count <= 0 {
+			continue
+		}
+		if !isOmni && mediaType != "first_frame" && mediaType != "last_frame" {
+			return fmt.Errorf("%s does not support media type %s", aliReq.Model, mediaType)
+		}
+		if isOmni && mediaType != "first_frame" && mediaType != "last_frame" && mediaType != "refer" && mediaType != "base" && mediaType != "feature" {
+			return fmt.Errorf("unsupported Kling Omni media type %s", mediaType)
+		}
+	}
+	if counts["first_frame"] > 1 || counts["last_frame"] > 1 || counts["base"] > 1 || counts["feature"] > 1 {
+		return fmt.Errorf("Kling accepts at most one first frame, last frame, base video, and feature video")
+	}
+	if counts["last_frame"] > 0 && counts["first_frame"] == 0 {
+		return fmt.Errorf("Kling last_frame requires first_frame")
+	}
+	if counts["base"] > 0 && (counts["feature"] > 0 || counts["first_frame"] > 0 || counts["last_frame"] > 0) {
+		return fmt.Errorf("Kling base video cannot be combined with feature or frame media")
+	}
+	if counts["feature"] > 0 && counts["last_frame"] > 0 {
+		return fmt.Errorf("Kling feature video cannot be combined with last_frame")
+	}
+	if counts["refer"]+len(aliReq.Input.ElementList) > 7 {
+		return fmt.Errorf("Kling refer media plus element_list cannot exceed 7 items")
+	}
+	if (counts["feature"] > 0 || counts["base"] > 0) && counts["refer"]+len(aliReq.Input.ElementList) > 4 {
+		return fmt.Errorf("Kling video reference plus refer media and element_list cannot exceed 4 items")
+	}
+	if counts["feature"] > 0 && duration > 10 {
+		return fmt.Errorf("Kling feature-video duration must be between 3 and 10 seconds")
+	}
+	if parameters.Audio != nil && *parameters.Audio && (counts["base"] > 0 || counts["feature"] > 0) {
+		return fmt.Errorf("Kling audio must be false when base or feature video is supplied")
+	}
+	if aliReq.Input.KeepOriginalSound != nil && counts["base"] == 0 && counts["feature"] == 0 {
+		return fmt.Errorf("Kling keep_original_sound requires base or feature video")
+	}
+	if value := pointerString(aliReq.Input.KeepOriginalSound); value != "" && value != "yes" && value != "no" {
+		return fmt.Errorf("Kling keep_original_sound must be yes or no")
+	}
+
+	multiShot := aliReq.Input.MultiShot != nil && *aliReq.Input.MultiShot
+	shotType := pointerString(aliReq.Input.ShotType)
+	if multiShot && shotType != "intelligence" && shotType != "customize" {
+		return fmt.Errorf("Kling shot_type must be intelligence or customize when multi_shot is true")
+	}
+	if shotType == "customize" {
+		if len(aliReq.Input.MultiPrompt) == 0 || len(aliReq.Input.MultiPrompt) > 6 {
+			return fmt.Errorf("Kling customize mode requires 1 to 6 multi_prompt items")
+		}
+		for index, item := range aliReq.Input.MultiPrompt {
+			if item.Index != index+1 || strings.TrimSpace(item.Prompt) == "" || item.Duration < 1 || item.Duration > duration {
+				return fmt.Errorf("invalid Kling multi_prompt item at position %d", index+1)
+			}
+		}
+	}
+	if shotType != "customize" && strings.TrimSpace(aliReq.Input.Prompt) == "" {
+		return fmt.Errorf("Kling prompt is required unless shot_type is customize")
+	}
+	return nil
+}
+
+func validateAliViduRequest(aliReq *AliVideoRequest) error {
+	parameters := aliReq.Parameters
+	resolution := strings.ToUpper(pointerString(parameters.Resolution))
+	allowedResolutions := map[string]bool{"540P": true, "720P": true, "1080P": true}
+	if isAliViduDramaModel(aliReq.Model) || aliReq.Model == "vidu/viduq3-ad_reference2video" || aliReq.Model == "vidu/viduq3-mix_reference2video" {
+		delete(allowedResolutions, "540P")
+	}
+	if !allowedResolutions[resolution] {
+		return fmt.Errorf("unsupported resolution %q for %s", resolution, aliReq.Model)
+	}
+
+	duration := pointerInt(parameters.Duration)
+	minDuration, maxDuration := 1, 10
+	allowAutoDuration := false
+	switch aliReq.Model {
+	case "vidu/viduq3-ad_reference2video":
+		minDuration, maxDuration = 3, 15
+	case "vidu/viduq3-drama_reference2video":
+		minDuration, maxDuration = 2, 15
+	case "vidu/viduq3-mix_reference2video", "vidu/viduq3_reference2video", "vidu/viduq3-turbo_reference2video":
+		minDuration, maxDuration = 1, 16
+	case "vidu/viduq2-pro_reference2video":
+		allowAutoDuration = true
+	}
+	if (!allowAutoDuration || duration != 0) && (duration < minDuration || duration > maxDuration) {
+		return fmt.Errorf("duration %d is unsupported for %s", duration, aliReq.Model)
+	}
+	if parameters.Seed != nil && (*parameters.Seed < 0 || *parameters.Seed > 2147483647) {
+		return fmt.Errorf("Vidu seed must be between 0 and 2147483647")
+	}
+
+	counts := mediaTypeCounts(aliReq.Input.Media)
+	if counts["image"] == 0 {
+		return fmt.Errorf("%s requires at least one image media item", aliReq.Model)
+	}
+	if len(counts) > 1 && aliReq.Model != "vidu/viduq2-pro_reference2video" {
+		return fmt.Errorf("%s only supports image media", aliReq.Model)
+	}
+	if counts["video"] > 0 {
+		if aliReq.Model != "vidu/viduq2-pro_reference2video" || counts["video"] > 2 || counts["image"] > 4 {
+			return fmt.Errorf("invalid Vidu reference image/video combination")
+		}
+	} else if counts["image"] > 7 {
+		return fmt.Errorf("Vidu accepts at most 7 reference images")
+	}
+	for mediaType := range counts {
+		if mediaType != "image" && mediaType != "video" {
+			return fmt.Errorf("unsupported Vidu media type %s", mediaType)
+		}
+	}
+	if parameters.Audio != nil {
+		supportsAudio := aliReq.Model == "vidu/viduq3-ad_reference2video" || aliReq.Model == "vidu/viduq3-mix_reference2video" || aliReq.Model == "vidu/viduq3_reference2video" || aliReq.Model == "vidu/viduq3-turbo_reference2video"
+		if !supportsAudio {
+			return fmt.Errorf("%s does not support parameters.audio", aliReq.Model)
+		}
+	}
+	return nil
 }
 
 func normalizeWan27I2VInput(aliReq *AliVideoRequest, req relaycommon.TaskSubmitReq) error {
@@ -353,72 +653,78 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 	if info.IsModelMapped {
 		upstreamModel = info.UpstreamModelName
 	}
+	parameters := &AliVideoParameters{}
+	if isWanVideoModel(upstreamModel) {
+		parameters.PromptExtend = lo.ToPtr(true)
+		parameters.Watermark = lo.ToPtr(false)
+	}
 	aliReq := &AliVideoRequest{
 		Model: upstreamModel,
 		Input: AliVideoInput{
 			Prompt: req.Prompt,
 			ImgURL: firstTaskImage(req),
 		},
-		Parameters: &AliVideoParameters{
-			PromptExtend: true, // 默认开启智能改写
-			Watermark:    false,
-		},
+		Parameters: parameters,
 	}
 
 	// 处理分辨率映射
 	if req.Size != "" {
-		// text to video size must be contained *
-		if strings.Contains(req.Model, "t2v") && !strings.Contains(req.Size, "*") {
+		if isAliKlingVideoModel(upstreamModel) {
+			if err := applyKlingSize(parameters, req.Size); err != nil {
+				return nil, err
+			}
+		} else if strings.Contains(upstreamModel, "t2v") && !strings.Contains(req.Size, "*") {
 			return nil, fmt.Errorf("invalid size: %s, example: %s", req.Size, "1920*1080")
-		}
-		if strings.Contains(req.Size, "*") {
-			aliReq.Parameters.Size = req.Size
+		} else if strings.Contains(req.Size, "*") {
+			parameters.Size = lo.ToPtr(req.Size)
 		} else {
 			resolution := strings.ToUpper(req.Size)
-			// 支持 480p, 720p, 1080p 或 480P, 720P, 1080P
 			if !strings.HasSuffix(resolution, "P") {
 				resolution = resolution + "P"
 			}
-			aliReq.Parameters.Resolution = resolution
+			parameters.Resolution = lo.ToPtr(resolution)
 		}
 	} else {
 		// 根据模型设置默认分辨率
-		if strings.Contains(req.Model, "t2v") { // image to video
-			if strings.HasPrefix(req.Model, "wan2.5") {
-				aliReq.Parameters.Size = "1920*1080"
-			} else if strings.HasPrefix(req.Model, "wan2.2") {
-				aliReq.Parameters.Size = "1920*1080"
-			} else {
-				aliReq.Parameters.Size = "1280*720"
+		if isAliViduReferenceVideoModel(upstreamModel) {
+			resolution := "720P"
+			if isAliViduDramaModel(upstreamModel) {
+				resolution = "1080P"
 			}
-		} else {
-			if strings.HasPrefix(req.Model, "wan2.6") {
-				aliReq.Parameters.Resolution = "1080P"
-			} else if strings.HasPrefix(req.Model, "wan2.5") {
-				aliReq.Parameters.Resolution = "1080P"
-			} else if strings.HasPrefix(req.Model, "wan2.2-i2v-flash") {
-				aliReq.Parameters.Resolution = "720P"
-			} else if strings.HasPrefix(req.Model, "wan2.2-i2v-plus") {
-				aliReq.Parameters.Resolution = "1080P"
+			parameters.Resolution = lo.ToPtr(resolution)
+		} else if strings.Contains(upstreamModel, "t2v") {
+			if strings.HasPrefix(upstreamModel, "wan2.5") || strings.HasPrefix(upstreamModel, "wan2.2") {
+				parameters.Size = lo.ToPtr("1920*1080")
 			} else {
-				aliReq.Parameters.Resolution = "720P"
+				parameters.Size = lo.ToPtr("1280*720")
 			}
+		} else if isWanVideoModel(upstreamModel) {
+			if strings.HasPrefix(upstreamModel, "wan2.6") || strings.HasPrefix(upstreamModel, "wan2.5") || strings.HasPrefix(upstreamModel, "wan2.2-i2v-plus") {
+				parameters.Resolution = lo.ToPtr("1080P")
+			} else {
+				parameters.Resolution = lo.ToPtr("720P")
+			}
+		}
+	}
+	if isAliKlingVideoModel(upstreamModel) {
+		mode := strings.ToLower(strings.TrimSpace(req.Mode))
+		if mode == "std" || mode == "pro" {
+			parameters.Mode = lo.ToPtr(mode)
 		}
 	}
 
 	// 处理时长
 	if req.Duration > 0 {
-		aliReq.Parameters.Duration = req.Duration
+		parameters.Duration = lo.ToPtr(req.Duration)
 	} else if req.Seconds != "" {
 		seconds, err := strconv.Atoi(req.Seconds)
 		if err != nil {
 			return nil, errors.Wrap(err, "convert seconds to int failed")
-		} else {
-			aliReq.Parameters.Duration = seconds
 		}
+		parameters.Duration = lo.ToPtr(seconds)
 	}
-	if aliReq.Parameters.Duration <= 0 {
-		aliReq.Parameters.Duration = 5 // 默认5秒
+	if parameters.Duration == nil {
+		parameters.Duration = lo.ToPtr(5)
 	}
 
 	// 从 metadata 中提取额外参数
@@ -440,6 +746,12 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 	if err := normalizeWan27I2VInput(aliReq, req); err != nil {
 		return nil, err
 	}
+	if err := normalizeAliThirdPartyMedia(aliReq, req); err != nil {
+		return nil, err
+	}
+	if err := validateAliThirdPartyVideoRequest(aliReq); err != nil {
+		return nil, err
+	}
 
 	return aliReq, nil
 }
@@ -451,16 +763,25 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 	if err != nil {
 		return nil
 	}
-
 	aliReq, err := a.convertToAliRequest(info, taskReq)
 	if err != nil {
 		return nil
+	}
+	if table, ok := video_billing.GetPriceTable(info.OriginModelName); ok {
+		if table.Unit != video_billing.UnitPerSecond {
+			return nil
+		}
+		seconds := pointerInt(aliReq.Parameters.Duration)
+		if seconds <= 0 {
+			seconds = 5
+		}
+		return map[string]float64{"seconds": float64(min(seconds, relaycommon.MaxTaskDurationSeconds))}
 	}
 
 	// metadata can override Duration past standard request validation;
 	// cap it because it is used as a billing multiplier.
 	otherRatios := map[string]float64{
-		"seconds": float64(min(aliReq.Parameters.Duration, relaycommon.MaxTaskDurationSeconds)),
+		"seconds": float64(min(pointerInt(aliReq.Parameters.Duration), relaycommon.MaxTaskDurationSeconds)),
 	}
 	ratios, err := ProcessAliOtherRatios(aliReq)
 	if err != nil {
@@ -470,6 +791,10 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		otherRatios[k] = v
 	}
 	return otherRatios
+}
+
+func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *relaycommon.TaskInfo) int {
+	return taskcommon.VideoMatrixQuotaOnComplete(task, taskResult)
 }
 
 // DoRequest delegates to common helper
@@ -573,6 +898,17 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		taskResult.Status = model.TaskStatusSuccess
 		// 阿里直接返回视频URL，不需要额外的代理端点
 		taskResult.Url = aliResp.Output.VideoURL
+		taskResult.RemoteUrl = aliResp.Output.WatermarkVideoURL
+		if aliResp.Usage != nil {
+			duration := aliResp.Usage.Duration
+			if duration > 0 {
+				if duration > dto.IntValue(relaycommon.MaxTaskDurationSeconds) {
+					taskResult.Duration = relaycommon.MaxTaskDurationSeconds
+				} else {
+					taskResult.Duration = int(duration)
+				}
+			}
+		}
 	case "FAILED", "CANCELED", "UNKNOWN":
 		taskResult.Status = model.TaskStatusFailure
 		if aliResp.Message != "" {
@@ -605,6 +941,9 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(task *model.Task) ([]byte, error) {
 
 	// 设置视频URL（核心字段）
 	openAIResp.SetMetadata("url", aliResp.Output.VideoURL)
+	if aliResp.Output.WatermarkVideoURL != "" {
+		openAIResp.SetMetadata("watermark_url", aliResp.Output.WatermarkVideoURL)
+	}
 
 	// 错误处理
 	if aliResp.Code != "" {

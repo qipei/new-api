@@ -19,7 +19,7 @@ func VideoMatrixQuotaOnComplete(task *model.Task, taskResult *relaycommon.TaskIn
 		return 0
 	}
 	bc := task.PrivateData.BillingContext
-	if bc == nil || bc.PerCallBilling || bc.ModelPrice <= 0 {
+	if bc == nil || bc.ModelPrice <= 0 {
 		return 0
 	}
 
@@ -28,7 +28,18 @@ func VideoMatrixQuotaOnComplete(task *model.Task, taskResult *relaycommon.TaskIn
 		modelName = task.Properties.OriginModelName
 	}
 	table, ok := video_billing.GetPriceTable(modelName)
-	if !ok || table.Unit != video_billing.UnitPerMillionToken {
+	if !ok {
+		return 0
+	}
+	if table.Unit == video_billing.UnitPerSecond {
+		if !bc.SettleOnComplete || taskResult.Duration <= 0 {
+			return 0
+		}
+		quota, clamp := common.QuotaFromFloatChecked(float64(taskResult.Duration) * bc.ModelPrice * common.QuotaPerUnit * bc.GroupRatio)
+		taskResult.QuotaClamp = clamp
+		return quota
+	}
+	if table.Unit != video_billing.UnitPerMillionToken || bc.PerCallBilling {
 		return 0
 	}
 
@@ -45,5 +56,7 @@ func VideoMatrixQuotaOnComplete(task *model.Task, taskResult *relaycommon.TaskIn
 		return 0
 	}
 
-	return common.QuotaFromFloat(float64(tokens) / 1_000_000 * bc.ModelPrice * common.QuotaPerUnit * groupRatio)
+	quota, clamp := common.QuotaFromFloatChecked(float64(tokens) / 1_000_000 * bc.ModelPrice * common.QuotaPerUnit * groupRatio)
+	taskResult.QuotaClamp = clamp
+	return quota
 }

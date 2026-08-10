@@ -49,6 +49,25 @@ func TestVideoMatrixQuotaOnComplete(t *testing.T) {
 	assert.Equal(t, expected, quota)
 }
 
+func TestVideoMatrixQuotaOnCompletePerSecondUsesActualDuration(t *testing.T) {
+	withTables(t, map[string]video_billing.ModelPriceTable{
+		"seedance-matrix": {
+			Unit:  video_billing.UnitPerSecond,
+			Tiers: []video_billing.PriceTier{{Price: 0.3}},
+		},
+	})
+	task := matrixTask(0.3, 0.85, true)
+	task.PrivateData.BillingContext.SettleOnComplete = true
+	result := &relaycommon.TaskInfo{Duration: 7}
+
+	quota := VideoMatrixQuotaOnComplete(task, result)
+
+	expected := common.QuotaFromFloat(7 * 0.3 * common.QuotaPerUnit * 0.85)
+	require.Positive(t, quota)
+	assert.Equal(t, expected, quota)
+	assert.Nil(t, result.QuotaClamp)
+}
+
 func TestVideoMatrixQuotaOnCompleteNotApplicable(t *testing.T) {
 	withTables(t, map[string]video_billing.ModelPriceTable{
 		"seedance-matrix": {

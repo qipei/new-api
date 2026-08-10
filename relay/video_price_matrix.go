@@ -6,6 +6,7 @@
 package relay
 
 import (
+	"math"
 	"strconv"
 	"strings"
 
@@ -109,26 +110,107 @@ func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string,
 	}
 
 	mode := video_billing.ModeTextToVideo
-	if metadataContentHasMedia(req.Metadata, "video_url") {
+	if metadataContentHasMedia(req.Metadata, "video_url") || metadataInputHasMedia(req.Metadata, "video", "base", "feature") {
 		mode = video_billing.ModeVideoToVideo
-	} else if req.HasImage() || metadataContentHasMedia(req.Metadata, "image_url") {
+	} else if req.HasImage() || metadataContentHasMedia(req.Metadata, "image_url") || metadataInputHasMedia(req.Metadata, "image", "first_frame", "last_frame", "refer") {
 		mode = video_billing.ModeImageToVideo
 	}
 
 	resolution := req.Size
 	if metaResolution, ok := req.Metadata["resolution"].(string); ok && metaResolution != "" {
 		resolution = metaResolution
+	} else if metaResolution := metadataParameterString(req.Metadata, "resolution"); metaResolution != "" {
+		resolution = metaResolution
+	} else {
+		switch strings.ToLower(metadataParameterString(req.Metadata, "mode")) {
+		case "std":
+			resolution = "720p"
+		case "pro":
+			resolution = "1080p"
+		}
 	}
 
 	seconds, _ := strconv.Atoi(req.Seconds)
 	if seconds == 0 {
 		seconds = req.Duration
 	}
+	if seconds == 0 {
+		seconds = metadataParameterInt(req.Metadata, "duration")
+	}
 	if seconds > relaycommon.MaxTaskDurationSeconds {
 		seconds = relaycommon.MaxTaskDurationSeconds
 	}
 
 	return mode, resolution, requestAudioDimension(c, &req), seconds
+}
+
+func metadataParameters(metadata map[string]interface{}) map[string]interface{} {
+	if metadata == nil {
+		return nil
+	}
+	parameters, _ := metadata["parameters"].(map[string]interface{})
+	return parameters
+}
+
+func metadataParameterString(metadata map[string]interface{}, key string) string {
+	value, _ := metadataParameters(metadata)[key].(string)
+	return value
+}
+
+func metadataParameterInt(metadata map[string]interface{}, key string) int {
+	value := metadataParameters(metadata)[key]
+	switch typed := value.(type) {
+	case int:
+		if typed <= 0 {
+			return 0
+		}
+		return min(typed, relaycommon.MaxTaskDurationSeconds)
+	case float64:
+		if typed <= 0 || math.IsNaN(typed) || math.IsInf(typed, -1) || typed != math.Trunc(typed) {
+			return 0
+		}
+		if math.IsInf(typed, 1) || typed > float64(relaycommon.MaxTaskDurationSeconds) {
+			return relaycommon.MaxTaskDurationSeconds
+		}
+		return int(typed)
+	case string:
+		parsed, _ := strconv.Atoi(typed)
+		if parsed <= 0 {
+			return 0
+		}
+		return min(parsed, relaycommon.MaxTaskDurationSeconds)
+	default:
+		return 0
+	}
+}
+
+func metadataInputHasMedia(metadata map[string]interface{}, mediaTypes ...string) bool {
+	if metadata == nil {
+		return false
+	}
+	input, ok := metadata["input"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+	media, ok := input["media"].([]interface{})
+	if !ok {
+		return false
+	}
+	types := make(map[string]struct{}, len(mediaTypes))
+	for _, mediaType := range mediaTypes {
+		types[mediaType] = struct{}{}
+	}
+	for _, item := range media {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		mediaType, _ := itemMap["type"].(string)
+		if _, ok := types[mediaType]; ok {
+			return true
+		}
+	}
+	return false
 }
 
 // originTaskSecondsAndSize 读取 remix 原任务的时长与分辨率（解析失败时返回零值）。
@@ -194,6 +276,16 @@ func requestAudioDimension(c *gin.Context, req *relaycommon.TaskSubmitReq) strin
 			}
 		}
 		return ""
+	}
+	if v, ok := metadataParameters(req.Metadata)["audio"]; ok {
+		switch value := v.(type) {
+		case bool:
+			return toDimension(value)
+		case string:
+			if parsed, err := strconv.ParseBool(value); err == nil {
+				return toDimension(parsed)
+			}
+		}
 	}
 	// 兼容 metadata.OutputConfig.AudioGeneration: "Enabled"/"Disabled" 形态
 	for _, configKey := range []string{"OutputConfig", "output_config"} {

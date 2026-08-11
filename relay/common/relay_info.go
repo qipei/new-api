@@ -835,6 +835,8 @@ type TaskSubmitReq struct {
 	Image          string                 `json:"image,omitempty"`
 	Images         []string               `json:"images,omitempty"`
 	Video          string                 `json:"video,omitempty"`
+	Audio          string                 `json:"audio,omitempty"`
+	Audios         []string               `json:"audios,omitempty"`
 	Size           string                 `json:"size,omitempty"`
 	Duration       int                    `json:"duration,omitempty"`
 	Seconds        string                 `json:"seconds,omitempty"`
@@ -852,6 +854,10 @@ func (t *TaskSubmitReq) HasImage() bool {
 
 func (t *TaskSubmitReq) HasVideo() bool {
 	return strings.TrimSpace(t.Video) != ""
+}
+
+func (t *TaskSubmitReq) HasAudio() bool {
+	return strings.TrimSpace(t.Audio) != "" || len(t.Audios) > 0
 }
 
 func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {

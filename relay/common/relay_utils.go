@@ -145,10 +145,13 @@ func validatePrompt(prompt string) *dto.TaskError {
 // overflow quota calculation into a negative charge.
 const MaxTaskDurationSeconds = 3600
 
-func validateTaskDurationBounds(req TaskSubmitReq) *dto.TaskError {
+func validateTaskDurationBounds(req TaskSubmitReq, allowAutoDuration bool) *dto.TaskError {
 	seconds := req.Duration
 	if seconds == 0 && req.Seconds != "" {
 		seconds, _ = strconv.Atoi(req.Seconds)
+	}
+	if allowAutoDuration && seconds == -1 {
+		return nil
 	}
 	if seconds < 0 || seconds > MaxTaskDurationSeconds {
 		return createTaskError(fmt.Errorf("seconds must be between 1 and %d", MaxTaskDurationSeconds), "invalid_seconds", http.StatusBadRequest, true)
@@ -169,11 +172,16 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 		Mode:     formData.Get("mode"),
 		Image:    formData.Get("image"),
 		Video:    formData.Get("video"),
+		Audio:    formData.Get("audio"),
 		Size:     formData.Get("size"),
 		Metadata: make(map[string]interface{}),
 	}
 
-	if durationStr := formData.Get("seconds"); durationStr != "" {
+	durationStr := formData.Get("seconds")
+	if durationStr == "" {
+		durationStr = formData.Get("duration")
+	}
+	if durationStr != "" {
 		if duration, err := strconv.Atoi(durationStr); err == nil {
 			req.Duration = duration
 		}
@@ -181,6 +189,9 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 
 	if images := formData["images"]; len(images) > 0 {
 		req.Images = images
+	}
+	if audios := formData["audios"]; len(audios) > 0 {
+		req.Audios = audios
 	}
 
 	for key, values := range formData {
@@ -235,7 +246,7 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 		return taskErr
 	}
 
-	if taskErr := validateTaskDurationBounds(req); taskErr != nil {
+	if taskErr := validateTaskDurationBounds(req, false); taskErr != nil {
 		return taskErr
 	}
 
@@ -275,14 +286,28 @@ func isKnownTaskField(field string) bool {
 		"image":           true,
 		"images":          true,
 		"video":           true,
+		"audio":           true,
+		"audios":          true,
 		"size":            true,
 		"duration":        true,
+		"seconds":         true,
 		"input_reference": true, // Sora 特有字段
 	}
 	return knownFields[field]
 }
 
 func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *dto.TaskError {
+	return validateTaskRequest(c, info, action, false, false)
+}
+
+// ValidateMediaTaskRequest accepts media-only requests and the provider's -1
+// automatic-duration sentinel. Providers using it must still enforce their
+// own model-specific media combinations and duration ranges.
+func ValidateMediaTaskRequest(c *gin.Context, info *RelayInfo, action string) *dto.TaskError {
+	return validateTaskRequest(c, info, action, true, true)
+}
+
+func validateTaskRequest(c *gin.Context, info *RelayInfo, action string, allowMediaOnly, allowAutoDuration bool) *dto.TaskError {
 	var err error
 	contentType := c.GetHeader("Content-Type")
 	var req TaskSubmitReq
@@ -297,11 +322,15 @@ func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *d
 		return createTaskError(err, "invalid_request", http.StatusBadRequest, true)
 	}
 
-	if taskErr := validatePrompt(req.Prompt); taskErr != nil {
-		return taskErr
+	if strings.TrimSpace(req.Prompt) == "" {
+		if !allowMediaOnly || !taskRequestHasMedia(req) {
+			if taskErr := validatePrompt(req.Prompt); taskErr != nil {
+				return taskErr
+			}
+		}
 	}
 
-	if taskErr := validateTaskDurationBounds(req); taskErr != nil {
+	if taskErr := validateTaskDurationBounds(req, allowAutoDuration); taskErr != nil {
 		return taskErr
 	}
 
@@ -312,4 +341,31 @@ func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *d
 
 	storeTaskRequest(c, info, action, req)
 	return nil
+}
+
+func taskRequestHasMedia(req TaskSubmitReq) bool {
+	if req.HasImage() || strings.TrimSpace(req.Image) != "" || req.HasVideo() || req.HasAudio() {
+		return true
+	}
+	content, ok := req.Metadata["content"].([]interface{})
+	if !ok {
+		return false
+	}
+	for _, rawItem := range content {
+		item, ok := rawItem.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		typeName, _ := item["type"].(string)
+		switch typeName {
+		case "image_url", "video_url", "audio_url", "draft_task":
+			return true
+		case "text":
+			text, _ := item["text"].(string)
+			if strings.TrimSpace(text) != "" {
+				return true
+			}
+		}
+	}
+	return false
 }

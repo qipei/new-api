@@ -112,7 +112,7 @@ func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string,
 	mode := video_billing.ModeTextToVideo
 	if req.HasVideo() || metadataContentHasMedia(req.Metadata, "video_url") || metadataInputHasMedia(req.Metadata, "video", "base", "feature") {
 		mode = video_billing.ModeVideoToVideo
-	} else if req.HasImage() || metadataContentHasMedia(req.Metadata, "image_url") || metadataInputHasMedia(req.Metadata, "image", "first_frame", "last_frame", "refer") {
+	} else if req.HasImage() || strings.TrimSpace(req.Image) != "" || metadataContentHasMedia(req.Metadata, "image_url") || metadataInputHasMedia(req.Metadata, "image", "first_frame", "last_frame", "refer") {
 		mode = video_billing.ModeImageToVideo
 	}
 

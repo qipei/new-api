@@ -182,9 +182,10 @@ func TestGetAndValidOpenAIImageRequestNormalizesProviderParameters(t *testing.T)
 			wantSize: "4k", wantN: 4,
 		},
 		{
-			name:  "volcengine sequential images",
-			body:  `{"model":"seedream","prompt":"cat","sequential_image_generation":"auto","sequential_image_generation_options":{"max_images":6}}`,
-			wantN: 6,
+			name:       "volcengine sequential images",
+			body:       `{"model":"seedream","prompt":"cat","sequential_image_generation":"auto","sequential_image_generation_options":{"max_images":6}}`,
+			wantN:      6,
+			wantPrompt: "cat",
 		},
 		{
 			name:    "provider count is bounded",

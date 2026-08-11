@@ -123,3 +123,19 @@ func TestTaskVideoDimsReadsHappyHorseVideoAndDefaultResolution(t *testing.T) {
 	assert.Empty(t, audio)
 	assert.Zero(t, seconds)
 }
+
+func TestTaskVideoDimsTreatsSingleImageAsImageToVideo(t *testing.T) {
+	c := audioTestContext(t)
+	c.Set("task_request", relaycommon.TaskSubmitReq{
+		Model:    "doubao-seedance-2-0-260128",
+		Image:    "https://example.com/input.png",
+		Size:     "1280x720",
+		Duration: 6,
+	})
+
+	mode, resolution, _, seconds := taskVideoDims(c, &relaycommon.RelayInfo{TaskRelayInfo: &relaycommon.TaskRelayInfo{}})
+
+	assert.Equal(t, video_billing.ModeImageToVideo, mode)
+	assert.Equal(t, "1280x720", resolution)
+	assert.Equal(t, 6, seconds)
+}

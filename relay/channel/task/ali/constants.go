@@ -17,6 +17,10 @@ var ModelList = []string{
 	"vidu/viduq3-turbo_reference2video",
 	"vidu/viduq2-pro_reference2video",
 	"vidu/viduq2_reference2video",
+	"happyhorse-1.1-t2v",
+	"happyhorse-1.1-i2v",
+	"happyhorse-1.1-r2v",
+	"happyhorse-1.0-video-edit",
 }
 
 var ChannelName = "ali"

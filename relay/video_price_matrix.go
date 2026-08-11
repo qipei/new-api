@@ -110,7 +110,7 @@ func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string,
 	}
 
 	mode := video_billing.ModeTextToVideo
-	if metadataContentHasMedia(req.Metadata, "video_url") || metadataInputHasMedia(req.Metadata, "video", "base", "feature") {
+	if req.HasVideo() || metadataContentHasMedia(req.Metadata, "video_url") || metadataInputHasMedia(req.Metadata, "video", "base", "feature") {
 		mode = video_billing.ModeVideoToVideo
 	} else if req.HasImage() || metadataContentHasMedia(req.Metadata, "image_url") || metadataInputHasMedia(req.Metadata, "image", "first_frame", "last_frame", "refer") {
 		mode = video_billing.ModeImageToVideo
@@ -128,6 +128,9 @@ func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string,
 		case "pro":
 			resolution = "1080p"
 		}
+	}
+	if resolution == "" && strings.HasPrefix(info.UpstreamModelName, "happyhorse-") {
+		resolution = "1080p"
 	}
 
 	seconds, _ := strconv.Atoi(req.Seconds)

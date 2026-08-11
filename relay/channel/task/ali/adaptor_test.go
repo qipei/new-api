@@ -331,6 +331,271 @@ func TestConvertToAliRequestViduRejectsUnsupportedAudio(t *testing.T) {
 	require.ErrorContains(t, err, "does not support parameters.audio")
 }
 
+func TestConvertToAliRequestHappyHorseT2V(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	req := relaycommon.TaskSubmitReq{
+		Model:    "happyhorse-1.1-t2v",
+		Prompt:   "a horse runs through a field",
+		Size:     "720p",
+		Duration: 15,
+		Metadata: map[string]interface{}{
+			"parameters": map[string]interface{}{
+				"ratio":     "21:9",
+				"watermark": false,
+				"seed":      0,
+			},
+		},
+	}
+
+	aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), req)
+
+	require.NoError(t, err)
+	assert.Equal(t, "720P", pointerString(aliReq.Parameters.Resolution))
+	assert.Equal(t, "21:9", pointerString(aliReq.Parameters.Ratio))
+	assert.Equal(t, 15, pointerInt(aliReq.Parameters.Duration))
+	require.NotNil(t, aliReq.Parameters.Watermark)
+	assert.False(t, *aliReq.Parameters.Watermark)
+	require.NotNil(t, aliReq.Parameters.Seed)
+	assert.Zero(t, *aliReq.Parameters.Seed)
+	assert.Empty(t, aliReq.Input.Media)
+	assert.Empty(t, aliReq.Input.ImgURL)
+
+	body, err := common.Marshal(aliReq)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{
+		"model":"happyhorse-1.1-t2v",
+		"input":{"prompt":"a horse runs through a field"},
+		"parameters":{"resolution":"720P","duration":15,"watermark":false,"seed":0,"ratio":"21:9"}
+	}`, string(body))
+	assert.NotContains(t, string(body), `"size"`)
+	assert.NotContains(t, string(body), `"aspect_ratio"`)
+}
+
+func TestConvertToAliRequestHappyHorseI2V(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	req := relaycommon.TaskSubmitReq{
+		Model:    "happyhorse-1.1-i2v",
+		Image:    "https://example.com/first.webp",
+		Size:     "480p",
+		Duration: 3,
+	}
+
+	aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), req)
+
+	require.NoError(t, err)
+	assert.Equal(t, "480P", pointerString(aliReq.Parameters.Resolution))
+	assert.Equal(t, 3, pointerInt(aliReq.Parameters.Duration))
+	assert.Nil(t, aliReq.Parameters.Ratio)
+	assert.Equal(t, []AliVideoMedia{{Type: "first_frame", URL: "https://example.com/first.webp"}}, aliReq.Input.Media)
+	assert.Empty(t, aliReq.Input.ImgURL)
+	body, err := common.Marshal(aliReq)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{
+		"model":"happyhorse-1.1-i2v",
+		"input":{"media":[{"type":"first_frame","url":"https://example.com/first.webp"}]},
+		"parameters":{"resolution":"480P","duration":3}
+	}`, string(body))
+}
+
+func TestConvertToAliRequestHappyHorseR2V(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	req := relaycommon.TaskSubmitReq{
+		Model:  "happyhorse-1.1-r2v",
+		Prompt: "[Image 1] and [Image 2] enter the same scene",
+		Images: []string{
+			"https://example.com/one.jpg",
+			"https://example.com/two.png",
+			"https://example.com/three.webp",
+		},
+		Size:     "1920x1080",
+		Duration: 10,
+	}
+
+	aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), req)
+
+	require.NoError(t, err)
+	assert.Equal(t, "1080P", pointerString(aliReq.Parameters.Resolution))
+	assert.Equal(t, "16:9", pointerString(aliReq.Parameters.Ratio))
+	assert.Equal(t, 10, pointerInt(aliReq.Parameters.Duration))
+	require.Len(t, aliReq.Input.Media, 3)
+	for _, media := range aliReq.Input.Media {
+		assert.Equal(t, "reference_image", media.Type)
+	}
+	body, err := common.Marshal(aliReq)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{
+		"model":"happyhorse-1.1-r2v",
+		"input":{"prompt":"[Image 1] and [Image 2] enter the same scene","media":[
+			{"type":"reference_image","url":"https://example.com/one.jpg"},
+			{"type":"reference_image","url":"https://example.com/two.png"},
+			{"type":"reference_image","url":"https://example.com/three.webp"}
+		]},
+		"parameters":{"resolution":"1080P","duration":10,"ratio":"16:9"}
+	}`, string(body))
+}
+
+func TestConvertToAliRequestHappyHorseVideoEdit(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	req := relaycommon.TaskSubmitReq{
+		Model:  "happyhorse-1.0-video-edit",
+		Prompt: "replace the jacket with the referenced jacket",
+		Video:  "https://example.com/source.mp4",
+		Images: []string{
+			"https://example.com/ref-1.png",
+			"https://example.com/ref-2.png",
+		},
+		Size: "1080p",
+		Metadata: map[string]interface{}{
+			"parameters": map[string]interface{}{
+				"audio_setting": "origin",
+				"watermark":     false,
+				"seed":          2147483647,
+			},
+		},
+	}
+
+	aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), req)
+
+	require.NoError(t, err)
+	assert.Equal(t, "1080P", pointerString(aliReq.Parameters.Resolution))
+	assert.Nil(t, aliReq.Parameters.Duration)
+	assert.Nil(t, aliReq.Parameters.Ratio)
+	assert.Equal(t, "origin", pointerString(aliReq.Parameters.AudioSetting))
+	assert.Equal(t, []AliVideoMedia{
+		{Type: "video", URL: "https://example.com/source.mp4"},
+		{Type: "reference_image", URL: "https://example.com/ref-1.png"},
+		{Type: "reference_image", URL: "https://example.com/ref-2.png"},
+	}, aliReq.Input.Media)
+
+	body, err := common.Marshal(aliReq)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{
+		"model":"happyhorse-1.0-video-edit",
+		"input":{"prompt":"replace the jacket with the referenced jacket","media":[
+			{"type":"video","url":"https://example.com/source.mp4"},
+			{"type":"reference_image","url":"https://example.com/ref-1.png"},
+			{"type":"reference_image","url":"https://example.com/ref-2.png"}
+		]},
+		"parameters":{"resolution":"1080P","watermark":false,"seed":2147483647,"audio_setting":"origin"}
+	}`, string(body))
+	assert.NotContains(t, string(body), `"duration"`)
+	assert.NotContains(t, string(body), `"size"`)
+}
+
+func TestHappyHorseAcceptsEveryDocumentedRatio(t *testing.T) {
+	for _, ratio := range []string{"16:9", "9:16", "1:1", "4:3", "3:4", "4:5", "5:4", "9:21", "21:9"} {
+		t.Run(ratio, func(t *testing.T) {
+			parameters := &AliVideoParameters{}
+			require.NoError(t, applyHappyHorseSize(parameters, "happyhorse-1.1-t2v", ratio))
+			assert.Equal(t, ratio, pointerString(parameters.Ratio))
+		})
+	}
+}
+
+func TestConvertToAliRequestHappyHorseKeepsExplicitMedia(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	req := relaycommon.TaskSubmitReq{
+		Model:  "happyhorse-1.0-video-edit",
+		Prompt: "apply a cinematic color grade",
+		Metadata: map[string]interface{}{
+			"input": map[string]interface{}{
+				"media": []interface{}{
+					map[string]interface{}{"type": "video", "url": "https://example.com/input.mov"},
+				},
+			},
+			"parameters": map[string]interface{}{"audio_setting": "auto"},
+		},
+	}
+
+	aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), req)
+
+	require.NoError(t, err)
+	assert.Equal(t, []AliVideoMedia{{Type: "video", URL: "https://example.com/input.mov"}}, aliReq.Input.Media)
+	assert.Equal(t, "auto", pointerString(aliReq.Parameters.AudioSetting))
+}
+
+func TestConvertToAliRequestHappyHorseRejectsInvalidParameters(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	tests := []struct {
+		name string
+		req  relaycommon.TaskSubmitReq
+		want string
+	}{
+		{
+			name: "t2v duration below minimum",
+			req:  relaycommon.TaskSubmitReq{Model: "happyhorse-1.1-t2v", Prompt: "test", Duration: 2},
+			want: "between 3 and 15",
+		},
+		{
+			name: "t2v unsupported ratio",
+			req:  relaycommon.TaskSubmitReq{Model: "happyhorse-1.1-t2v", Prompt: "test", Size: "2:1"},
+			want: "unsupported HappyHorse ratio",
+		},
+		{
+			name: "i2v requires one image",
+			req:  relaycommon.TaskSubmitReq{Model: "happyhorse-1.1-i2v", Prompt: "test"},
+			want: "exactly one first_frame",
+		},
+		{
+			name: "i2v rejects multiple simple images",
+			req: relaycommon.TaskSubmitReq{Model: "happyhorse-1.1-i2v", Prompt: "test", Images: []string{
+				"https://example.com/one.png", "https://example.com/two.png",
+			}},
+			want: "accepts exactly one input image",
+		},
+		{
+			name: "i2v rejects ratio",
+			req: relaycommon.TaskSubmitReq{Model: "happyhorse-1.1-i2v", Prompt: "test", Image: "https://example.com/one.png", Metadata: map[string]interface{}{
+				"parameters": map[string]interface{}{"ratio": "16:9"},
+			}},
+			want: "does not support parameters.ratio",
+		},
+		{
+			name: "r2v rejects more than nine images",
+			req: relaycommon.TaskSubmitReq{Model: "happyhorse-1.1-r2v", Prompt: "test", Images: []string{
+				"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+			}},
+			want: "1 to 9",
+		},
+		{
+			name: "video edit requires video",
+			req:  relaycommon.TaskSubmitReq{Model: "happyhorse-1.0-video-edit", Prompt: "test"},
+			want: "exactly one video",
+		},
+		{
+			name: "video edit rejects duration",
+			req:  relaycommon.TaskSubmitReq{Model: "happyhorse-1.0-video-edit", Prompt: "test", Video: "https://example.com/in.mp4", Duration: 5},
+			want: "does not support parameters.duration",
+		},
+		{
+			name: "video edit rejects 480p",
+			req:  relaycommon.TaskSubmitReq{Model: "happyhorse-1.0-video-edit", Prompt: "test", Video: "https://example.com/in.mp4", Size: "480p"},
+			want: "unsupported resolution",
+		},
+		{
+			name: "video edit rejects audio setting",
+			req: relaycommon.TaskSubmitReq{Model: "happyhorse-1.0-video-edit", Prompt: "test", Video: "https://example.com/in.mp4", Metadata: map[string]interface{}{
+				"parameters": map[string]interface{}{"audio_setting": "mute"},
+			}},
+			want: "must be auto or origin",
+		},
+		{
+			name: "seed above maximum",
+			req: relaycommon.TaskSubmitReq{Model: "happyhorse-1.1-t2v", Prompt: "test", Metadata: map[string]interface{}{
+				"parameters": map[string]interface{}{"seed": 2147483648},
+			}},
+			want: "seed must be between",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := adaptor.convertToAliRequest(testRelayInfo(), tt.req)
+			require.ErrorContains(t, err, tt.want)
+		})
+	}
+}
+
 func TestParseTaskResultCarriesActualDurationAndWatermarkURL(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	body := []byte(`{
@@ -348,8 +613,37 @@ func TestParseTaskResultCarriesActualDurationAndWatermarkURL(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, model.TaskStatusSuccess, result.Status)
 	require.Equal(t, 9, result.Duration)
+	require.Equal(t, 9.0, result.BillingDuration)
 	require.Equal(t, "https://example.com/video.mp4", result.Url)
 	require.Equal(t, "https://example.com/watermarked.mp4", result.RemoteUrl)
+}
+
+func TestParseTaskResultCarriesFractionalHappyHorseBillingDuration(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"output": {"task_status": "SUCCEEDED", "task_id": "upstream-task", "video_url": "https://example.com/video.mp4"},
+		"usage": {"duration": 13.24, "input_video_duration": 6.62, "output_video_duration": 6.62, "video_count": 1, "SR": 720}
+	}`)
+
+	result, err := adaptor.ParseTaskResult(body)
+
+	require.NoError(t, err)
+	assert.Equal(t, 14, result.Duration)
+	assert.Equal(t, 13.24, result.BillingDuration)
+}
+
+func TestParseTaskResultAcceptsStringDuration(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"output": {"task_status": "SUCCEEDED", "task_id": "upstream-task"},
+		"usage": {"duration": "9.5"}
+	}`)
+
+	result, err := adaptor.ParseTaskResult(body)
+
+	require.NoError(t, err)
+	assert.Equal(t, 10, result.Duration)
+	assert.Equal(t, 9.5, result.BillingDuration)
 }
 
 func TestParseTaskResultCapsUntrustedActualDuration(t *testing.T) {
@@ -363,6 +657,7 @@ func TestParseTaskResultCapsUntrustedActualDuration(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, relaycommon.MaxTaskDurationSeconds, result.Duration)
+	require.Equal(t, float64(relaycommon.MaxTaskDurationSeconds), result.BillingDuration)
 }
 
 func TestEstimateBillingAliMatrixPerSecondUsesOnlyDuration(t *testing.T) {

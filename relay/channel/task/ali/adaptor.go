@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -80,6 +81,8 @@ type AliVideoParameters struct {
 	Seed         *int    `json:"seed,omitempty"`          // 随机数种子
 	Mode         *string `json:"mode,omitempty"`          // Kling 生成模式: std/pro
 	AspectRatio  *string `json:"aspect_ratio,omitempty"`  // Kling 输出比例
+	Ratio        *string `json:"ratio,omitempty"`         // HappyHorse 输出比例
+	AudioSetting *string `json:"audio_setting,omitempty"` // HappyHorse 视频编辑声音控制
 }
 
 // AliVideoResponse 阿里通义万相响应
@@ -89,6 +92,26 @@ type AliVideoResponse struct {
 	Code      string         `json:"code,omitempty"`
 	Message   string         `json:"message,omitempty"`
 	Usage     *AliUsage      `json:"usage,omitempty"`
+}
+
+type aliFloatValue float64
+
+func (value *aliFloatValue) UnmarshalJSON(data []byte) error {
+	var number float64
+	if err := common.Unmarshal(data, &number); err == nil {
+		*value = aliFloatValue(number)
+		return nil
+	}
+	var text string
+	if err := common.Unmarshal(data, &text); err != nil {
+		return err
+	}
+	parsed, err := strconv.ParseFloat(text, 64)
+	if err != nil {
+		return err
+	}
+	*value = aliFloatValue(parsed)
+	return nil
 }
 
 // AliVideoOutput 输出信息
@@ -108,9 +131,12 @@ type AliVideoOutput struct {
 
 // AliUsage 使用统计
 type AliUsage struct {
-	Duration   dto.IntValue `json:"duration,omitempty"`
-	VideoCount dto.IntValue `json:"video_count,omitempty"`
-	SR         dto.IntValue `json:"SR,omitempty"`
+	Duration            aliFloatValue `json:"duration,omitempty"`
+	InputVideoDuration  aliFloatValue `json:"input_video_duration,omitempty"`
+	OutputVideoDuration aliFloatValue `json:"output_video_duration,omitempty"`
+	VideoCount          dto.IntValue  `json:"video_count,omitempty"`
+	SR                  dto.IntValue  `json:"SR,omitempty"`
+	Ratio               string        `json:"ratio,omitempty"`
 }
 
 type AliMetadata struct {
@@ -131,6 +157,8 @@ type AliMetadata struct {
 	Watermark    *bool   `json:"watermark,omitempty"`     // 是否添加水印
 	Audio        *bool   `json:"audio,omitempty"`         // 是否添加音频
 	Seed         *int    `json:"seed,omitempty"`          // 随机数种子
+	Ratio        *string `json:"ratio,omitempty"`         // HappyHorse 输出比例
+	AudioSetting *string `json:"audio_setting,omitempty"` // HappyHorse 视频编辑声音控制
 }
 
 // ============================
@@ -321,6 +349,90 @@ func isAliViduDramaModel(model string) bool {
 	return model == "vidu/viduq3-drama_reference2video"
 }
 
+func isAliHappyHorseModel(model string) bool {
+	return strings.HasPrefix(model, "happyhorse-")
+}
+
+func isAliHappyHorseT2VModel(model string) bool {
+	return model == "happyhorse-1.1-t2v" || model == "happyhorse-1.0-t2v"
+}
+
+func isAliHappyHorseI2VModel(model string) bool {
+	return model == "happyhorse-1.1-i2v" || model == "happyhorse-1.0-i2v"
+}
+
+func isAliHappyHorseR2VModel(model string) bool {
+	return model == "happyhorse-1.1-r2v" || model == "happyhorse-1.0-r2v"
+}
+
+func isAliHappyHorseVideoEditModel(model string) bool {
+	return model == "happyhorse-1.0-video-edit"
+}
+
+func isHappyHorseRatio(value string) bool {
+	switch value {
+	case "16:9", "9:16", "1:1", "4:3", "3:4", "4:5", "5:4", "9:21", "21:9":
+		return true
+	default:
+		return false
+	}
+}
+
+func happyHorseRatioFromDimensions(width, height int) string {
+	a, b := width, height
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return fmt.Sprintf("%d:%d", width/a, height/a)
+}
+
+func applyHappyHorseSize(parameters *AliVideoParameters, model, size string) error {
+	normalized := strings.ToLower(strings.TrimSpace(size))
+	if normalized == "" {
+		return nil
+	}
+	if strings.Contains(normalized, ":") {
+		if isAliHappyHorseI2VModel(model) || isAliHappyHorseVideoEditModel(model) {
+			return fmt.Errorf("%s does not support parameters.ratio", model)
+		}
+		if !isHappyHorseRatio(normalized) {
+			return fmt.Errorf("unsupported HappyHorse ratio %q", size)
+		}
+		parameters.Ratio = lo.ToPtr(normalized)
+		return nil
+	}
+	if normalized == "480p" || normalized == "720p" || normalized == "1080p" {
+		parameters.Resolution = lo.ToPtr(strings.ToUpper(normalized))
+		return nil
+	}
+
+	parts := strings.Split(strings.ReplaceAll(normalized, "x", "*"), "*")
+	if len(parts) != 2 {
+		return fmt.Errorf("unsupported HappyHorse size %q; use 480p, 720p, 1080p, an allowed ratio, or width x height", size)
+	}
+	width, widthErr := strconv.Atoi(strings.TrimSpace(parts[0]))
+	height, heightErr := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if widthErr != nil || heightErr != nil || width <= 0 || height <= 0 {
+		return fmt.Errorf("invalid HappyHorse size %q", size)
+	}
+	shortEdge := min(width, height)
+	resolution := "1080P"
+	if shortEdge <= 480 {
+		resolution = "480P"
+	} else if shortEdge <= 720 {
+		resolution = "720P"
+	}
+	parameters.Resolution = lo.ToPtr(resolution)
+	if !isAliHappyHorseI2VModel(model) && !isAliHappyHorseVideoEditModel(model) {
+		ratio := happyHorseRatioFromDimensions(width, height)
+		if !isHappyHorseRatio(ratio) {
+			return fmt.Errorf("HappyHorse does not support the %s aspect ratio derived from size %q", ratio, size)
+		}
+		parameters.Ratio = lo.ToPtr(ratio)
+	}
+	return nil
+}
+
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
 		trimmed := strings.TrimSpace(value)
@@ -411,6 +523,140 @@ func normalizeAliThirdPartyMedia(aliReq *AliVideoRequest, req relaycommon.TaskSu
 
 	if isAliViduReferenceVideoModel(aliReq.Model) && len(aliReq.Input.Media) == 0 {
 		return fmt.Errorf("%s requires at least one input.media item or image", aliReq.Model)
+	}
+	return nil
+}
+
+func normalizeAliHappyHorseRequest(aliReq *AliVideoRequest, req relaycommon.TaskSubmitReq) error {
+	if !isAliHappyHorseModel(aliReq.Model) {
+		return nil
+	}
+	if aliReq.Parameters == nil {
+		aliReq.Parameters = &AliVideoParameters{}
+	}
+	parameters := aliReq.Parameters
+	if size := pointerString(parameters.Size); size != "" {
+		if err := applyHappyHorseSize(parameters, aliReq.Model, size); err != nil {
+			return err
+		}
+		parameters.Size = nil
+	}
+	if parameters.Resolution == nil {
+		parameters.Resolution = lo.ToPtr("1080P")
+	} else {
+		resolution := strings.ToUpper(strings.TrimSpace(pointerString(parameters.Resolution)))
+		if !strings.HasSuffix(resolution, "P") {
+			resolution += "P"
+		}
+		parameters.Resolution = lo.ToPtr(resolution)
+	}
+	if parameters.Ratio != nil {
+		ratio := strings.TrimSpace(pointerString(parameters.Ratio))
+		parameters.Ratio = lo.ToPtr(ratio)
+	}
+	if parameters.AudioSetting != nil {
+		audioSetting := strings.ToLower(strings.TrimSpace(pointerString(parameters.AudioSetting)))
+		parameters.AudioSetting = lo.ToPtr(audioSetting)
+	}
+	if parameters.Duration == nil && !isAliHappyHorseVideoEditModel(aliReq.Model) {
+		parameters.Duration = lo.ToPtr(5)
+	}
+
+	if len(aliReq.Input.Media) == 0 {
+		images := taskImages(req)
+		switch {
+		case isAliHappyHorseI2VModel(aliReq.Model):
+			if len(images) > 1 {
+				return fmt.Errorf("%s accepts exactly one input image", aliReq.Model)
+			}
+			if len(images) > 0 {
+				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "first_frame", URL: images[0]})
+			}
+		case isAliHappyHorseR2VModel(aliReq.Model):
+			for _, image := range images {
+				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "reference_image", URL: image})
+			}
+		case isAliHappyHorseVideoEditModel(aliReq.Model):
+			if video := strings.TrimSpace(req.Video); video != "" {
+				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "video", URL: video})
+			}
+			for _, image := range images {
+				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "reference_image", URL: image})
+			}
+		}
+	}
+
+	aliReq.Input.ImgURL = ""
+	aliReq.Input.FirstFrameURL = ""
+	aliReq.Input.LastFrameURL = ""
+	aliReq.Input.AudioURL = ""
+	return validateAliHappyHorseRequest(aliReq, req)
+}
+
+func validateAliHappyHorseRequest(aliReq *AliVideoRequest, req relaycommon.TaskSubmitReq) error {
+	if strings.TrimSpace(aliReq.Input.Prompt) == "" && !isAliHappyHorseI2VModel(aliReq.Model) {
+		return fmt.Errorf("%s requires prompt", aliReq.Model)
+	}
+	parameters := aliReq.Parameters
+	resolution := pointerString(parameters.Resolution)
+	allowedResolution := resolution == "480P" || resolution == "720P" || resolution == "1080P"
+	if isAliHappyHorseVideoEditModel(aliReq.Model) {
+		allowedResolution = resolution == "720P" || resolution == "1080P"
+	}
+	if !allowedResolution {
+		return fmt.Errorf("unsupported resolution %q for %s", resolution, aliReq.Model)
+	}
+	if parameters.Seed != nil && (*parameters.Seed < 0 || *parameters.Seed > 2147483647) {
+		return fmt.Errorf("HappyHorse seed must be between 0 and 2147483647")
+	}
+
+	ratio := pointerString(parameters.Ratio)
+	if ratio != "" {
+		if isAliHappyHorseI2VModel(aliReq.Model) || isAliHappyHorseVideoEditModel(aliReq.Model) {
+			return fmt.Errorf("%s does not support parameters.ratio", aliReq.Model)
+		}
+		if !isHappyHorseRatio(ratio) {
+			return fmt.Errorf("unsupported HappyHorse ratio %q", ratio)
+		}
+	}
+	audioSetting := pointerString(parameters.AudioSetting)
+	if isAliHappyHorseVideoEditModel(aliReq.Model) {
+		if parameters.Duration != nil {
+			return fmt.Errorf("%s does not support parameters.duration", aliReq.Model)
+		}
+		if audioSetting != "" && audioSetting != "auto" && audioSetting != "origin" {
+			return fmt.Errorf("HappyHorse parameters.audio_setting must be auto or origin")
+		}
+	} else {
+		if audioSetting != "" {
+			return fmt.Errorf("%s does not support parameters.audio_setting", aliReq.Model)
+		}
+		duration := pointerInt(parameters.Duration)
+		if duration < 3 || duration > 15 {
+			return fmt.Errorf("HappyHorse duration must be between 3 and 15 seconds")
+		}
+	}
+
+	counts := mediaTypeCounts(aliReq.Input.Media)
+	switch {
+	case isAliHappyHorseT2VModel(aliReq.Model):
+		if len(aliReq.Input.Media) != 0 || len(taskImages(req)) != 0 || req.HasVideo() {
+			return fmt.Errorf("%s does not accept image or video media", aliReq.Model)
+		}
+	case isAliHappyHorseI2VModel(aliReq.Model):
+		if len(aliReq.Input.Media) != 1 || counts["first_frame"] != 1 || req.HasVideo() {
+			return fmt.Errorf("%s requires exactly one first_frame image", aliReq.Model)
+		}
+	case isAliHappyHorseR2VModel(aliReq.Model):
+		if len(aliReq.Input.Media) < 1 || len(aliReq.Input.Media) > 9 || counts["reference_image"] != len(aliReq.Input.Media) || req.HasVideo() {
+			return fmt.Errorf("%s requires 1 to 9 reference_image items", aliReq.Model)
+		}
+	case isAliHappyHorseVideoEditModel(aliReq.Model):
+		if counts["video"] != 1 || counts["reference_image"] > 5 || counts["video"]+counts["reference_image"] != len(aliReq.Input.Media) {
+			return fmt.Errorf("%s requires exactly one video and at most 5 reference_image items", aliReq.Model)
+		}
+	default:
+		return fmt.Errorf("unsupported HappyHorse model %s", aliReq.Model)
 	}
 	return nil
 }
@@ -669,7 +915,11 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 
 	// 处理分辨率映射
 	if req.Size != "" {
-		if isAliKlingVideoModel(upstreamModel) {
+		if isAliHappyHorseModel(upstreamModel) {
+			if err := applyHappyHorseSize(parameters, upstreamModel, req.Size); err != nil {
+				return nil, err
+			}
+		} else if isAliKlingVideoModel(upstreamModel) {
 			if err := applyKlingSize(parameters, req.Size); err != nil {
 				return nil, err
 			}
@@ -686,7 +936,9 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 		}
 	} else {
 		// 根据模型设置默认分辨率
-		if isAliViduReferenceVideoModel(upstreamModel) {
+		if isAliHappyHorseModel(upstreamModel) {
+			parameters.Resolution = lo.ToPtr("1080P")
+		} else if isAliViduReferenceVideoModel(upstreamModel) {
 			resolution := "720P"
 			if isAliViduDramaModel(upstreamModel) {
 				resolution = "1080P"
@@ -723,7 +975,7 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 		}
 		parameters.Duration = lo.ToPtr(seconds)
 	}
-	if parameters.Duration == nil {
+	if parameters.Duration == nil && !isAliHappyHorseVideoEditModel(upstreamModel) {
 		parameters.Duration = lo.ToPtr(5)
 	}
 
@@ -744,6 +996,9 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 	}
 
 	if err := normalizeWan27I2VInput(aliReq, req); err != nil {
+		return nil, err
+	}
+	if err := normalizeAliHappyHorseRequest(aliReq, req); err != nil {
 		return nil, err
 	}
 	if err := normalizeAliThirdPartyMedia(aliReq, req); err != nil {
@@ -900,12 +1155,14 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		taskResult.Url = aliResp.Output.VideoURL
 		taskResult.RemoteUrl = aliResp.Output.WatermarkVideoURL
 		if aliResp.Usage != nil {
-			duration := aliResp.Usage.Duration
+			duration := float64(aliResp.Usage.Duration)
 			if duration > 0 {
-				if duration > dto.IntValue(relaycommon.MaxTaskDurationSeconds) {
+				if duration > float64(relaycommon.MaxTaskDurationSeconds) {
 					taskResult.Duration = relaycommon.MaxTaskDurationSeconds
+					taskResult.BillingDuration = float64(relaycommon.MaxTaskDurationSeconds)
 				} else {
-					taskResult.Duration = int(duration)
+					taskResult.Duration = int(math.Ceil(duration))
+					taskResult.BillingDuration = duration
 				}
 			}
 		}

@@ -168,6 +168,7 @@ func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string
 		Model:    formData.Get("model"),
 		Mode:     formData.Get("mode"),
 		Image:    formData.Get("image"),
+		Video:    formData.Get("video"),
 		Size:     formData.Get("size"),
 		Metadata: make(map[string]interface{}),
 	}
@@ -226,7 +227,7 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 		return createTaskError(fmt.Errorf("model field is required"), "missing_model", http.StatusBadRequest, true)
 	}
 
-	if req.HasImage() {
+	if req.HasImage() || req.HasVideo() {
 		hasInputReference = true
 	}
 
@@ -273,6 +274,7 @@ func isKnownTaskField(field string) bool {
 		"mode":            true,
 		"image":           true,
 		"images":          true,
+		"video":           true,
 		"size":            true,
 		"duration":        true,
 		"input_reference": true, // Sora 特有字段

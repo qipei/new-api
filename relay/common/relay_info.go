@@ -834,6 +834,7 @@ type TaskSubmitReq struct {
 	Mode           string                 `json:"mode,omitempty"`
 	Image          string                 `json:"image,omitempty"`
 	Images         []string               `json:"images,omitempty"`
+	Video          string                 `json:"video,omitempty"`
 	Size           string                 `json:"size,omitempty"`
 	Duration       int                    `json:"duration,omitempty"`
 	Seconds        string                 `json:"seconds,omitempty"`
@@ -847,6 +848,10 @@ func (t *TaskSubmitReq) GetPrompt() string {
 
 func (t *TaskSubmitReq) HasImage() bool {
 	return len(t.Images) > 0
+}
+
+func (t *TaskSubmitReq) HasVideo() bool {
+	return strings.TrimSpace(t.Video) != ""
 }
 
 func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
@@ -921,6 +926,7 @@ type TaskInfo struct {
 	CompletionTokens int                `json:"completion_tokens,omitempty"` // 用于按倍率计费
 	TotalTokens      int                `json:"total_tokens,omitempty"`      // 用于按倍率计费
 	Duration         int                `json:"duration,omitempty"`          // 上游实际输出时长（秒）
+	BillingDuration  float64            `json:"billing_duration,omitempty"`  // 上游用于计费的实际时长（秒，可含小数）
 	QuotaClamp       *common.QuotaClamp `json:"-"`                           // 完成结算额度饱和审计标记
 }
 

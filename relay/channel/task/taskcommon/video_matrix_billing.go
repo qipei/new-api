@@ -32,10 +32,14 @@ func VideoMatrixQuotaOnComplete(task *model.Task, taskResult *relaycommon.TaskIn
 		return 0
 	}
 	if table.Unit == video_billing.UnitPerSecond {
-		if !bc.SettleOnComplete || taskResult.Duration <= 0 {
+		billingDuration := taskResult.BillingDuration
+		if billingDuration <= 0 {
+			billingDuration = float64(taskResult.Duration)
+		}
+		if !bc.SettleOnComplete || billingDuration <= 0 || bc.GroupRatio <= 0 {
 			return 0
 		}
-		quota, clamp := common.QuotaFromFloatChecked(float64(taskResult.Duration) * bc.ModelPrice * common.QuotaPerUnit * bc.GroupRatio)
+		quota, clamp := common.QuotaFromFloatChecked(billingDuration * bc.ModelPrice * common.QuotaPerUnit * bc.GroupRatio)
 		taskResult.QuotaClamp = clamp
 		return quota
 	}

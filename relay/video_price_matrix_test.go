@@ -103,3 +103,23 @@ func TestTaskVideoDimsReadsAliNestedProtocol(t *testing.T) {
 	assert.Equal(t, video_billing.AudioOff, audio)
 	assert.Equal(t, 8, seconds)
 }
+
+func TestTaskVideoDimsReadsHappyHorseVideoAndDefaultResolution(t *testing.T) {
+	c := audioTestContext(t)
+	req := relaycommon.TaskSubmitReq{
+		Model: "happyhorse-video-edit",
+		Video: "https://example.com/input.mp4",
+	}
+	c.Set("task_request", req)
+
+	info := &relaycommon.RelayInfo{
+		ChannelMeta:   &relaycommon.ChannelMeta{UpstreamModelName: "happyhorse-1.0-video-edit"},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+	}
+	mode, resolution, audio, seconds := taskVideoDims(c, info)
+
+	assert.Equal(t, video_billing.ModeVideoToVideo, mode)
+	assert.Equal(t, "1080p", resolution)
+	assert.Empty(t, audio)
+	assert.Zero(t, seconds)
+}

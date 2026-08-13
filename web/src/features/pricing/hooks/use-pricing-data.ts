@@ -51,11 +51,12 @@ export function usePricingData() {
       const vendor = model.vendor_id
         ? vendorMap.get(model.vendor_id)
         : undefined
+      const matrixPriceTable = data.video_pricing?.[model.model_name]
       return {
         ...model,
         key: model.model_name,
-        matrix_price_unit:
-          data.video_pricing?.[model.model_name]?.unit ?? undefined,
+        matrix_price_unit: matrixPriceTable?.unit,
+        matrix_price_table: matrixPriceTable,
         vendor_name: vendor?.name,
         vendor_icon: vendor?.icon,
         vendor_description: vendor?.description,

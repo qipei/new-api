@@ -41,6 +41,7 @@ import {
   stripTrailingZeros,
 } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
+import { MatrixTokenPriceSummary } from './matrix-token-price-summary'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 
 // ----------------------------------------------------------------------------
@@ -114,16 +115,33 @@ export function usePricingColumns(
       ),
       cell: ({ row }) => {
         const model = row.original
-        const dynamicSummary = getDynamicPricingSummary(model, {
-          tokenUnit,
-          showRechargePrice,
-          priceRate,
-          usdExchangeRate,
-          groupRatioMultiplier: getDynamicDisplayGroupRatio(
-            model,
-            selectedGroup
-          ),
-        })
+        const hasMatrixTokenPricing =
+          model.matrix_price_unit === 'per_million_tokens'
+        const dynamicSummary = hasMatrixTokenPricing
+          ? null
+          : getDynamicPricingSummary(model, {
+              tokenUnit,
+              showRechargePrice,
+              priceRate,
+              usdExchangeRate,
+              groupRatioMultiplier: getDynamicDisplayGroupRatio(
+                model,
+                selectedGroup
+              ),
+            })
+
+        if (hasMatrixTokenPricing) {
+          return (
+            <MatrixTokenPriceSummary
+              model={model}
+              layout='table'
+              showRechargePrice={showRechargePrice}
+              priceRate={priceRate}
+              usdExchangeRate={usdExchangeRate}
+              selectedGroup={selectedGroup}
+            />
+          )
+        }
 
         if (dynamicSummary) {
           if (dynamicSummary.isSpecialExpression) {

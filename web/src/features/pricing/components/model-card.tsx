@@ -33,6 +33,7 @@ import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
 import { formatPrice, formatRequestPrice } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
+import { MatrixTokenPriceSummary } from './matrix-token-price-summary'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelPerfBadge, type ModelPerfBadgeData } from './model-perf-badge'
 
@@ -66,18 +67,21 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     props.model.billing_mode === 'tiered_expr' &&
     Boolean(props.model.billing_expr)
   const hasCachedPrice = isTokenBased && props.model.cache_ratio != null
-  const dynamicSummary = isDynamicPricing
-    ? getDynamicPricingSummary(props.model, {
-        tokenUnit,
-        showRechargePrice,
-        priceRate,
-        usdExchangeRate,
-        groupRatioMultiplier: getDynamicDisplayGroupRatio(
-          props.model,
-          props.selectedGroup
-        ),
-      })
-    : null
+  const hasMatrixTokenPricing =
+    props.model.matrix_price_unit === 'per_million_tokens'
+  const dynamicSummary =
+    isDynamicPricing && !hasMatrixTokenPricing
+      ? getDynamicPricingSummary(props.model, {
+          tokenUnit,
+          showRechargePrice,
+          priceRate,
+          usdExchangeRate,
+          groupRatioMultiplier: getDynamicDisplayGroupRatio(
+            props.model,
+            props.selectedGroup
+          ),
+        })
+      : null
 
   const primaryGroup = groups[0]
   const bottomTags = [...endpoints.slice(0, 2), ...tags.slice(0, 2)]
@@ -92,7 +96,18 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   }
 
   let priceSummary: ReactNode
-  if (dynamicSummary) {
+  if (hasMatrixTokenPricing) {
+    priceSummary = (
+      <MatrixTokenPriceSummary
+        model={props.model}
+        layout='card'
+        showRechargePrice={showRechargePrice}
+        priceRate={priceRate}
+        usdExchangeRate={usdExchangeRate}
+        selectedGroup={props.selectedGroup}
+      />
+    )
+  } else if (dynamicSummary) {
     if (dynamicSummary.isSpecialExpression) {
       priceSummary = (
         <span className='min-w-0'>
@@ -264,7 +279,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             </span>
           ))}
           <span className='text-muted-foreground/50 text-xs'>
-            {tokenUnitLabel}
+            {hasMatrixTokenPricing ? '1M' : tokenUnitLabel}
           </span>
           {hiddenCount > 0 && (
             <span className='text-muted-foreground/40 text-xs'>

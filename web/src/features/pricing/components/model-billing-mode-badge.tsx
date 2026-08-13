@@ -41,7 +41,7 @@ export function ModelBillingModeBadge(props: ModelBillingModeBadgeProps) {
     label = t('Per second')
     variant = 'success'
   } else if (props.model.matrix_price_unit === 'per_million_tokens') {
-    label = t('Per 1M tokens')
+    label = t('Per 1M video tokens')
     variant = 'success'
   } else if (isDynamicPricingModel(props.model)) {
     label = t('Dynamic Pricing')

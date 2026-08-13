@@ -138,6 +138,84 @@ function applyRechargeRate(
   return (price * priceRate) / usdExchangeRate
 }
 
+export type MatrixTokenPriceSummary = {
+  minimum: string
+  maximum?: string
+  prompt?: string
+}
+
+/**
+ * Summarize visible per-million-token video matrix tiers for marketplace cards.
+ * The all-empty default tier remains a billing fallback and is never advertised.
+ */
+export function getMatrixTokenPriceSummary(
+  model: PricingModel,
+  showWithRecharge = false,
+  priceRate = 1,
+  usdExchangeRate = 1,
+  selectedGroup?: string
+): MatrixTokenPriceSummary | null {
+  const table = model.matrix_price_table
+  if (
+    model.matrix_price_unit !== 'per_million_tokens' ||
+    table?.unit !== 'per_million_tokens'
+  ) {
+    return null
+  }
+
+  const groupRatio = getDisplayGroupRatio(model, selectedGroup)
+  let minimum = Number.POSITIVE_INFINITY
+  let maximum = Number.NEGATIVE_INFINITY
+
+  for (const tier of table.tiers ?? []) {
+    const isDefaultTier =
+      !tier.mode &&
+      !tier.resolution &&
+      !tier.audio &&
+      !tier.min_pixels &&
+      !tier.max_pixels
+    const price = Number(tier.price)
+    if (isDefaultTier || !Number.isFinite(price) || price <= 0) continue
+
+    const displayPrice = applyRechargeRate(
+      price * groupRatio,
+      showWithRecharge,
+      priceRate,
+      usdExchangeRate
+    )
+    if (displayPrice < minimum) minimum = displayPrice
+    if (displayPrice > maximum) maximum = displayPrice
+  }
+
+  if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) return null
+
+  const formatMatrixPrice = (price: number): string =>
+    stripTrailingZeros(
+      formatCurrencyFromUSD(price, {
+        digitsLarge: 4,
+        digitsSmall: 6,
+        abbreviate: false,
+      })
+    )
+
+  const promptPrice = Number(table.input_token_price)
+  const summary: MatrixTokenPriceSummary = {
+    minimum: formatMatrixPrice(minimum),
+  }
+  if (maximum !== minimum) summary.maximum = formatMatrixPrice(maximum)
+  if (Number.isFinite(promptPrice) && promptPrice > 0) {
+    summary.prompt = formatMatrixPrice(
+      applyRechargeRate(
+        promptPrice * groupRatio,
+        showWithRecharge,
+        priceRate,
+        usdExchangeRate
+      )
+    )
+  }
+  return summary
+}
+
 /**
  * Format token-based price for display
  */

@@ -25,6 +25,8 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
 
 import type { PricingData, PricingModel } from '../../types'
+import { MatrixTokenPriceSummary } from '../matrix-token-price-summary'
+import { ModelCard } from '../model-card'
 import { ModelDetailsContent } from '../model-details'
 import { VideoPriceSection } from '../video-price-section'
 
@@ -74,6 +76,87 @@ function renderWithPricing(
 }
 
 describe('model marketplace matrix pricing', () => {
+  test('shows video token pricing instead of input and output prices on matrix cards', () => {
+    const tokenMatrixModel = {
+      ...model,
+      model_name: 'video-token-matrix-model',
+      quota_type: 0,
+      model_ratio: 5,
+      completion_ratio: 2,
+      matrix_price_unit: 'per_million_tokens',
+      matrix_price_table: {
+        unit: 'per_million_tokens',
+        tiers: [
+          { price: 999 },
+          { mode: 't2v', resolution: '720p', price: 10 },
+          { mode: 'i2v', resolution: '1080p', price: 20 },
+        ],
+        input_token_price: 2,
+      },
+      enable_groups: ['discount'],
+      group_ratio: { discount: 0.5 },
+    } satisfies PricingModel
+
+    const markup = renderWithPricing(
+      createPricingData({}),
+      <ModelCard model={tokenMatrixModel} onClick={() => undefined} />
+    )
+
+    assert.match(markup, />Video generation\s/)
+    assert.match(markup, />\/ 1M video tokens</)
+    assert.match(markup, />Prompt\s/)
+    assert.doesNotMatch(markup, />Input</)
+    assert.doesNotMatch(markup, />Output</)
+    assert.doesNotMatch(markup, /999/)
+  })
+
+  test('keeps regular token model input and output prices without a matrix', () => {
+    const tokenModel = {
+      ...model,
+      model_name: 'regular-token-model',
+      quota_type: 0,
+      model_ratio: 5,
+      completion_ratio: 2,
+      matrix_price_unit: undefined,
+    } satisfies PricingModel
+
+    const markup = renderWithPricing(
+      createPricingData({}),
+      <ModelCard model={tokenModel} onClick={() => undefined} />
+    )
+
+    assert.match(markup, />Input\s/)
+    assert.match(markup, />Output\s/)
+    assert.doesNotMatch(markup, />Video generation</)
+  })
+
+  test('shows the visible matrix range and prompt price in table layout', () => {
+    const tokenMatrixModel = {
+      ...model,
+      quota_type: 0,
+      matrix_price_unit: 'per_million_tokens',
+      matrix_price_table: {
+        unit: 'per_million_tokens',
+        tiers: [
+          { price: 999 },
+          { mode: 't2v', resolution: '720p', price: 10 },
+          { mode: 'i2v', resolution: '1080p', price: 20 },
+        ],
+        input_token_price: 2,
+      },
+    } satisfies PricingModel
+
+    const markup = renderWithPricing(
+      createPricingData({}),
+      <MatrixTokenPriceSummary model={tokenMatrixModel} layout='table' />
+    )
+
+    assert.match(markup, /\$10–\$20/)
+    assert.match(markup, /Tiered pricing</)
+    assert.match(markup, />Prompt \$2 \/ 1M video tokens</)
+    assert.doesNotMatch(markup, /999/)
+  })
+
   test('hides the per-request base price when an image matrix is configured', () => {
     const pricing = createPricingData({
       [model.model_name]: {

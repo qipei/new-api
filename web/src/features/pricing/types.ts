@@ -58,6 +58,8 @@ export type PricingModel = {
   pricing_version?: string
   /** Matrix pricing unit when this model overrides the regular model price. */
   matrix_price_unit?: string
+  /** Matrix table used to summarize video pricing in marketplace cards/lists. */
+  matrix_price_table?: VideoPriceTable
   /**
    * Optional model metadata fields reserved for backend-provided catalog data.
    * Keep them data-driven; do not synthesize display values on the client.

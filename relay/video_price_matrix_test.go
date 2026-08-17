@@ -2,6 +2,7 @@ package relay
 
 import (
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -138,4 +139,27 @@ func TestTaskVideoDimsTreatsSingleImageAsImageToVideo(t *testing.T) {
 	assert.Equal(t, video_billing.ModeImageToVideo, mode)
 	assert.Equal(t, "1280x720", resolution)
 	assert.Equal(t, 6, seconds)
+}
+
+func TestTaskVideoDimsReadsTopLevelPassThroughResolution(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/videos", strings.NewReader(`{
+		"model":"MiniMax-H3",
+		"prompt":"test",
+		"resolution":"768p",
+		"duration":5,
+		"ratio":"16:9"
+	}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set("task_request", relaycommon.TaskSubmitReq{
+		Model:    "MiniMax-H3",
+		Duration: 5,
+	})
+
+	mode, resolution, _, seconds := taskVideoDims(c, &relaycommon.RelayInfo{TaskRelayInfo: &relaycommon.TaskRelayInfo{}})
+
+	assert.Equal(t, video_billing.ModeTextToVideo, mode)
+	assert.Equal(t, "768p", resolution)
+	assert.Equal(t, 5, seconds)
 }

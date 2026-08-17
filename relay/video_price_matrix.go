@@ -116,17 +116,22 @@ func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string,
 		mode = video_billing.ModeImageToVideo
 	}
 
-	resolution := req.Size
-	if metaResolution, ok := req.Metadata["resolution"].(string); ok && metaResolution != "" {
-		resolution = metaResolution
-	} else if metaResolution := metadataParameterString(req.Metadata, "resolution"); metaResolution != "" {
-		resolution = metaResolution
-	} else {
-		switch strings.ToLower(metadataParameterString(req.Metadata, "mode")) {
-		case "std":
-			resolution = "720p"
-		case "pro":
-			resolution = "1080p"
+	resolution := requestResolutionDimension(c)
+	if resolution == "" {
+		resolution = req.Size
+	}
+	if resolution == "" {
+		if metaResolution, ok := req.Metadata["resolution"].(string); ok && metaResolution != "" {
+			resolution = metaResolution
+		} else if metaResolution := metadataParameterString(req.Metadata, "resolution"); metaResolution != "" {
+			resolution = metaResolution
+		} else {
+			switch strings.ToLower(metadataParameterString(req.Metadata, "mode")) {
+			case "std":
+				resolution = "720p"
+			case "pro":
+				resolution = "1080p"
+			}
 		}
 	}
 	if resolution == "" && strings.HasPrefix(info.UpstreamModelName, "happyhorse-") {
@@ -145,6 +150,34 @@ func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string,
 	}
 
 	return mode, resolution, requestAudioDimension(c, &req), seconds
+}
+
+// requestResolutionDimension reads the top-level resolution accepted by
+// pass-through video APIs. TaskSubmitReq intentionally models the common
+// Sora fields and therefore does not retain provider-specific resolution.
+func requestResolutionDimension(c *gin.Context) string {
+	contentType := c.GetHeader("Content-Type")
+	if strings.Contains(contentType, "multipart/form-data") {
+		if form, err := common.ParseMultipartFormReusable(c); err == nil {
+			if values := form.Value["resolution"]; len(values) > 0 {
+				return strings.TrimSpace(values[0])
+			}
+		}
+		return ""
+	}
+	storage, err := common.GetBodyStorage(c)
+	if err != nil {
+		return ""
+	}
+	body, err := storage.Bytes()
+	if err != nil {
+		return ""
+	}
+	result := gjson.GetBytes(body, "resolution")
+	if result.Type != gjson.String {
+		return ""
+	}
+	return strings.TrimSpace(result.String())
 }
 
 func metadataParameters(metadata map[string]interface{}) map[string]interface{} {

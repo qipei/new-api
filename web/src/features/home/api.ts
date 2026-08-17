@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
 
+import type { RankingPeriod, RankingsSnapshot } from '../rankings/types'
 import type { HomePageContentResponse } from './types'
 
 // ============================================================================
@@ -30,5 +31,14 @@ import type { HomePageContentResponse } from './types'
  */
 export async function getHomePageContent(): Promise<HomePageContentResponse> {
   const res = await api.get('/api/home_page_content')
+  return res.data
+}
+
+export async function getHomeRankings(period: RankingPeriod): Promise<{
+  success: boolean
+  message?: string
+  data: RankingsSnapshot
+}> {
+  const res = await api.get('/api/home/rankings', { params: { period } })
   return res.data
 }

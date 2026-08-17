@@ -594,4 +594,14 @@ export const STATIC_I18N_KEYS = [
   'duplicate tier dimensions',
   'a default tier with no dimensions is required',
   'input prices must be greater than 0 when set',
+
+  // Token01 default home feature strip
+  'Transparent billing',
+  'Pay as you go with no minimum spend\nPrices are always visible',
+  'Compliant invoicing',
+  'VAT invoices for business customers\nSimple reimbursement',
+  'Traceable model sources',
+  'Official access channels\nClearly identified model versions',
+  'Enterprise support',
+  'Dedicated technical support\nResponsive around the clock',
 ] as const

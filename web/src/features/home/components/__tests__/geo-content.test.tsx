@@ -18,14 +18,16 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
-import { describe, test } from 'node:test'
+import path from 'node:path'
+
+import { describe, test } from 'vitest'
 
 import { SITE_SEO_TITLE } from '@/lib/site-seo'
 
 describe('homepage GEO content', () => {
   test('keeps FAQ schema without adding a visible FAQ section to initial HTML', async () => {
     const indexHtml = await fs.readFile(
-      new URL('../../../../../index.html', import.meta.url),
+      path.resolve(process.cwd(), 'index.html'),
       'utf8'
     )
 

@@ -18,16 +18,15 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import assert from 'node:assert/strict'
 import fs from 'node:fs/promises'
-import { describe, test } from 'node:test'
+import path from 'node:path'
+
+import { describe, test } from 'vitest'
 
 describe('homepage local fonts', () => {
   test('bundles the designed fonts without Google Fonts requests', async () => {
     const [indexHtml, styles] = await Promise.all([
-      fs.readFile(new URL('../../../../../index.html', import.meta.url), 'utf8'),
-      fs.readFile(
-        new URL('../../../../styles/index.css', import.meta.url),
-        'utf8'
-      ),
+      fs.readFile(path.resolve(process.cwd(), 'index.html'), 'utf8'),
+      fs.readFile(path.resolve(process.cwd(), 'src/styles/index.css'), 'utf8'),
     ])
 
     assert.doesNotMatch(indexHtml, /fonts\.googleapis\.com/)

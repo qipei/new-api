@@ -17,13 +17,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import assert from 'node:assert/strict'
-import { describe, test } from 'node:test'
 
 import i18next from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
+import { describe, test, vi } from 'vitest'
 
 import { ProductTools } from '../default-home'
+
+vi.mock('@/lib/lobe-icon', () => ({ getLobeIcon: () => null }))
 
 describe('homepage product tool links', () => {
   test('opens each product landing page from its complete card', async () => {

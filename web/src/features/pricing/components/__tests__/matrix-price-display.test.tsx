@@ -17,18 +17,23 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import assert from 'node:assert/strict'
-import { describe, test } from 'node:test'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider, initReactI18next } from 'react-i18next'
+import { describe, test, vi } from 'vitest'
 
 import type { PricingData, PricingModel } from '../../types'
 import { MatrixTokenPriceSummary } from '../matrix-token-price-summary'
 import { ModelCard } from '../model-card'
 import { ModelDetailsContent } from '../model-details'
 import { VideoPriceSection } from '../video-price-section'
+
+vi.mock('@/lib/lobe-icon', () => ({ getLobeIcon: () => null }))
+vi.mock('../model-details-performance', () => ({
+  ModelDetailsPerformance: () => null,
+}))
 
 const i18n = createInstance()
 await i18n.use(initReactI18next).init({ lng: 'en' })

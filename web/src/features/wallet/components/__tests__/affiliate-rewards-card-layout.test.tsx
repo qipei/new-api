@@ -60,4 +60,37 @@ describe('AffiliateRewardsCard layout', () => {
     assert.ok(qrIndex > actionsIndex)
     assert.ok(markup.includes('Invitation QR code'))
   })
+
+  test('places transfer balance immediately after commission details when rewards exist', () => {
+    const markup = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <AffiliateRewardsCard
+          user={{
+            id: 1,
+            username: 'affiliate-user',
+            quota: 0,
+            used_quota: 0,
+            request_count: 0,
+            aff_quota: 100,
+            aff_history_quota: 100,
+            aff_count: 1,
+            group: 'default',
+          }}
+          affiliateLink='https://example.com/sign-up?aff=test'
+          onTransfer={() => {}}
+          onShowCommissions={() => {}}
+        />
+      </I18nextProvider>
+    )
+
+    const commissionIndex = markup.indexOf('Commission Details')
+    const transferIndex = markup.indexOf('Transfer to Balance')
+    const linkRowIndex = markup.indexOf(
+      'data-slot="affiliate-rewards-link-row"'
+    )
+
+    assert.ok(commissionIndex >= 0)
+    assert.ok(transferIndex > commissionIndex)
+    assert.ok(transferIndex < linkRowIndex)
+  })
 })

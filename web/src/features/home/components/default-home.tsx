@@ -37,6 +37,7 @@ import {
   Token01Wordmark,
 } from '@/components/layout/components/public-brand'
 import { usePricingData } from '@/features/pricing/hooks'
+import { isDynamicPricingModel } from '@/features/pricing/lib/dynamic-price'
 import { isTokenBasedModel } from '@/features/pricing/lib/model-helpers'
 import {
   formatPrice,
@@ -49,7 +50,7 @@ import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 
 import { getHomeRankings } from '../api'
-import { selectHomeModels } from '../lib/home-models'
+import { formatFirstTierHomePrice, selectHomeModels } from '../lib/home-models'
 
 const DASHBOARD_URL = 'https://token01.net/dashboard'
 const DOCS_URL = 'https://token01.apifox.cn/'
@@ -240,37 +241,46 @@ function HotModels() {
       <div className='grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6'>
         {models.map((model) => {
           const priceModel = pricingByModel.get(model.model_name.toLowerCase())
-          let price = FALLBACK_MODEL_PRICES[model.model_name]
+          let price: string | undefined =
+            FALLBACK_MODEL_PRICES[model.model_name]
 
           if (priceModel) {
-            price = isTokenBasedModel(priceModel)
-              ? `${stripTrailingZeros(
-                  formatPrice(
-                    priceModel,
-                    'input',
-                    'M',
-                    false,
-                    pricing.priceRate,
-                    pricing.usdExchangeRate
-                  )
-                )} / ${stripTrailingZeros(
-                  formatPrice(
-                    priceModel,
-                    'output',
-                    'M',
-                    false,
-                    pricing.priceRate,
-                    pricing.usdExchangeRate
-                  )
-                )}`
-              : stripTrailingZeros(
-                  formatRequestPrice(
-                    priceModel,
-                    false,
-                    pricing.priceRate,
-                    pricing.usdExchangeRate
-                  )
+            if (isDynamicPricingModel(priceModel)) {
+              price = formatFirstTierHomePrice(
+                priceModel,
+                pricing.priceRate,
+                pricing.usdExchangeRate
+              )
+            } else if (isTokenBasedModel(priceModel)) {
+              price = `${stripTrailingZeros(
+                formatPrice(
+                  priceModel,
+                  'input',
+                  'M',
+                  false,
+                  pricing.priceRate,
+                  pricing.usdExchangeRate
                 )
+              )} / ${stripTrailingZeros(
+                formatPrice(
+                  priceModel,
+                  'output',
+                  'M',
+                  false,
+                  pricing.priceRate,
+                  pricing.usdExchangeRate
+                )
+              )}`
+            } else {
+              price = stripTrailingZeros(
+                formatRequestPrice(
+                  priceModel,
+                  false,
+                  pricing.priceRate,
+                  pricing.usdExchangeRate
+                )
+              )
+            }
           }
 
           return (

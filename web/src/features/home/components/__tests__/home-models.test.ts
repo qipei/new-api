@@ -19,9 +19,14 @@ For commercial licensing, please contact support@quantumnous.com
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
+import type { PricingModel } from '@/features/pricing/types'
 import type { ModelRanking } from '@/features/rankings/types'
 
-import { HOME_MODEL_LIMIT, selectHomeModels } from '../../lib/home-models'
+import {
+  formatFirstTierHomePrice,
+  HOME_MODEL_LIMIT,
+  selectHomeModels,
+} from '../../lib/home-models'
 
 function ranking(rank: number): ModelRanking {
   return {
@@ -58,5 +63,28 @@ describe('selectHomeModels', () => {
 
   test('keeps an empty state empty when rankings have no usage data', () => {
     assert.deepEqual(selectHomeModels([]), [])
+  })
+})
+
+describe('formatFirstTierHomePrice', () => {
+  test('shows only the first dynamic tier with the best available group ratio', () => {
+    const model: PricingModel = {
+      id: 1,
+      model_name: 'deepseek-v4-flash-0731',
+      quota_type: 0,
+      model_ratio: 0.5,
+      completion_ratio: 2,
+      enable_groups: ['5.4折', 'default'],
+      group_ratio: { '5.4折': 0.54, default: 1 },
+      billing_mode: 'tiered_expr',
+      billing_expr:
+        '(hour("Asia/Shanghai") >= 22 || hour("Asia/Shanghai") < 8)\n' +
+        '  ? tier("闲时", p * 1.5 + c * 4.5 + cr * 0.15)\n' +
+        '  : tier("忙时", p * 3 + c * 9 + cr * 0.3)',
+    }
+
+    const price = formatFirstTierHomePrice(model, 1, 1)
+
+    assert.equal(price, '$0.81 / $2.43')
   })
 })

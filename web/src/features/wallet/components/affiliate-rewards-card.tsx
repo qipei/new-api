@@ -109,14 +109,26 @@ export function AffiliateRewardsCard({
                 </div>
               ))}
             </div>
-            <Button
-              variant='outline'
-              onClick={onShowCommissions}
-              className='h-9 shrink-0 px-3'
-              size='sm'
-            >
-              {t('Commission Details')}
-            </Button>
+            <div className='flex flex-wrap items-center justify-end gap-2'>
+              <Button
+                variant='outline'
+                onClick={onShowCommissions}
+                className='h-9 shrink-0 px-3'
+                size='sm'
+              >
+                {t('Commission Details')}
+              </Button>
+              {hasRewards ? (
+                <Button
+                  onClick={onTransfer}
+                  disabled={!complianceConfirmed}
+                  className='h-9 shrink-0 px-3'
+                  size='sm'
+                >
+                  {t('Transfer to Balance')}
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           <div
@@ -141,18 +153,6 @@ export function AffiliateRewardsCard({
                 aria-label={t('Copy referral link')}
               />
             </div>
-            {hasRewards && (
-              <div className='flex flex-wrap items-center justify-end gap-2'>
-                <Button
-                  onClick={onTransfer}
-                  disabled={!complianceConfirmed}
-                  className='h-9 px-3'
-                  size='sm'
-                >
-                  {t('Transfer to Balance')}
-                </Button>
-              </div>
-            )}
           </div>
 
           {!complianceConfirmed ? (

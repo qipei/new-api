@@ -26,6 +26,7 @@ import {
   Copy,
   FileCheck2,
   Headphones,
+  Phone,
   ShieldCheck,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -58,6 +59,7 @@ const PRICING_URL = 'https://token01.net/pricing'
 const DOUJU_URL = 'https://files.token01.net/tools/dj/index.html'
 const DOUKUAIZHUANG_URL = 'https://files.token01.net/tools/dkz/index.html'
 const API_ENDPOINT = 'https://www.token01.net/v1'
+const CONTACT_PHONE = '15332462764'
 
 const GATEWAY_MODELS = [
   { name: 'DeepSeek', icon: 'DeepSeek.Color' },
@@ -115,7 +117,7 @@ const FEATURES = [
   },
   {
     title: 'Enterprise support',
-    description: 'Dedicated technical support\nResponsive around the clock',
+    description: 'Dedicated technical support\nTimely assistance when needed',
     icon: Headphones,
   },
 ] as const
@@ -130,6 +132,29 @@ function resolveContactQr(status: ReturnType<typeof useStatus>['status']) {
     status?.data?.wechat_qrcode ||
     status?.data?.WeChatAccountQRCodeImageURL ||
     '/contact-wechat-qr.png') as string
+}
+
+export function ContactSupportContent(props: { contactQr: string }) {
+  const { t } = useTranslation()
+
+  return (
+    <div className='space-y-4'>
+      <img
+        src={props.contactQr}
+        alt={t('WeChat support QR code')}
+        className='mx-auto aspect-square w-full max-w-[280px] rounded-2xl bg-white object-contain p-2'
+      />
+      <a
+        href={`tel:${CONTACT_PHONE}`}
+        className='mx-auto flex w-fit items-center gap-2 rounded-xl border border-[#e3e1d8] px-4 py-2.5 text-sm font-medium hover:border-[#ffc800] hover:text-[#b58b00] dark:border-white/10 dark:hover:border-[#ffc800] dark:hover:text-[#ffc800]'
+      >
+        <Phone className='size-4' aria-hidden='true' />
+        <span>
+          {t('Phone')}: {CONTACT_PHONE}
+        </span>
+      </a>
+    </div>
+  )
 }
 
 function GatewayDiagram() {
@@ -549,11 +574,7 @@ export function DefaultHome() {
         contentClassName='sm:max-w-sm'
         contentHeight='auto'
       >
-        <img
-          src={contactQr}
-          alt={t('WeChat support QR code')}
-          className='mx-auto aspect-square w-full max-w-[280px] rounded-2xl bg-white object-contain p-2'
-        />
+        <ContactSupportContent contactQr={contactQr} />
       </Dialog>
     </main>
   )

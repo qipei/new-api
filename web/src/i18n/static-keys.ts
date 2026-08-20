@@ -603,5 +603,5 @@ export const STATIC_I18N_KEYS = [
   'Traceable model sources',
   'Official access channels\nClearly identified model versions',
   'Enterprise support',
-  'Dedicated technical support\nResponsive around the clock',
+  'Dedicated technical support\nTimely assistance when needed',
 ] as const

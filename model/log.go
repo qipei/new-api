@@ -150,6 +150,13 @@ func GetConsumeLogsByIds(ids []int) ([]*Log, error) {
 	return logs, err
 }
 
+func UpdateConsumeLogQuotaAndOther(logID, expectedQuota, quota int, other string) (bool, error) {
+	result := LOG_DB.Model(&Log{}).
+		Where("id = ? AND type = ? AND quota = ?", logID, LogTypeConsume, expectedQuota).
+		Updates(map[string]interface{}{"quota": quota, "other": other})
+	return result.RowsAffected == 1, result.Error
+}
+
 func RecordLog(userId int, logType int, content string) {
 	if logType == LogTypeConsume && !common.LogConsumeEnabled {
 		return
@@ -395,6 +402,8 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 	err := createLog(log)
 	if err != nil {
 		logger.LogError(c, "failed to record log: "+err.Error())
+	} else {
+		notifyConsumeLogCreated(log.Id)
 	}
 	if common.DataExportEnabled {
 		LogQuotaData(QuotaDataLogParams{

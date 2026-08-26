@@ -298,7 +298,11 @@ func fetchUpstreamJSON(ctx context.Context, endpoint, apiKey string, target inte
 	if apiKey != "" {
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
-	resp, err := GetHttpClient().Do(req)
+	client := GetHttpClient()
+	if client == nil {
+		return fmt.Errorf("http client is not initialized")
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}

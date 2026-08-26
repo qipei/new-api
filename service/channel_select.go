@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -82,6 +83,9 @@ func (p *RetryParam) ResetRetryNextTry() {
 //	         分组B, 优先级1
 func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, error) {
 	var channel *model.Channel
+	var protectedFallback *model.Channel
+	var protectedFallbackGroup string
+	protectedFallbackGroupIndex := 0
 	var err error
 	selectGroup := param.TokenGroup
 	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
@@ -115,7 +119,16 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			logger.LogDebug(param.Ctx, "Auto selecting group: %s, priorityRetry: %d", autoGroup, priorityRetry)
 
-			channel, _ = model.GetRandomSatisfiedChannel(autoGroup, param.ModelName, priorityRetry, param.RequestPath)
+			var fallback *model.Channel
+			channel, fallback, err = selectCostProtectedChannel(autoGroup, param.ModelName, priorityRetry, param.RequestPath)
+			if err != nil {
+				return nil, autoGroup, err
+			}
+			if channel == nil && fallback != nil && protectedFallback == nil {
+				protectedFallback = fallback
+				protectedFallbackGroup = autoGroup
+				protectedFallbackGroupIndex = i
+			}
 			if channel == nil {
 				// Current group has no available channel for this model, try next group
 				// 当前分组没有该模型的可用渠道，尝试下一个分组
@@ -152,11 +165,40 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			break
 		}
+		if channel == nil && protectedFallback != nil {
+			channel = protectedFallback
+			selectGroup = protectedFallbackGroup
+			common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroup, protectedFallbackGroup)
+			common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, protectedFallbackGroupIndex)
+			logger.LogWarn(param.Ctx, fmt.Sprintf("All alternative channels exhausted, falling back to cost-protected channel %d for model %s", protectedFallback.Id, param.ModelName))
+		}
 	} else {
-		channel, err = model.GetRandomSatisfiedChannel(param.TokenGroup, param.ModelName, param.GetRetry(), param.RequestPath)
+		var fallback *model.Channel
+		channel, fallback, err = selectCostProtectedChannel(param.TokenGroup, param.ModelName, param.GetRetry(), param.RequestPath)
 		if err != nil {
 			return nil, param.TokenGroup, err
 		}
+		if channel == nil && fallback != nil {
+			channel = fallback
+			logger.LogWarn(param.Ctx, fmt.Sprintf("No alternative channel available, falling back to cost-protected channel %d for model %s", fallback.Id, param.ModelName))
+		}
 	}
 	return channel, selectGroup, nil
+}
+
+// selectCostProtectedChannel prefers channels without a recent loss signal.
+// fallback is returned separately so auto groups can search later groups first;
+// callers use it only when no healthy alternative exists, preserving continuity.
+func selectCostProtectedChannel(group, modelName string, retry int, requestPath string) (channel, fallback *model.Channel, err error) {
+	excluded := getCostProtectedChannelIDs(group, modelName)
+	if len(excluded) == 0 {
+		channel, err = model.GetRandomSatisfiedChannel(group, modelName, retry, requestPath)
+		return channel, nil, err
+	}
+	channel, err = model.GetRandomSatisfiedChannelExcluding(group, modelName, retry, requestPath, excluded)
+	if err != nil || channel != nil {
+		return channel, nil, err
+	}
+	fallback, err = model.GetRandomSatisfiedChannel(group, modelName, retry, requestPath)
+	return nil, fallback, err
 }

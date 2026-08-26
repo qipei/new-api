@@ -13,6 +13,7 @@ import (
 )
 
 func TestFetchUpstreamCostGroupComparesNormalizedCharges(t *testing.T) {
+	InitHttpClient()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/status":
@@ -50,6 +51,7 @@ func TestFetchUpstreamCostGroupComparesNormalizedCharges(t *testing.T) {
 }
 
 func TestFetchUpstreamLogsSupportsLegacyArrayResponse(t *testing.T) {
+	InitHttpClient()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, err := fmt.Fprint(w, `{"success":true,"data":[{"request_id":"legacy-request","quota":42}]}`)
 		assert.NoError(t, err)

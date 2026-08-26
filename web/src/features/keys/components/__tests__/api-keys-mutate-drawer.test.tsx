@@ -204,6 +204,16 @@ afterEach(() => {
 })
 
 describe('API keys mutate drawer Auto group integration', () => {
+  test('highlights the model access scope of the selected group when creating a key', async () => {
+    const createdPayloads: Array<Record<string, unknown>> = []
+    installApiFixtures(createdPayloads)
+    await renderCreateDrawer()
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.'
+    )
+  })
+
   test('inherits the root Auto order and sends an empty override for every batch-created key', async () => {
     const createdPayloads: Array<Record<string, unknown>> = []
     installApiFixtures(createdPayloads)

@@ -41,6 +41,9 @@ describe('log cost display', () => {
       Subscription: 'Subscription',
       'Deducted by subscription': 'Deducted by subscription',
       'Includes tool-call surcharge': 'Includes tool-call surcharge',
+      'Upstream cost higher': 'Upstream cost higher',
+      'Upstream charged {{upstream}}, platform charged {{platform}}':
+        'Upstream charged {{upstream}}, platform charged {{platform}}',
     })
   })
 
@@ -79,5 +82,43 @@ describe('log cost display', () => {
     expect(
       screen.getByRole('img', { name: 'Includes tool-call surcharge' })
     ).toHaveAttribute('data-tool-surcharge-indicator', 'true')
+  })
+
+  test('shows the warning tag only when the normalized upstream charge is higher', () => {
+    const rendered = renderCost({
+      quota: 100000,
+      other: {},
+      upstreamCost: {
+        log_id: 7,
+        upstream_quota: 200000,
+        upstream_quota_per_unit: 500000,
+        platform_quota: 100000,
+        platform_quota_per_unit: 500000,
+        upstream_amount_usd: 0.4,
+        platform_amount_usd: 0.2,
+        exceeds_platform: true,
+      },
+    })
+
+    expect(screen.getByLabelText('Upstream cost higher')).toBeInTheDocument()
+
+    rendered.rerender(
+      <LogCostDisplay
+        quota={100000}
+        other={{}}
+        upstreamCost={{
+          log_id: 7,
+          upstream_quota: 50000,
+          upstream_quota_per_unit: 500000,
+          platform_quota: 100000,
+          platform_quota_per_unit: 500000,
+          upstream_amount_usd: 0.1,
+          platform_amount_usd: 0.2,
+          exceeds_platform: false,
+        }}
+      />
+    )
+
+    expect(screen.queryByLabelText('Upstream cost higher')).toBeNull()
   })
 })

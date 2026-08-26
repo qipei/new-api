@@ -18,7 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
-import { type ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef } from '@tanstack/react-table'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -31,11 +32,13 @@ import { useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { cn } from '@/lib/utils'
 
+import { getUpstreamCosts } from '../api'
 import {
   DEFAULT_LOGS_DATA,
   LOG_TYPE_ALL_VALUE,
   LOG_TYPE_ENUM,
 } from '../constants'
+import type { UsageLog } from '../data/schema'
 import { useColumnsByCategory } from '../lib/columns'
 import { parseLogOther } from '../lib/format'
 import { fetchLogsByCategory } from '../lib/utils'
@@ -64,7 +67,12 @@ function getColumnVisibilityStorageKey(
 }
 
 function deserializeLogTypeFilter(value: unknown): unknown[] {
-  const values = Array.isArray(value) ? value : value ? [value] : []
+  let values: unknown[] = []
+  if (Array.isArray(value)) {
+    values = value
+  } else if (value) {
+    values = [value]
+  }
   return values.filter((item) => String(item) !== LOG_TYPE_ALL_VALUE)
 }
 
@@ -152,7 +160,50 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     },
   })
 
-  const logs = data?.items || []
+  const commonLogs = useMemo(() => {
+    if (!isAdmin || logCategory !== 'common') return []
+    return (data?.items || []) as UsageLog[]
+  }, [data?.items, isAdmin, logCategory])
+  const upstreamCostLogIds = useMemo(
+    () =>
+      commonLogs
+        .filter(
+          (log) =>
+            log.type === LOG_TYPE_ENUM.CONSUME &&
+            log.channel > 0 &&
+            Boolean(log.upstream_request_id)
+        )
+        .slice(0, 100)
+        .map((log) => log.id),
+    [commonLogs]
+  )
+  const { data: upstreamCostResponse } = useQuery({
+    queryKey: ['logs', 'upstream-costs', upstreamCostLogIds],
+    queryFn: () => getUpstreamCosts(upstreamCostLogIds),
+    enabled: upstreamCostLogIds.length > 0,
+    staleTime: 60_000,
+  })
+  const upstreamCostByLogId = useMemo(
+    () =>
+      new Map(
+        (upstreamCostResponse?.data || []).map((cost) => [cost.log_id, cost])
+      ),
+    [upstreamCostResponse?.data]
+  )
+  const logs = useMemo(() => {
+    const items = data?.items || []
+    if (
+      !isAdmin ||
+      logCategory !== 'common' ||
+      upstreamCostByLogId.size === 0
+    ) {
+      return items
+    }
+    return (items as UsageLog[]).map((log) => ({
+      ...log,
+      upstream_cost: upstreamCostByLogId.get(log.id),
+    }))
+  }, [data?.items, isAdmin, logCategory, upstreamCostByLogId])
   const columns = useColumnsByCategory(logCategory, isAdmin)
   const isLoadingData = isLoading || (isFetching && !data)
 

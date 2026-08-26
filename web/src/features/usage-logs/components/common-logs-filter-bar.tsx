@@ -87,6 +87,7 @@ function buildSearchSourceKey(values: {
   username?: unknown
   requestId?: unknown
   upstreamRequestId?: unknown
+  upstreamCost?: unknown
   type?: unknown
 }) {
   return [
@@ -99,6 +100,7 @@ function buildSearchSourceKey(values: {
     values.username,
     values.requestId,
     values.upstreamRequestId,
+    values.upstreamCost,
     Array.isArray(values.type) ? values.type.join(',') : values.type,
   ]
     .map((value) => String(value ?? ''))
@@ -132,6 +134,7 @@ export function CommonLogsFilterBar<TData>(
       username: searchParams.username,
       requestId: searchParams.requestId,
       upstreamRequestId: searchParams.upstreamRequestId,
+      upstreamCost: searchParams.upstreamCost,
       type: searchParams.type,
     }
     const filters: CommonLogFilters = {
@@ -146,6 +149,7 @@ export function CommonLogsFilterBar<TData>(
       username: searchParams.username || undefined,
       requestId: searchParams.requestId || undefined,
       upstreamRequestId: searchParams.upstreamRequestId || undefined,
+      upstreamCost: searchParams.upstreamCost || undefined,
     }
     return {
       sourceKey: buildSearchSourceKey(sourceValues),
@@ -162,6 +166,7 @@ export function CommonLogsFilterBar<TData>(
     searchParams.username,
     searchParams.requestId,
     searchParams.upstreamRequestId,
+    searchParams.upstreamCost,
     searchParams.type,
   ])
   const [draft, setDraft] = useState<CommonLogDraft>(() => searchState)
@@ -242,7 +247,11 @@ export function CommonLogsFilterBar<TData>(
 
   const hasTypeFilter = logType !== LOG_TYPE_ALL_VALUE
   const hasAdditionalFilters =
-    !!filters.model || !!filters.group || hasTypeFilter || hasExpandedFilters
+    !!filters.model ||
+    !!filters.group ||
+    !!filters.upstreamCost ||
+    hasTypeFilter ||
+    hasExpandedFilters
 
   const expandedFilterCount = [
     filters.token,
@@ -258,6 +267,13 @@ export function CommonLogsFilterBar<TData>(
         value: type.value,
         label: t(type.label),
       })),
+    [t]
+  )
+  const upstreamCostItems = useMemo(
+    () => [
+      { value: 'all', label: t('All Costs') },
+      { value: 'higher', label: t('Upstream cost higher') },
+    ],
     [t]
   )
   const logTypeLabel =
@@ -358,6 +374,34 @@ export function CommonLogsFilterBar<TData>(
       </Select>
     </LogsFilterField>
   )
+  const upstreamCostFilter = isAdmin ? (
+    <LogsFilterField>
+      <Select
+        items={upstreamCostItems}
+        value={filters.upstreamCost || 'all'}
+        onValueChange={(value) =>
+          handleChange(
+            'upstreamCost',
+            value === 'higher' ? 'higher' : undefined
+          )
+        }
+      >
+        <SelectTrigger>
+          <SelectValue>
+            {filters.upstreamCost === 'higher'
+              ? t('Upstream cost higher')
+              : t('All Costs')}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent alignItemWithTrigger={false}>
+          <SelectGroup>
+            <SelectItem value='all'>{t('All Costs')}</SelectItem>
+            <SelectItem value='higher'>{t('Upstream cost higher')}</SelectItem>
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </LogsFilterField>
+  ) : null
   const advancedFilters = (
     <>
       <LogsFilterField>
@@ -420,6 +464,7 @@ export function CommonLogsFilterBar<TData>(
           {modelFilter}
           {groupFilter}
           {typeFilter}
+          {upstreamCostFilter}
         </>
       }
       advancedFilters={advancedFilters}
@@ -429,12 +474,17 @@ export function CommonLogsFilterBar<TData>(
           {modelFilter}
           {groupFilter}
           {typeFilter}
+          {upstreamCostFilter}
           {advancedFilters}
         </>
       }
       mobileFilterCount={
-        [filters.model, filters.group, hasTypeFilter].filter(Boolean).length +
-        expandedFilterCount
+        [
+          filters.model,
+          filters.group,
+          hasTypeFilter,
+          filters.upstreamCost,
+        ].filter(Boolean).length + expandedFilterCount
       }
       hasAdvancedActiveFilters={hasExpandedFilters}
       advancedFilterCount={expandedFilterCount}

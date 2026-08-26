@@ -379,6 +379,7 @@
     "Amount the user pays to purchase this plan (USD).": "ユーザーがこのプランを購入する際に支払う金額（USD）。",
     "Amount the user pays to purchase this plan; the actual currency depends on the payment gateway.": "ユーザーがこのプランを購入する際に支払う金額。実際の通貨は決済ゲートウェイによって異なります。",
     "Amount to pay:": "支払い金額:",
+    "An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.": "自動（auto）グループの API キーはすべてのモデルにアクセスできます。その他のグループの API キーは、選択したグループ内のモデルにのみアクセスできます。",
     "An unexpected error occurred": "予期せぬエラーが発生しました",
     "An unknown error occurred": "不明なエラーが発生しました",
     "Analyze data": "データを分析",
@@ -5487,5 +5488,8 @@
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
     "Zoom": "ズーム"
-  }
+  },
+  "Upstream cost higher": "上流コストが高い",
+  "Upstream charged {{upstream}}, platform charged {{platform}}": "上流の課金額 {{upstream}}、プラットフォームの課金額 {{platform}}",
+  "All Costs": "すべての課金"
 }

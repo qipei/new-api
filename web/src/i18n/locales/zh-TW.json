@@ -379,6 +379,7 @@
     "Amount the user pays to purchase this plan (USD).": "用戶購買該套餐需支付的金額（美元）。",
     "Amount the user pays to purchase this plan; the actual currency depends on the payment gateway.": "用戶購買該套餐需支付的金額，具體幣種由支付渠道決定",
     "Amount to pay:": "待支付金額：",
+    "An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.": "自動（auto）分組的 API 金鑰可存取所有模型；其他分組的 API 金鑰只能存取對應分組下的模型。",
     "An unexpected error occurred": "發生意外錯誤",
     "An unknown error occurred": "發生未知錯誤",
     "Analyze data": "分析數據",
@@ -5487,5 +5488,8 @@
     "Zhipu": "智譜",
     "Zhipu V4": "智譜 V4",
     "Zoom": "縮放"
-  }
+  },
+  "Upstream cost higher": "上游成本較高",
+  "Upstream charged {{upstream}}, platform charged {{platform}}": "上游扣費 {{upstream}}，平台扣費 {{platform}}",
+  "All Costs": "全部扣費"
 }

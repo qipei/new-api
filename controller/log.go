@@ -5,10 +5,18 @@ import (
 	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
 )
+
+const maxUpstreamCostLogIds = 100
+
+type upstreamCostRequest struct {
+	LogIds []int `json:"log_ids"`
+}
 
 func GetAllLogs(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
@@ -22,15 +30,55 @@ func GetAllLogs(c *gin.Context) {
 	group := c.Query("group")
 	requestId := c.Query("request_id")
 	upstreamRequestId := c.Query("upstream_request_id")
-	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId, upstreamRequestId)
+	upstreamCostFilter := c.Query("upstream_cost")
+	startIdx := pageInfo.GetStartIdx()
+	pageSize := pageInfo.GetPageSize()
+	if upstreamCostFilter == "higher" {
+		startIdx = 0
+		pageSize = common.MaxRecentItems
+	}
+	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, startIdx, pageSize, channel, group, requestId, upstreamRequestId)
 	if err != nil {
 		common.ApiError(c, err)
 		return
+	}
+	if upstreamCostFilter == "higher" {
+		logIds := make([]int, 0, len(logs))
+		for _, log := range logs {
+			logIds = append(logIds, log.Id)
+		}
+		costs, err := service.GetUpstreamCosts(c.Request.Context(), logIds)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		logs, total = paginateUpstreamCostAnomalies(logs, costs, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
 	}
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(logs)
 	common.ApiSuccess(c, pageInfo)
 	return
+}
+
+func paginateUpstreamCostAnomalies(logs []*model.Log, costs []service.UpstreamCostInfo, startIdx, pageSize int) ([]*model.Log, int64) {
+	anomalyLogIds := make(map[int]struct{}, len(costs))
+	for _, cost := range costs {
+		if cost.ExceedsPlatform {
+			anomalyLogIds[cost.LogId] = struct{}{}
+		}
+	}
+	filtered := make([]*model.Log, 0, len(anomalyLogIds))
+	for _, log := range logs {
+		if _, ok := anomalyLogIds[log.Id]; ok {
+			filtered = append(filtered, log)
+		}
+	}
+	total := int64(len(filtered))
+	if startIdx >= len(filtered) || pageSize <= 0 {
+		return []*model.Log{}, total
+	}
+	endIdx := min(startIdx+pageSize, len(filtered))
+	return filtered[startIdx:endIdx], total
 }
 
 func GetUserLogs(c *gin.Context) {
@@ -53,6 +101,24 @@ func GetUserLogs(c *gin.Context) {
 	pageInfo.SetItems(logs)
 	common.ApiSuccess(c, pageInfo)
 	return
+}
+
+func GetUpstreamCosts(c *gin.Context) {
+	var req upstreamCostRequest
+	if err := c.ShouldBindJSON(&req); err != nil || len(req.LogIds) == 0 {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+	if len(req.LogIds) > maxUpstreamCostLogIds {
+		common.ApiErrorI18n(c, i18n.MsgBatchTooMany, map[string]any{"Max": maxUpstreamCostLogIds})
+		return
+	}
+	costs, err := service.GetUpstreamCosts(c.Request.Context(), req.LogIds)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, costs)
 }
 
 // Deprecated: SearchAllLogs 已废弃，前端未使用该接口。

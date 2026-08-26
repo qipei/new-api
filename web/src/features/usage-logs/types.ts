@@ -54,6 +54,7 @@ export interface CommonLogFilters extends CommonFilters {
   username?: string
   requestId?: string
   upstreamRequestId?: string
+  upstreamCost?: string
 }
 
 /**
@@ -324,6 +325,7 @@ export interface GetLogsParams {
   group?: string
   request_id?: string
   upstream_request_id?: string
+  upstream_cost?: string
 }
 
 export interface GetLogsResponse {
@@ -335,6 +337,23 @@ export interface GetLogsResponse {
     page: number
     page_size: number
   }
+}
+
+export interface UpstreamCostInfo {
+  log_id: number
+  upstream_quota: number
+  upstream_quota_per_unit: number
+  platform_quota: number
+  platform_quota_per_unit: number
+  upstream_amount_usd: number
+  platform_amount_usd: number
+  exceeds_platform: boolean
+}
+
+export interface GetUpstreamCostsResponse {
+  success: boolean
+  message?: string
+  data?: UpstreamCostInfo[]
 }
 
 export interface GetLogStatsParams {

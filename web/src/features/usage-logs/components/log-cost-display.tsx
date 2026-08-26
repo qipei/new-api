@@ -28,14 +28,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import { formatLogQuota } from '@/lib/format'
 
 import { hasToolSurcharge } from '../lib/format'
-import type { LogOtherData } from '../types'
+import type { LogOtherData, UpstreamCostInfo } from '../types'
 
 interface LogCostDisplayProps {
   quota: number
   other: LogOtherData | null
+  upstreamCost?: UpstreamCostInfo
 }
 
 function splitQuotaDisplay(value: string): { prefix: string; amount: string } {
@@ -117,11 +119,51 @@ function SubscriptionBadge(props: { quota: number }) {
   )
 }
 
+function UpstreamCostWarning(props: { cost: UpstreamCostInfo }) {
+  const { t } = useTranslation()
+  const label = t('Upstream cost higher')
+  const formatOptions = {
+    digitsLarge: 4,
+    digitsSmall: 6,
+    abbreviate: false,
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Badge
+            variant='destructive'
+            className='h-5 cursor-help px-1.5'
+            aria-label={label}
+            tabIndex={0}
+          >
+            {label}
+          </Badge>
+        }
+      />
+      <TooltipContent>
+        {t('Upstream charged {{upstream}}, platform charged {{platform}}', {
+          upstream: formatBillingCurrencyFromUSD(
+            props.cost.upstream_amount_usd,
+            formatOptions
+          ),
+          platform: formatBillingCurrencyFromUSD(
+            props.cost.platform_amount_usd,
+            formatOptions
+          ),
+        })}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 export function LogCostDisplay(props: LogCostDisplayProps) {
   const isSubscription = props.other?.billing_source === 'subscription'
   const showToolSurcharge = hasToolSurcharge(props.other)
+  const showUpstreamCostWarning = Boolean(props.upstreamCost?.exceeds_platform)
 
-  if (!isSubscription && !showToolSurcharge) {
+  if (!isSubscription && !showToolSurcharge && !showUpstreamCostWarning) {
     return (
       <div className='flex flex-col gap-0.5'>
         <QuotaBadge quota={props.quota} />
@@ -138,6 +180,9 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
           <QuotaBadge quota={props.quota} />
         )}
         {showToolSurcharge ? <ToolSurchargeMarker /> : null}
+        {showUpstreamCostWarning && props.upstreamCost ? (
+          <UpstreamCostWarning cost={props.upstreamCost} />
+        ) : null}
       </div>
     </TooltipProvider>
   )

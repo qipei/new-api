@@ -35,6 +35,7 @@ import {
   sideDrawerSwitchItemClassName,
 } from '@/components/drawer-layout'
 import { MultiSelect } from '@/components/multi-select'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -417,7 +418,20 @@ export function ApiKeysMutateDrawer({
                 name='group'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('Group')}</FormLabel>
+                    <div className='flex flex-col gap-2 sm:flex-row sm:items-start'>
+                      <FormLabel className='shrink-0 sm:pt-2'>
+                        {t('Group')}
+                      </FormLabel>
+                      {!isUpdate ? (
+                        <Alert className='border-primary/40 bg-primary/10 min-w-0 flex-1 px-3 py-1.5'>
+                          <AlertDescription className='text-foreground text-xs leading-5 font-medium'>
+                            {t(
+                              'An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.'
+                            )}
+                          </AlertDescription>
+                        </Alert>
+                      ) : null}
+                    </div>
                     <FormControl>
                       <ApiKeyGroupCombobox
                         options={groups}

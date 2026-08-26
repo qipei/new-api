@@ -379,6 +379,7 @@
     "Amount the user pays to purchase this plan (USD).": "Montant que l'utilisateur paie pour acheter ce forfait (USD).",
     "Amount the user pays to purchase this plan; the actual currency depends on the payment gateway.": "Montant que l'utilisateur paie pour acheter ce forfait ; la devise réelle dépend de la passerelle de paiement.",
     "Amount to pay:": "Montant à payer :",
+    "An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.": "Une clé API du groupe automatique (auto) peut accéder à tous les modèles. Les clés API des autres groupes ne peuvent accéder qu’aux modèles de leur groupe sélectionné.",
     "An unexpected error occurred": "Une erreur inattendue est survenue",
     "An unknown error occurred": "Une erreur inconnue est survenue",
     "Analyze data": "Analyser les données",
@@ -5487,5 +5488,8 @@
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom"
-  }
+  },
+  "Upstream cost higher": "Coût amont supérieur",
+  "Upstream charged {{upstream}}, platform charged {{platform}}": "Facturation amont : {{upstream}}, facturation de la plateforme : {{platform}}",
+  "All Costs": "Tous les coûts"
 }

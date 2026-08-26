@@ -379,6 +379,7 @@
     "Amount the user pays to purchase this plan (USD).": "Số tiền người dùng trả để mua gói này (USD).",
     "Amount the user pays to purchase this plan; the actual currency depends on the payment gateway.": "Số tiền người dùng trả để mua gói này; loại tiền tệ thực tế tùy thuộc vào cổng thanh toán.",
     "Amount to pay:": "Amount due:",
+    "An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.": "Khóa API thuộc nhóm tự động (auto) có thể truy cập tất cả mô hình. Khóa API thuộc các nhóm khác chỉ có thể truy cập các mô hình trong nhóm đã chọn.",
     "An unexpected error occurred": "Đã xảy ra lỗi không mong muốn",
     "An unknown error occurred": "Đã xảy ra lỗi không xác định",
     "Analyze data": "Phân tích dữ liệu",
@@ -5487,5 +5488,8 @@
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom"
-  }
+  },
+  "Upstream cost higher": "Chi phí thượng nguồn cao hơn",
+  "Upstream charged {{upstream}}, platform charged {{platform}}": "Thượng nguồn tính {{upstream}}, nền tảng tính {{platform}}",
+  "All Costs": "Tất cả chi phí"
 }

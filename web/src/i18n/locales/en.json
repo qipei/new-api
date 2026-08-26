@@ -379,6 +379,7 @@
     "Amount the user pays to purchase this plan (USD).": "Amount the user pays to purchase this plan (USD).",
     "Amount the user pays to purchase this plan; the actual currency depends on the payment gateway.": "Amount the user pays to purchase this plan; the actual currency depends on the payment gateway.",
     "Amount to pay:": "Amount to pay:",
+    "An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.": "An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.",
     "An unexpected error occurred": "An unexpected error occurred",
     "An unknown error occurred": "An unknown error occurred",
     "Analyze data": "Analyze data",
@@ -5487,5 +5488,8 @@
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom"
-  }
+  },
+  "Upstream cost higher": "Upstream cost higher",
+  "Upstream charged {{upstream}}, platform charged {{platform}}": "Upstream charged {{upstream}}, platform charged {{platform}}",
+  "All Costs": "All Costs"
 }

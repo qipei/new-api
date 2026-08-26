@@ -58,6 +58,9 @@ export function buildSearchParams(
         ...(commonFilters.upstreamRequestId && {
           upstreamRequestId: commonFilters.upstreamRequestId,
         }),
+        ...(commonFilters.upstreamCost && {
+          upstreamCost: commonFilters.upstreamCost,
+        }),
       }
     }
     case 'drawing': {

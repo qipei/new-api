@@ -22,6 +22,17 @@ For commercial licensing, please contact support@quantumnous.com
  */
 import { z } from 'zod'
 
+const upstreamCostSchema = z.object({
+  log_id: z.number(),
+  upstream_quota: z.number(),
+  upstream_quota_per_unit: z.number(),
+  platform_quota: z.number(),
+  platform_quota_per_unit: z.number(),
+  upstream_amount_usd: z.number(),
+  platform_amount_usd: z.number(),
+  exceeds_platform: z.boolean(),
+})
+
 // Usage log schema
 export const usageLogSchema = z.object({
   id: z.number(),
@@ -45,6 +56,7 @@ export const usageLogSchema = z.object({
   other: z.string().default(''),
   request_id: z.string().default(''),
   upstream_request_id: z.string().default(''),
+  upstream_cost: upstreamCostSchema.optional(),
 })
 
 export type UsageLog = z.infer<typeof usageLogSchema>

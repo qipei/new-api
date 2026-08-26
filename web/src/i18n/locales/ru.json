@@ -379,6 +379,7 @@
     "Amount the user pays to purchase this plan (USD).": "Сумма, которую пользователь платит за покупку этого тарифа (USD).",
     "Amount the user pays to purchase this plan; the actual currency depends on the payment gateway.": "Сумма, которую пользователь платит за покупку тарифа; фактическая валюта зависит от платёжного шлюза.",
     "Amount to pay:": "Сумма к оплате:",
+    "An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.": "API-ключ автоматической группы (auto) может обращаться ко всем моделям. Ключи других групп могут обращаться только к моделям выбранной группы.",
     "An unexpected error occurred": "Произошла непредвиденная ошибка",
     "An unknown error occurred": "Произошла неизвестная ошибка",
     "Analyze data": "Анализировать данные",
@@ -5487,5 +5488,8 @@
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
     "Zoom": "Zoom"
-  }
+  },
+  "Upstream cost higher": "Стоимость выше у поставщика",
+  "Upstream charged {{upstream}}, platform charged {{platform}}": "Поставщик списал {{upstream}}, платформа списала {{platform}}",
+  "All Costs": "Все списания"
 }

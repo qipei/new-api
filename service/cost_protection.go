@@ -221,7 +221,12 @@ func processCostProtectionJobs(ctx context.Context, jobs []costProtectionJob) {
 		if found {
 			if cost.ExceedsPlatform {
 				applyCostProtection(ctx, cost)
+				continue
 			}
+			// 「查到了但没超」此前是完全静默的，上游返回被错读成 0 时看不出任何异常。
+			// 把比出来的两个金额记下来，异常才有迹可循。
+			common.SysLog(fmt.Sprintf("cost protection ok: log=%d upstream=%f platform=%f",
+				logID, cost.UpstreamAmount, cost.PlatformAmount))
 			continue
 		}
 		job := jobByLogID[logID]
@@ -256,40 +261,17 @@ func applyCostProtection(ctx context.Context, cost UpstreamCostInfo) {
 	}
 	requestPath, _ := other["request_path"].(string)
 
-	marked := true
+	// 换渠道和补扣是两件独立的事：上游已经按它的价格扣过我们了，这一笔的差额必须补回来，
+	// 否则每次都是净亏；避开贵渠道只是额外保护后续请求，失败也不该拦住补扣。
 	if err := markCostProtectedChannel(log.Group, log.ModelName, log.ChannelId); err != nil {
-		marked = false
 		common.SysError("cost protection route update failed: " + err.Error())
 	}
 	alternative, alternativeGroup, selectErr := findCostProtectionAlternative(log, requestPath)
 	if selectErr != nil {
 		common.SysError(fmt.Sprintf("cost protection alternative lookup failed for log %d: %s", log.Id, selectErr.Error()))
-		return
-	}
-	if marked && alternative != nil {
-		adminInfo, _ := other["admin_info"].(map[string]interface{})
-		if adminInfo == nil {
-			adminInfo = make(map[string]interface{})
-			other["admin_info"] = adminInfo
-		}
-		adminInfo["cost_protection"] = map[string]interface{}{
-			"action":                   "reroute",
-			"costly_channel_id":        log.ChannelId,
-			"alternative_channel_id":   alternative.Id,
-			"alternative_group":        alternativeGroup,
-			"upstream_amount":          cost.UpstreamAmount,
-			"original_platform_amount": cost.PlatformAmount,
-			"avoidance_ttl_in_seconds": int(costProtectionAvoidTTL.Seconds()),
-		}
-		if _, err := model.MarkConsumeLogCostProtection(log.Id, common.MapToJsonStr(other)); err != nil {
-			common.SysError("cost protection reroute audit update failed: " + err.Error())
-		}
-		logger.LogWarn(ctx, fmt.Sprintf("cost protection reroute: log=%d model=%s group=%s costly_channel=%d alternative_group=%s alternative_channel=%d upstream=%f platform=%f",
-			log.Id, log.ModelName, log.Group, log.ChannelId, alternativeGroup, alternative.Id, cost.UpstreamAmount, cost.PlatformAmount))
-		return
 	}
 
-	if err := settleCostProtectionSurcharge(log, cost, targetQuota); err != nil {
+	if err := settleCostProtectionSurcharge(log, cost, targetQuota, alternative, alternativeGroup); err != nil {
 		common.SysError(fmt.Sprintf("cost protection surcharge failed for log %d: %s", log.Id, err.Error()))
 		return
 	}
@@ -347,7 +329,7 @@ func findCostProtectionAlternative(log *model.Log, requestPath string) (*model.C
 	return nil, "", nil
 }
 
-func settleCostProtectionSurcharge(log *model.Log, cost UpstreamCostInfo, targetQuota int) error {
+func settleCostProtectionSurcharge(log *model.Log, cost UpstreamCostInfo, targetQuota int, alternative *model.Channel, alternativeGroup string) error {
 	latest, err := model.GetConsumeLogsByIds([]int{log.Id})
 	if err != nil {
 		return err
@@ -416,7 +398,7 @@ func settleCostProtectionSurcharge(log *model.Log, cost UpstreamCostInfo, target
 		adminInfo = make(map[string]interface{})
 		other["admin_info"] = adminInfo
 	}
-	adminInfo[model.CostProtectionMarker] = map[string]interface{}{
+	protection := map[string]interface{}{
 		"action":                   "surcharge",
 		"original_quota":           log.Quota,
 		"final_quota":              targetQuota,
@@ -427,7 +409,15 @@ func settleCostProtectionSurcharge(log *model.Log, cost UpstreamCostInfo, target
 		"upstream_quota_per_unit":  cost.UpstreamQuotaPerUnit,
 		"upstream_price":           cost.UpstreamPrice,
 		"platform_price":           cost.PlatformPrice,
+		"costly_channel_id":        log.ChannelId,
+		"avoidance_ttl_in_seconds": int(costProtectionAvoidTTL.Seconds()),
 	}
+	if alternative != nil {
+		protection["rerouted"] = true
+		protection["alternative_channel_id"] = alternative.Id
+		protection["alternative_group"] = alternativeGroup
+	}
+	adminInfo[model.CostProtectionMarker] = protection
 	// 标记原始日志同时是这笔补扣的幂等锁，必须在扣款之后、写补扣日志之前完成：
 	// 抢不到锁说明已有并发补扣落账，此处必须原路退回。
 	marked, markErr := model.MarkConsumeLogCostProtection(log.Id, common.MapToJsonStr(other))

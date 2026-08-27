@@ -75,10 +75,17 @@ func TestCostProtectionRoutesToAlternativeAndFallsBackForContinuity(t *testing.T
 	createCostProtectionChannel(t, db, 7101, "default", modelName)
 	createCostProtectionChannel(t, db, 7102, "default", modelName)
 	model.InitChannelCache()
+	user := model.User{Id: 7103, Username: "cost-route-user", Password: "password123", Quota: 900}
+	token := model.Token{Id: 7104, UserId: user.Id, Key: "cost-route-token", Name: "cost-route-token", RemainQuota: 900}
+	require.NoError(t, db.Create(&user).Error)
+	require.NoError(t, db.Create(&token).Error)
 	log := model.Log{
-		Type: model.LogTypeConsume, ModelName: modelName, Quota: 100,
-		ChannelId: 7101, Group: "default",
-		Other: common.MapToJsonStr(map[string]interface{}{"request_path": "/v1/chat/completions"}),
+		UserId: user.Id, Type: model.LogTypeConsume, ModelName: modelName, Quota: 100,
+		ChannelId: 7101, TokenId: token.Id, Group: "default",
+		Other: common.MapToJsonStr(map[string]interface{}{
+			"request_path":   "/v1/chat/completions",
+			"billing_source": BillingSourceWallet,
+		}),
 	}
 	require.NoError(t, db.Create(&log).Error)
 	applyCostProtection(context.Background(), UpstreamCostInfo{
@@ -105,8 +112,15 @@ func TestCostProtectionRoutesToAlternativeAndFallsBackForContinuity(t *testing.T
 	require.True(t, ok)
 	protection, ok := adminInfo["cost_protection"].(map[string]interface{})
 	require.True(t, ok)
-	assert.Equal(t, "reroute", protection["action"])
+	// The upstream already charged us for this request, so switching channels alone
+	// would leave the loss on the books: both actions have to happen.
+	assert.Equal(t, "surcharge", protection["action"])
+	assert.Equal(t, true, protection["rerouted"])
 	assert.Equal(t, float64(7102), protection["alternative_channel_id"])
+	assert.Equal(t, float64(50), protection["delta_quota"])
+	var gotUser model.User
+	require.NoError(t, db.First(&gotUser, user.Id).Error)
+	assert.Equal(t, 850, gotUser.Quota, "surcharge must be deducted even when a cheaper channel exists")
 
 	require.NoError(t, markCostProtectedChannel("default", modelName, 7102))
 	selected, _, err = CacheGetRandomSatisfiedChannel(&RetryParam{
@@ -191,8 +205,10 @@ func TestProcessCostProtectionJobsFetchesInBackgroundBatchAndRoutes(t *testing.T
 	createCostProtectionChannel(t, db, 7192, "default", modelName)
 	require.NoError(t, db.Model(&model.Channel{}).Where("id = ?", 7191).Update("base_url", server.URL).Error)
 	model.InitChannelCache()
+	user := model.User{Id: 7193, Username: "cost-worker-user", Password: "password123", Quota: 900}
+	require.NoError(t, db.Create(&user).Error)
 	log := model.Log{
-		Type: model.LogTypeConsume, ModelName: modelName, Quota: 100,
+		UserId: user.Id, Type: model.LogTypeConsume, ModelName: modelName, Quota: 100,
 		ChannelId: 7191, Group: "default", UpstreamRequestId: "upstream-7191",
 		Other: common.MapToJsonStr(map[string]interface{}{
 			"billing_source": BillingSourceWallet,
@@ -213,7 +229,11 @@ func TestProcessCostProtectionJobsFetchesInBackgroundBatchAndRoutes(t *testing.T
 	require.True(t, ok)
 	protection, ok := adminInfo["cost_protection"].(map[string]interface{})
 	require.True(t, ok)
-	assert.Equal(t, "reroute", protection["action"])
+	assert.Equal(t, "surcharge", protection["action"])
+	assert.Equal(t, true, protection["rerouted"])
+	var gotUser model.User
+	require.NoError(t, db.First(&gotUser, user.Id).Error)
+	assert.Equal(t, 850, gotUser.Quota)
 }
 
 func TestCostProtectionSurchargeAdjustsBalancesAndLogOnce(t *testing.T) {

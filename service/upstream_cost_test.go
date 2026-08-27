@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -89,6 +90,83 @@ func TestFetchUpstreamCostGroupIgnoresCheaperUpstream(t *testing.T) {
 	assert.False(t, costs[0].ExceedsPlatform)
 }
 
+// A retried request leaves several upstream rows under one request_id: the consume
+// row that carries the real charge plus one type=5 row per failed channel, each with
+// quota 0. Letting a zero row win reports the upstream as free, which both shows
+// "upstream ¥0" in the admin list and silently cancels the surcharge.
+// Shape and numbers are a real production request (upstream 76605 = ¥1.0449 against
+// our 563133 = ¥1.1263), captured from /api/log/token?request_id=...
+func TestFetchUpstreamCostGroupKeepsTheActualChargeAmongDuplicateRows(t *testing.T) {
+	InitHttpClient()
+	// Newest first, exactly as the upstream orders them.
+	server := newUpstreamCostStub(t, 500000, 6.82,
+		`{"request_id":"retried","quota":76605,"type":2},`+
+			`{"request_id":"retried","quota":0,"type":5},`+
+			`{"request_id":"retried","quota":0,"type":5},`+
+			`{"request_id":"retried","quota":0,"type":5}`)
+	defer server.Close()
+	setUpstreamCostBillingUnits(t, 500000, 1)
+
+	costs := fetchUpstreamCostGroup(context.Background(), &upstreamCostGroup{
+		baseURL: server.URL,
+		apiKey:  "upstream-key",
+		targets: []upstreamCostTarget{{logId: 7, requestId: "retried", platformQuota: 563133}},
+	})
+
+	require.Len(t, costs, 1)
+	assert.Equal(t, 76605, costs[0].UpstreamQuota, "failed-attempt rows must not mask the real charge")
+	assert.Equal(t, 522447, costs[0].NormalizedUpstreamQuota)
+	assert.InDelta(t, 1.044894, costs[0].UpstreamAmount, 1e-6)
+	assert.False(t, costs[0].ExceedsPlatform, "this request was actually profitable")
+}
+
+// The upstream caps /api/log/token at 100 rows per page, so a busy token pushes a
+// request out of the first page within minutes. Without the per-request lookup the
+// cost of that request is never recovered, so this path must stay covered.
+func TestFetchUpstreamCostGroupPointLooksUpRequestsMissingFromFirstPage(t *testing.T) {
+	InitHttpClient()
+	var pointLookups atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/status":
+			_, err := fmt.Fprint(w, `{"success":true,"data":{"quota_per_unit":500000,"price":6.82}}`)
+			assert.NoError(t, err)
+		case "/api/log/token":
+			requestId := r.URL.Query().Get("request_id")
+			if requestId == "" {
+				// First page: only the newer request survived the 100-row window.
+				_, err := fmt.Fprint(w, `{"success":true,"data":{"page_size":100,"total":1716,"items":[{"request_id":"recent","quota":10000}]}}`)
+				assert.NoError(t, err)
+				return
+			}
+			pointLookups.Add(1)
+			assert.Equal(t, "evicted", requestId)
+			_, err := fmt.Fprint(w, `{"success":true,"data":{"total":1,"items":[{"request_id":"evicted","quota":154357}]}}`)
+			assert.NoError(t, err)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	setUpstreamCostBillingUnits(t, 500000, 1)
+
+	costs := fetchUpstreamCostGroup(context.Background(), &upstreamCostGroup{
+		baseURL: server.URL,
+		apiKey:  "upstream-key",
+		targets: []upstreamCostTarget{
+			{logId: 1, requestId: "recent", platformQuota: 922255},
+			{logId: 2, requestId: "evicted", platformQuota: 922255},
+		},
+	})
+
+	assert.EqualValues(t, 1, pointLookups.Load(), "only the request missing from the first page is looked up")
+	require.Len(t, costs, 2)
+	byLog := map[int]UpstreamCostInfo{costs[0].LogId: costs[0], costs[1].LogId: costs[1]}
+	assert.False(t, byLog[1].ExceedsPlatform)
+	assert.True(t, byLog[2].ExceedsPlatform, "evicted request must still be recovered")
+	assert.Equal(t, 1052715, byLog[2].NormalizedUpstreamQuota)
+}
+
 // Without the upstream recharge price the two quota units cannot be reconciled;
 // falling back to a raw quota comparison would invert the verdict, so the group
 // must be skipped instead.
@@ -115,7 +193,7 @@ func TestFetchUpstreamLogsSupportsLegacyArrayResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	logs, err := fetchUpstreamLogs(context.Background(), server.URL, "key")
+	logs, err := fetchUpstreamLogs(context.Background(), server.URL, "key", "")
 
 	require.NoError(t, err)
 	require.Len(t, logs, 1)

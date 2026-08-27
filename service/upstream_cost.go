@@ -24,7 +24,10 @@ import (
 const (
 	upstreamCostFetchTimeout = 10 * time.Second
 	upstreamCostPageSize     = 1000
-	upstreamCostMaxBodyBytes = 8 << 20
+	// 上游每页最多返回 100 条，高流量 token 的请求很快被挤出首页，只能逐条点查补齐；
+	// 上限用来兜住管理端一次查 100 条历史日志的场景，避免打爆上游接口限流。
+	upstreamCostPointLookupLimit = 8
+	upstreamCostMaxBodyBytes     = 8 << 20
 	// 只有「上游暂时不可用」才熔断，且窗口很短：熔断同时会让管理端的上游计费查询失效，
 	// 窗口过长会把一次抖动放大成数分钟的功能静默失效。
 	upstreamCostFailureTTL = time.Minute
@@ -101,6 +104,20 @@ type upstreamLogItem struct {
 	RequestId         string `json:"request_id"`
 	UpstreamRequestId string `json:"upstream_request_id"`
 	Quota             int    `json:"quota"`
+	// Type 是上游日志类型；上游按 token 返回的是全部类型（消费、错误、退款等），
+	// 字段缺失时为 0，此时不做类型过滤以兼容不返回该字段的上游。
+	Type int `json:"type"`
+}
+
+// isUpstreamConsumeCharge 判断一行上游日志是否代表这次请求的实际计费。
+// 上游同一个 request_id 可能有多行（预扣费与结算分开记、或额外的错误/退款记录），
+// 其中非消费行的 quota 往往是 0；把 0 当成真实成本会让比价得出「上游没花钱」，
+// 补扣因此不触发，这一笔的亏损就永远收不回来。
+func isUpstreamConsumeCharge(item upstreamLogItem) bool {
+	if item.Quota <= 0 {
+		return false
+	}
+	return item.Type == 0 || item.Type == model.LogTypeConsume
 }
 
 func GetUpstreamCosts(ctx context.Context, logIds []int) ([]UpstreamCostInfo, error) {
@@ -254,7 +271,7 @@ func fetchUpstreamCostGroup(parentCtx context.Context, group *upstreamCostGroup)
 	}()
 	go func() {
 		defer wg.Done()
-		logs, logsErr = fetchUpstreamLogs(ctx, group.baseURL, group.apiKey)
+		logs, logsErr = fetchUpstreamLogs(ctx, group.baseURL, group.apiKey, "")
 	}()
 	wg.Wait()
 	failure := ""
@@ -289,15 +306,25 @@ func fetchUpstreamCostGroup(parentCtx context.Context, group *upstreamCostGroup)
 	}
 	unsupportedUpstreamCostSources.Delete(group.cacheKey)
 
+	// 上游按新→旧返回，同一个 request_id 取最先出现（最新）的那一行，不被更旧的行覆盖。
 	quotaByRequestId := make(map[string]int, len(logs)*2)
 	for _, log := range logs {
+		if !isUpstreamConsumeCharge(log) {
+			continue
+		}
 		if log.RequestId != "" {
-			quotaByRequestId[log.RequestId] = log.Quota
+			if _, seen := quotaByRequestId[log.RequestId]; !seen {
+				quotaByRequestId[log.RequestId] = log.Quota
+			}
 		}
 		if log.UpstreamRequestId != "" {
-			quotaByRequestId[log.UpstreamRequestId] = log.Quota
+			if _, seen := quotaByRequestId[log.UpstreamRequestId]; !seen {
+				quotaByRequestId[log.UpstreamRequestId] = log.Quota
+			}
 		}
 	}
+
+	resolveMissingUpstreamQuotas(ctx, group, quotaByRequestId)
 
 	costs := make([]UpstreamCostInfo, 0, len(group.targets))
 	missing := make([]string, 0, len(group.targets))
@@ -354,8 +381,61 @@ func normalizeUpstreamQuota(upstreamQuota int, upstreamQuotaPerUnit, upstreamPri
 		Ceil()
 }
 
-func fetchUpstreamLogs(ctx context.Context, baseURL, apiKey string) ([]upstreamLogItem, error) {
+// resolveMissingUpstreamQuotas 对最近一页里没找到的请求逐条点查补齐。
+// 上游 /api/log/token 每页只返回 100 条（我们请求的 page_size 会被忽略），
+// 高流量 token 的请求几分钟内就会被挤出首页，只靠翻页会永久查不到，
+// 从而让这笔已经在上游产生成本的请求永远补不回来。
+func resolveMissingUpstreamQuotas(ctx context.Context, group *upstreamCostGroup, quotaByRequestId map[string]int) {
+	pending := make([]string, 0, len(group.targets))
+	for _, target := range group.targets {
+		if _, found := quotaByRequestId[target.requestId]; found || target.requestId == "" {
+			continue
+		}
+		pending = append(pending, target.requestId)
+	}
+	if len(pending) == 0 {
+		return
+	}
+	if len(pending) > upstreamCostPointLookupLimit {
+		common.SysLog(fmt.Sprintf("upstream cost point lookup capped at %d of %d missing request ids for %s",
+			upstreamCostPointLookupLimit, len(pending), group.baseURL))
+		pending = pending[:upstreamCostPointLookupLimit]
+	}
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	for _, requestId := range pending {
+		wg.Add(1)
+		go func(requestId string) {
+			defer wg.Done()
+			items, err := fetchUpstreamLogs(ctx, group.baseURL, group.apiKey, requestId)
+			if err != nil {
+				common.SysError(fmt.Sprintf("upstream cost point lookup failed for %s request %s: %s", group.baseURL, requestId, err.Error()))
+				return
+			}
+			for _, item := range items {
+				if item.RequestId != requestId && item.UpstreamRequestId != requestId {
+					continue
+				}
+				if !isUpstreamConsumeCharge(item) {
+					continue
+				}
+				mu.Lock()
+				quotaByRequestId[requestId] = item.Quota
+				mu.Unlock()
+				return
+			}
+		}(requestId)
+	}
+	wg.Wait()
+}
+
+// fetchUpstreamLogs 拉取上游日志。requestId 非空时按该 id 精确点查，否则拉最近一页。
+func fetchUpstreamLogs(ctx context.Context, baseURL, apiKey, requestId string) ([]upstreamLogItem, error) {
 	endpoint := fmt.Sprintf("%s/api/log/token?page_size=%d", baseURL, upstreamCostPageSize)
+	if requestId != "" {
+		endpoint = fmt.Sprintf("%s/api/log/token?page_size=1&request_id=%s", baseURL, url.QueryEscape(requestId))
+	}
 	var envelope upstreamLogEnvelope
 	if err := fetchUpstreamJSON(ctx, endpoint, apiKey, &envelope); err != nil {
 		return nil, err

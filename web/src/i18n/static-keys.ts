@@ -604,4 +604,16 @@ export const STATIC_I18N_KEYS = [
   'Official access channels\nClearly identified model versions',
   'Enterprise support',
   'Dedicated technical support\nTimely assistance when needed',
+
+  // Homepage product tools (rendered from the PRODUCT_TOOLS array, so the
+  // t('...') scan cannot see these keys)
+  'DouKuaizhuang',
+  'Learn about DouKuaizhuang',
+  'Install and configure popular AI desktop apps in one step, including the gateway address and API key.',
+  'DouJu',
+  'Learn about DouJu',
+  'A local AI short-drama studio covering scripts, characters, storyboards, video generation, and final assembly.',
+  'DouYing',
+  'Learn about DouYing',
+  'An AI tool for short dramas and comic dramas: the whole pipeline is AI-driven, so one person is a whole production team.',
 ] as const

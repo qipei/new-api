@@ -272,7 +272,7 @@ export function CommonLogsFilterBar<TData>(
   const upstreamCostItems = useMemo(
     () => [
       { value: 'all', label: t('All Costs') },
-      { value: 'higher', label: t('Upstream cost higher') },
+      { value: 'higher', label: t('Loss') },
     ],
     [t]
   )
@@ -388,15 +388,13 @@ export function CommonLogsFilterBar<TData>(
       >
         <SelectTrigger>
           <SelectValue>
-            {filters.upstreamCost === 'higher'
-              ? t('Upstream cost higher')
-              : t('All Costs')}
+            {filters.upstreamCost === 'higher' ? t('Loss') : t('All Costs')}
           </SelectValue>
         </SelectTrigger>
         <SelectContent alignItemWithTrigger={false}>
           <SelectGroup>
             <SelectItem value='all'>{t('All Costs')}</SelectItem>
-            <SelectItem value='higher'>{t('Upstream cost higher')}</SelectItem>
+            <SelectItem value='higher'>{t('Loss')}</SelectItem>
           </SelectGroup>
         </SelectContent>
       </Select>

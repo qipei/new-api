@@ -230,6 +230,12 @@ export interface LogOtherData {
   violation_fee_code?: string
   violation_fee_marker?: string
   fee_quota?: number
+  // Upstream cost surcharge fields (separate consume log written when the
+  // upstream charged more than we billed; the original request log is untouched)
+  cost_protection_surcharge?: boolean
+  source_log_id?: number
+  source_request_id?: string
+  source_quota?: number
   // Reject / intercept reason (admin)
   reject_reason?: string
   // Task-related fields (for refund logs, type=6)
@@ -343,10 +349,15 @@ export interface UpstreamCostInfo {
   log_id: number
   upstream_quota: number
   upstream_quota_per_unit: number
+  upstream_price: number
   platform_quota: number
   platform_quota_per_unit: number
-  upstream_amount_usd: number
-  platform_amount_usd: number
+  platform_price: number
+  /** Upstream cost converted into this platform's quota units */
+  normalized_upstream_quota: number
+  /** Both amounts are in this platform's system unit, ready for currency formatting */
+  upstream_amount: number
+  platform_amount: number
   exceeds_platform: boolean
 }
 

@@ -38,6 +38,8 @@ interface LogCostDisplayProps {
   quota: number
   other: LogOtherData | null
   upstreamCost?: UpstreamCostInfo
+  /** Upstream cost and margin are operating data; never render them for end users. */
+  isAdmin?: boolean
 }
 
 function splitQuotaDisplay(value: string): { prefix: string; amount: string } {
@@ -119,40 +121,52 @@ function SubscriptionBadge(props: { quota: number }) {
   )
 }
 
-function UpstreamCostWarning(props: { cost: UpstreamCostInfo }) {
+const UPSTREAM_COST_FORMAT = {
+  digitsLarge: 4,
+  digitsSmall: 6,
+  abbreviate: false,
+}
+
+// Shown on every log that has upstream cost data, not only on losses: the badge
+// is the only place an admin can see what a request actually cost, and hiding it
+// when the margin looks fine is how a wrong comparison stays invisible.
+function UpstreamCostBadge(props: { cost: UpstreamCostInfo }) {
   const { t } = useTranslation()
-  const label = t('Upstream cost higher')
-  const formatOptions = {
-    digitsLarge: 4,
-    digitsSmall: 6,
-    abbreviate: false,
-  }
+  const format = (value: number) =>
+    formatBillingCurrencyFromUSD(value, UPSTREAM_COST_FORMAT)
+  const margin = props.cost.platform_amount - props.cost.upstream_amount
+  const label = `${t('Upstream')} ${format(props.cost.upstream_amount)}`
 
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <Badge
-            variant='destructive'
-            className='h-5 cursor-help px-1.5'
+            variant={props.cost.exceeds_platform ? 'destructive' : 'outline'}
+            className='h-5 cursor-help px-1.5 tabular-nums'
             aria-label={label}
             tabIndex={0}
+            data-upstream-cost-exceeds={String(props.cost.exceeds_platform)}
           >
             {label}
           </Badge>
         }
       />
       <TooltipContent>
-        {t('Upstream charged {{upstream}}, platform charged {{platform}}', {
-          upstream: formatBillingCurrencyFromUSD(
-            props.cost.upstream_amount_usd,
-            formatOptions
-          ),
-          platform: formatBillingCurrencyFromUSD(
-            props.cost.platform_amount_usd,
-            formatOptions
-          ),
-        })}
+        <div className='flex flex-col gap-0.5'>
+          <span>
+            {t('Upstream cost')}: {format(props.cost.upstream_amount)}
+          </span>
+          <span>
+            {t('Platform charged')}: {format(props.cost.platform_amount)}
+          </span>
+          <span>
+            {t('Margin')}: {format(margin)}
+          </span>
+          {props.cost.exceeds_platform ? (
+            <span>{t('Upstream cost higher')}</span>
+          ) : null}
+        </div>
       </TooltipContent>
     </Tooltip>
   )
@@ -161,9 +175,11 @@ function UpstreamCostWarning(props: { cost: UpstreamCostInfo }) {
 export function LogCostDisplay(props: LogCostDisplayProps) {
   const isSubscription = props.other?.billing_source === 'subscription'
   const showToolSurcharge = hasToolSurcharge(props.other)
-  const showUpstreamCostWarning = Boolean(props.upstreamCost?.exceeds_platform)
+  // The backend only serves upstream cost to admins; gate here too as defense in
+  // depth so operating margins never leak into a user-facing view.
+  const upstreamCost = props.isAdmin ? props.upstreamCost : undefined
 
-  if (!isSubscription && !showToolSurcharge && !showUpstreamCostWarning) {
+  if (!isSubscription && !showToolSurcharge && !upstreamCost) {
     return (
       <div className='flex flex-col gap-0.5'>
         <QuotaBadge quota={props.quota} />
@@ -180,9 +196,7 @@ export function LogCostDisplay(props: LogCostDisplayProps) {
           <QuotaBadge quota={props.quota} />
         )}
         {showToolSurcharge ? <ToolSurchargeMarker /> : null}
-        {showUpstreamCostWarning && props.upstreamCost ? (
-          <UpstreamCostWarning cost={props.upstreamCost} />
-        ) : null}
+        {upstreamCost ? <UpstreamCostBadge cost={upstreamCost} /> : null}
       </div>
     </TooltipProvider>
   )

@@ -48,6 +48,7 @@ import {
   hasAnyCacheTokens,
   parseLogOther,
   isViolationFeeLog,
+  isCostProtectionSurchargeLog,
   renderAuditContent,
 } from '../../lib/format'
 import {
@@ -143,6 +144,22 @@ function buildTypeDetailSegments(
       text: `${t('Fee')}: ${formatLogQuota(other?.fee_quota ?? log.quota)}`,
       muted: true,
     })
+    return segments
+  }
+
+  // Upstream-cost surcharge is its own consume log, so the original request log
+  // keeps the amount the user was first charged and this row shows the top-up.
+  if (isCostProtectionSurchargeLog(other)) {
+    const segments: DetailSegment[] = [
+      { text: t('Upstream cost surcharge'), danger: true },
+      { text: `${t('Surcharge')}: ${formatLogQuota(log.quota)}`, muted: true },
+    ]
+    if (other?.source_request_id) {
+      segments.push({
+        text: `${t('Source request')}: ${other.source_request_id}`,
+        muted: true,
+      })
+    }
     return segments
   }
 
@@ -703,6 +720,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
             quota={quota}
             other={other}
             upstreamCost={log.upstream_cost}
+            isAdmin={isAdmin}
           />
         )
       },

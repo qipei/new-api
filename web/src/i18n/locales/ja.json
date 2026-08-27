@@ -2132,7 +2132,7 @@
     "footer.columns.related.links.oneApi": "1つのAPI",
     "footer.columns.related.title": "関連プロジェクト",
     "footer.defaultCopyright": "すべての権利を留保します。",
-    "footer.new\u0061pi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
+    "footer.newapi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "2025 年 5 月 10 日以降に追加されたチャネルの場合、デプロイ時にモデル名から「.」を削除する必要はありません",
     "For private deployments, format: https://fastgpt.run/api/openapi": "プライベートデプロイメントの場合、形式: https://fastgpt.run/api/openapi",
     "For security, existing access tokens cannot be displayed. Regenerate only when you need a new token.": "セキュリティ上、既存のアクセストークンは再表示できません。新しいトークンが必要な場合のみ再生成してください。",
@@ -5104,7 +5104,7 @@
     "Upload or reference a local configuration file.": "ローカルの構成ファイルをアップロードまたは参照してください。",
     "Upload photo": "写真をアップロード",
     "Upscale": "アップスケール",
-    "Upstream": "アップストリーム",
+    "Upstream": "上流",
     "Upstream did not return reset credit details.": "上流からリセット回数の詳細が返されませんでした。",
     "Upstream JSON response": "上流 JSON レスポンス",
     "Upstream Model Detection Settings": "アップストリームモデル検出設定",
@@ -5487,9 +5487,14 @@
     "Zero retention": "データ保持なし",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
-  },
-  "Upstream cost higher": "上流コストが高い",
-  "Upstream charged {{upstream}}, platform charged {{platform}}": "上流の課金額 {{upstream}}、プラットフォームの課金額 {{platform}}",
-  "All Costs": "すべての課金"
+    "Zoom": "ズーム",
+    "Upstream cost higher": "上流コストが高い",
+    "All Costs": "すべての課金",
+    "Upstream cost surcharge": "上流課金の追加請求",
+    "Surcharge": "追加請求",
+    "Source request": "元のリクエスト",
+    "Upstream cost": "上流コスト",
+    "Platform charged": "プラットフォーム請求額",
+    "Margin": "粗利"
+  }
 }

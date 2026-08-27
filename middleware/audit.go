@@ -96,6 +96,13 @@ var auditRouteActions = map[string]string{
 	"POST /api/system-task/log-cleanup": "log.cleanup_start",
 }
 
+// auditReadOnlyRoutes 列出「用 POST 只是因为需要请求体、本身不产生任何写操作」的管理接口。
+// 这类接口会被前端页面反复轮询（例如使用日志页每次刷新都会批量查询上游计费），
+// 兜底审计会让日志列表每刷新一次就多出一条 type=3 记录，必须跳过。
+var auditReadOnlyRoutes = map[string]bool{
+	"POST /api/log/upstream-cost": true,
+}
+
 // beginAdminAudit 在管理/root 写操作进入 handler 前包装 ResponseWriter，
 // 以便事后解析响应判断业务是否成功。仅对写方法（POST/PUT/PATCH/DELETE）生效；
 // 只读请求返回 nil，调用方据此跳过事后兜底记录。
@@ -106,6 +113,9 @@ var auditRouteActions = map[string]string{
 func beginAdminAudit(c *gin.Context) *auditResponseWriter {
 	method := c.Request.Method
 	if method != "POST" && method != "PUT" && method != "PATCH" && method != "DELETE" {
+		return nil
+	}
+	if auditReadOnlyRoutes[method+" "+c.FullPath()] {
 		return nil
 	}
 	writer := &auditResponseWriter{

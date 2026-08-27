@@ -2132,7 +2132,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Các Dự Án Liên Quan",
     "footer.defaultCopyright": "Bản quyền được bảo lưu.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
+    "footer.newapi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Đối với các kênh được thêm sau ngày 10 tháng 5 năm 2025, không cần loại bỏ \".\" khỏi tên mô hình trong quá trình triển khai",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Đối với các triển khai riêng tư, định dạng: https://fastgpt.run/api/openapi",
     "For security, existing access tokens cannot be displayed. Regenerate only when you need a new token.": "Vì lý do bảo mật, không thể hiển thị lại token truy cập hiện có. Chỉ tạo lại khi bạn cần token mới.",
@@ -5104,7 +5104,7 @@
     "Upload or reference a local configuration file.": "Tải lên hoặc tham chiếu tệp cấu hình cục bộ.",
     "Upload photo": "Tải ảnh lên",
     "Upscale": "Phóng to",
-    "Upstream": "Thượng nguồn",
+    "Upstream": "Nhà cung cấp",
     "Upstream did not return reset credit details.": "Upstream không trả về chi tiết lượt đặt lại.",
     "Upstream JSON response": "Phản hồi JSON thượng nguồn",
     "Upstream Model Detection Settings": "Cài đặt phát hiện mô hình nguồn",
@@ -5487,9 +5487,14 @@
     "Zero retention": "Không lưu dữ liệu",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
-  },
-  "Upstream cost higher": "Chi phí thượng nguồn cao hơn",
-  "Upstream charged {{upstream}}, platform charged {{platform}}": "Thượng nguồn tính {{upstream}}, nền tảng tính {{platform}}",
-  "All Costs": "Tất cả chi phí"
+    "Zoom": "Zoom",
+    "Upstream cost higher": "Chi phí thượng nguồn cao hơn",
+    "All Costs": "Tất cả chi phí",
+    "Upstream cost surcharge": "Truy thu chi phí nhà cung cấp",
+    "Surcharge": "Truy thu",
+    "Source request": "Yêu cầu gốc",
+    "Upstream cost": "Chi phí nhà cung cấp",
+    "Platform charged": "Nền tảng đã tính",
+    "Margin": "Biên lợi nhuận"
+  }
 }

@@ -42,8 +42,10 @@ describe('log cost display', () => {
       'Deducted by subscription': 'Deducted by subscription',
       'Includes tool-call surcharge': 'Includes tool-call surcharge',
       'Upstream cost higher': 'Upstream cost higher',
-      'Upstream charged {{upstream}}, platform charged {{platform}}':
-        'Upstream charged {{upstream}}, platform charged {{platform}}',
+      Upstream: 'Upstream',
+      'Upstream cost': 'Upstream cost',
+      'Platform charged': 'Platform charged',
+      Margin: 'Margin',
     })
   })
 
@@ -84,41 +86,72 @@ describe('log cost display', () => {
     ).toHaveAttribute('data-tool-surcharge-indicator', 'true')
   })
 
-  test('shows the warning tag only when the normalized upstream charge is higher', () => {
+  test('always shows the upstream cost to admins and flags it only when it is higher', () => {
+    const losing = {
+      log_id: 7,
+      upstream_quota: 154357,
+      upstream_quota_per_unit: 500000,
+      upstream_price: 6.82,
+      platform_quota: 922255,
+      platform_quota_per_unit: 500000,
+      platform_price: 1,
+      normalized_upstream_quota: 1052715,
+      upstream_amount: 2.10543,
+      platform_amount: 1.84451,
+      exceeds_platform: true,
+    }
     const rendered = renderCost({
-      quota: 100000,
+      quota: 922255,
       other: {},
-      upstreamCost: {
-        log_id: 7,
-        upstream_quota: 200000,
-        upstream_quota_per_unit: 500000,
-        platform_quota: 100000,
-        platform_quota_per_unit: 500000,
-        upstream_amount_usd: 0.4,
-        platform_amount_usd: 0.2,
-        exceeds_platform: true,
-      },
+      upstreamCost: losing,
+      isAdmin: true,
     })
 
-    expect(screen.getByLabelText('Upstream cost higher')).toBeInTheDocument()
+    expect(screen.getByLabelText(/^Upstream /)).toHaveAttribute(
+      'data-upstream-cost-exceeds',
+      'true'
+    )
 
     rendered.rerender(
       <LogCostDisplay
-        quota={100000}
+        quota={922255}
         other={{}}
+        isAdmin
         upstreamCost={{
-          log_id: 7,
-          upstream_quota: 50000,
-          upstream_quota_per_unit: 500000,
-          platform_quota: 100000,
-          platform_quota_per_unit: 500000,
-          upstream_amount_usd: 0.1,
-          platform_amount_usd: 0.2,
+          ...losing,
+          normalized_upstream_quota: 68200,
+          upstream_amount: 0.1364,
           exceeds_platform: false,
         }}
       />
     )
 
-    expect(screen.queryByLabelText('Upstream cost higher')).toBeNull()
+    expect(screen.getByLabelText(/^Upstream /)).toHaveAttribute(
+      'data-upstream-cost-exceeds',
+      'false'
+    )
+  })
+
+  test('never exposes upstream cost or margin to non-admins', () => {
+    renderCost({
+      quota: 922255,
+      other: {},
+      isAdmin: false,
+      upstreamCost: {
+        log_id: 7,
+        upstream_quota: 154357,
+        upstream_quota_per_unit: 500000,
+        upstream_price: 6.82,
+        platform_quota: 922255,
+        platform_quota_per_unit: 500000,
+        platform_price: 1,
+        normalized_upstream_quota: 1052715,
+        upstream_amount: 2.10543,
+        platform_amount: 1.84451,
+        exceeds_platform: true,
+      },
+    })
+
+    expect(screen.queryByLabelText(/^Upstream /)).toBeNull()
   })
 })

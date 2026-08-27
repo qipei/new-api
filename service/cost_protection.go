@@ -14,7 +14,6 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/cachex"
 	"github.com/samber/hot"
-	"github.com/shopspring/decimal"
 )
 
 const (
@@ -22,9 +21,17 @@ const (
 	costProtectionAvoidTTL       = 10 * time.Minute
 	costProtectionBatchDelay     = time.Second
 	costProtectionBatchSize      = 100
-	costProtectionMaxAttempts    = 3
-	costProtectionRetryDelay     = 3 * time.Second
 )
+
+// costProtectionRetryDelays 是上游还查不到该请求时的重试节奏。
+// 上游写自己的消费日志是异步的，而 new-api 的 /api/log/token 默认按 IP 限流
+// （20 次 / 20 分钟），所以重试窗口必须覆盖到分钟级；秒级放弃会让绝大多数补扣落空。
+var costProtectionRetryDelays = []time.Duration{
+	5 * time.Second,
+	30 * time.Second,
+	2 * time.Minute,
+	10 * time.Minute,
+}
 
 type costProtectionState struct {
 	ChannelIDs []int `json:"channel_ids"`
@@ -194,6 +201,7 @@ func processCostProtectionJobs(ctx context.Context, jobs []costProtectionJob) {
 	if len(eligibleLogIDs) == 0 {
 		return
 	}
+	common.SysLog(fmt.Sprintf("cost protection checking %d/%d consume logs against upstream", len(eligibleLogIDs), len(logIDs)))
 
 	costs, err := GetUpstreamCosts(ctx, eligibleLogIDs)
 	if err != nil {
@@ -217,11 +225,12 @@ func processCostProtectionJobs(ctx context.Context, jobs []costProtectionJob) {
 			continue
 		}
 		job := jobByLogID[logID]
-		if job.attempt+1 >= costProtectionMaxAttempts {
+		if job.attempt >= len(costProtectionRetryDelays) {
+			common.SysError(fmt.Sprintf("cost protection gave up on log %d: upstream cost still unavailable after %d attempts", logID, job.attempt+1))
 			continue
 		}
 		next := costProtectionJob{logID: logID, attempt: job.attempt + 1}
-		time.AfterFunc(costProtectionRetryDelay, func() {
+		time.AfterFunc(costProtectionRetryDelays[job.attempt], func() {
 			enqueueCostProtectionJob(next)
 		})
 	}
@@ -236,18 +245,9 @@ func applyCostProtection(ctx context.Context, cost UpstreamCostInfo) {
 		return
 	}
 	log := logs[0]
-	if cost.UpstreamQuota < 0 || cost.UpstreamQuotaPerUnit <= 0 || common.QuotaPerUnit <= 0 {
-		return
-	}
-	targetDecimal := decimal.NewFromInt(int64(cost.UpstreamQuota)).
-		Mul(decimal.NewFromFloat(common.QuotaPerUnit)).
-		Div(decimal.NewFromFloat(cost.UpstreamQuotaPerUnit)).
-		Ceil()
-	targetQuota, clamp := common.QuotaFromDecimalChecked(targetDecimal)
-	if clamp != nil || targetQuota <= log.Quota {
-		if clamp != nil {
-			common.SysError(fmt.Sprintf("cost protection target clamped for log %d: original=%f clamped=%d", log.Id, clamp.Original, clamp.Clamped))
-		}
+	// 目标额度 = 上游成本折算到本平台额度单位后的值，补扣到与上游打平。
+	targetQuota := cost.NormalizedUpstreamQuota
+	if targetQuota <= log.Quota {
 		return
 	}
 	other, _ := common.StrToMap(log.Other)
@@ -277,19 +277,19 @@ func applyCostProtection(ctx context.Context, cost UpstreamCostInfo) {
 			"costly_channel_id":        log.ChannelId,
 			"alternative_channel_id":   alternative.Id,
 			"alternative_group":        alternativeGroup,
-			"upstream_amount_usd":      cost.UpstreamAmountUSD,
-			"original_platform_usd":    cost.PlatformAmountUSD,
+			"upstream_amount":          cost.UpstreamAmount,
+			"original_platform_amount": cost.PlatformAmount,
 			"avoidance_ttl_in_seconds": int(costProtectionAvoidTTL.Seconds()),
 		}
-		if _, err := model.UpdateConsumeLogQuotaAndOther(log.Id, log.Quota, log.Quota, common.MapToJsonStr(other)); err != nil {
+		if _, err := model.MarkConsumeLogCostProtection(log.Id, common.MapToJsonStr(other)); err != nil {
 			common.SysError("cost protection reroute audit update failed: " + err.Error())
 		}
 		logger.LogWarn(ctx, fmt.Sprintf("cost protection reroute: log=%d model=%s group=%s costly_channel=%d alternative_group=%s alternative_channel=%d upstream=%f platform=%f",
-			log.Id, log.ModelName, log.Group, log.ChannelId, alternativeGroup, alternative.Id, cost.UpstreamAmountUSD, cost.PlatformAmountUSD))
+			log.Id, log.ModelName, log.Group, log.ChannelId, alternativeGroup, alternative.Id, cost.UpstreamAmount, cost.PlatformAmount))
 		return
 	}
 
-	if err := settleCostProtectionSurcharge(log, other, cost, targetQuota); err != nil {
+	if err := settleCostProtectionSurcharge(log, cost, targetQuota); err != nil {
 		common.SysError(fmt.Sprintf("cost protection surcharge failed for log %d: %s", log.Id, err.Error()))
 		return
 	}
@@ -347,7 +347,7 @@ func findCostProtectionAlternative(log *model.Log, requestPath string) (*model.C
 	return nil, "", nil
 }
 
-func settleCostProtectionSurcharge(log *model.Log, other map[string]interface{}, cost UpstreamCostInfo, targetQuota int) error {
+func settleCostProtectionSurcharge(log *model.Log, cost UpstreamCostInfo, targetQuota int) error {
 	latest, err := model.GetConsumeLogsByIds([]int{log.Id})
 	if err != nil {
 		return err
@@ -355,16 +355,18 @@ func settleCostProtectionSurcharge(log *model.Log, other map[string]interface{},
 	if len(latest) != 1 {
 		return fmt.Errorf("consume log %d not found", log.Id)
 	}
-	if latest[0].Quota >= targetQuota {
-		return nil
-	}
 	log = latest[0]
-	other, err = common.StrToMap(log.Other)
+	other, err := common.StrToMap(log.Other)
 	if err != nil {
 		return err
 	}
 	if other == nil {
 		other = make(map[string]interface{})
+	}
+	if adminInfo, ok := other["admin_info"].(map[string]interface{}); ok {
+		if _, settled := adminInfo[model.CostProtectionMarker]; settled {
+			return nil
+		}
 	}
 	delta := targetQuota - log.Quota
 	if delta <= 0 {
@@ -414,17 +416,22 @@ func settleCostProtectionSurcharge(log *model.Log, other map[string]interface{},
 		adminInfo = make(map[string]interface{})
 		other["admin_info"] = adminInfo
 	}
-	adminInfo["cost_protection"] = map[string]interface{}{
-		"action":                  "surcharge",
-		"original_quota":          log.Quota,
-		"final_quota":             targetQuota,
-		"delta_quota":             delta,
-		"upstream_amount_usd":     cost.UpstreamAmountUSD,
-		"original_platform_usd":   cost.PlatformAmountUSD,
-		"upstream_quota_per_unit": cost.UpstreamQuotaPerUnit,
+	adminInfo[model.CostProtectionMarker] = map[string]interface{}{
+		"action":                   "surcharge",
+		"original_quota":           log.Quota,
+		"final_quota":              targetQuota,
+		"delta_quota":              delta,
+		"upstream_amount":          cost.UpstreamAmount,
+		"original_platform_amount": cost.PlatformAmount,
+		"upstream_quota":           cost.UpstreamQuota,
+		"upstream_quota_per_unit":  cost.UpstreamQuotaPerUnit,
+		"upstream_price":           cost.UpstreamPrice,
+		"platform_price":           cost.PlatformPrice,
 	}
-	updated, updateErr := model.UpdateConsumeLogQuotaAndOther(log.Id, log.Quota, targetQuota, common.MapToJsonStr(other))
-	if updateErr != nil || !updated {
+	// 标记原始日志同时是这笔补扣的幂等锁，必须在扣款之后、写补扣日志之前完成：
+	// 抢不到锁说明已有并发补扣落账，此处必须原路退回。
+	marked, markErr := model.MarkConsumeLogCostProtection(log.Id, common.MapToJsonStr(other))
+	if markErr != nil || !marked {
 		if token != nil && !token.UnlimitedQuota {
 			_ = model.IncreaseTokenQuota(token.Id, token.Key, delta)
 		}
@@ -433,12 +440,32 @@ func settleCostProtectionSurcharge(log *model.Log, other map[string]interface{},
 		} else {
 			_ = model.IncreaseUserQuota(log.UserId, delta, false)
 		}
-		if updateErr != nil {
-			return updateErr
+		if markErr != nil {
+			return markErr
 		}
-		return fmt.Errorf("consume log changed before surcharge settlement")
+		return fmt.Errorf("consume log %d was already settled by another cost protection run", log.Id)
 	}
 	model.UpdateUserUsedQuota(log.UserId, delta)
 	model.UpdateChannelUsedQuota(log.ChannelId, delta)
+
+	// 原始请求日志的金额保持不变，补扣单独成一条消费日志，
+	// 这样用户在使用记录里能看到「补扣了多少、因为哪一次请求」。
+	surchargeOther := map[string]interface{}{
+		"cost_protection_surcharge": true,
+		"billing_source":            billingSource,
+		"source_log_id":             log.Id,
+		"source_request_id":         log.RequestId,
+		"source_quota":              log.Quota,
+		"final_quota":               targetQuota,
+		"upstream_amount":           cost.UpstreamAmount,
+		"original_platform_amount":  cost.PlatformAmount,
+	}
+	if subscriptionID > 0 {
+		surchargeOther["subscription_id"] = subscriptionID
+	}
+	if err := model.RecordCostProtectionSurchargeLog(log, delta, surchargeOther); err != nil {
+		// 余额已经扣除且原始日志已留痕，这里失败只影响用户可见的那条记录。
+		common.SysError(fmt.Sprintf("cost protection surcharge log write failed for log %d: %s", log.Id, err.Error()))
+	}
 	return nil
 }

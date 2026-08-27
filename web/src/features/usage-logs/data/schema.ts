@@ -26,10 +26,13 @@ const upstreamCostSchema = z.object({
   log_id: z.number(),
   upstream_quota: z.number(),
   upstream_quota_per_unit: z.number(),
+  upstream_price: z.number(),
   platform_quota: z.number(),
   platform_quota_per_unit: z.number(),
-  upstream_amount_usd: z.number(),
-  platform_amount_usd: z.number(),
+  platform_price: z.number(),
+  normalized_upstream_quota: z.number(),
+  upstream_amount: z.number(),
+  platform_amount: z.number(),
   exceeds_platform: z.boolean(),
 })
 

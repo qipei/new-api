@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -16,26 +17,53 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/shopspring/decimal"
 )
 
 const (
-	upstreamCostFetchTimeout = 5 * time.Second
+	upstreamCostFetchTimeout = 10 * time.Second
 	upstreamCostPageSize     = 1000
 	upstreamCostMaxBodyBytes = 8 << 20
-	upstreamCostFailureTTL   = 5 * time.Minute
+	// 只有「上游暂时不可用」才熔断，且窗口很短：熔断同时会让管理端的上游计费查询失效，
+	// 窗口过长会把一次抖动放大成数分钟的功能静默失效。
+	upstreamCostFailureTTL = time.Minute
 )
+
+// transientUpstreamError 标记「上游暂时不可用」（连接失败、超时、5xx、429）。
+// 其余错误（鉴权失败、响应格式不符）重试再快也不会变好，因此不熔断，
+// 而是每次都留下诊断日志，避免问题被静默吞掉。
+type transientUpstreamError struct{ err error }
+
+func (e transientUpstreamError) Error() string { return e.err.Error() }
+
+func (e transientUpstreamError) Unwrap() error { return e.err }
+
+func isTransientUpstreamError(err error) bool {
+	var transient transientUpstreamError
+	return errors.As(err, &transient)
+}
 
 var unsupportedUpstreamCostSources sync.Map
 
+// UpstreamCostInfo 描述一次请求在上游的实际成本与本平台已计费金额的对比。
+//
+// 两个部署的 quota 单位不可直接比较：quota/quota_per_unit 得到的是各自的「系统美元」，
+// 而一个系统美元值多少真实货币由各自的充值单价 price 决定（例如上游 6.82 元、本平台 1 元）。
+// 因此必须先各自折成真实货币才可比，NormalizedUpstreamQuota 就是折算回本平台额度单位的上游成本。
 type UpstreamCostInfo struct {
 	LogId                int     `json:"log_id"`
 	UpstreamQuota        int     `json:"upstream_quota"`
 	UpstreamQuotaPerUnit float64 `json:"upstream_quota_per_unit"`
+	UpstreamPrice        float64 `json:"upstream_price"`
 	PlatformQuota        int     `json:"platform_quota"`
 	PlatformQuotaPerUnit float64 `json:"platform_quota_per_unit"`
-	UpstreamAmountUSD    float64 `json:"upstream_amount_usd"`
-	PlatformAmountUSD    float64 `json:"platform_amount_usd"`
-	ExceedsPlatform      bool    `json:"exceeds_platform"`
+	PlatformPrice        float64 `json:"platform_price"`
+	// NormalizedUpstreamQuota 是上游成本换算成本平台额度单位后的值，也是补扣的目标额度。
+	NormalizedUpstreamQuota int     `json:"normalized_upstream_quota"`
+	UpstreamAmount          float64 `json:"upstream_amount"`
+	PlatformAmount          float64 `json:"platform_amount"`
+	ExceedsPlatform         bool    `json:"exceeds_platform"`
 }
 
 type upstreamCostTarget struct {
@@ -55,6 +83,8 @@ type upstreamStatusEnvelope struct {
 	Success bool `json:"success"`
 	Data    struct {
 		QuotaPerUnit float64 `json:"quota_per_unit"`
+		// Price 是上游的充值单价（1 系统美元 = ? 元），用于把上游 quota 折成真实货币。
+		Price float64 `json:"price"`
 	} `json:"data"`
 }
 
@@ -204,6 +234,7 @@ func normalizeUpstreamCostBaseURL(rawBaseURL string) (string, bool) {
 func fetchUpstreamCostGroup(parentCtx context.Context, group *upstreamCostGroup) []UpstreamCostInfo {
 	if retryAtValue, ok := unsupportedUpstreamCostSources.Load(group.cacheKey); ok {
 		if retryAt, valid := retryAtValue.(time.Time); valid && time.Now().Before(retryAt) {
+			common.SysLog(fmt.Sprintf("upstream cost fetch skipped for %s: circuit open until %s", group.baseURL, retryAt.Format(time.RFC3339)))
 			return nil
 		}
 		unsupportedUpstreamCostSources.Delete(group.cacheKey)
@@ -226,8 +257,32 @@ func fetchUpstreamCostGroup(parentCtx context.Context, group *upstreamCostGroup)
 		logs, logsErr = fetchUpstreamLogs(ctx, group.baseURL, group.apiKey)
 	}()
 	wg.Wait()
-	if statusErr != nil || logsErr != nil || !status.Success || status.Data.QuotaPerUnit <= 0 || common.QuotaPerUnit <= 0 {
-		if group.cacheKey != "" {
+	failure := ""
+	transient := false
+	switch {
+	case statusErr != nil:
+		failure = "/api/status: " + statusErr.Error()
+		transient = isTransientUpstreamError(statusErr)
+	case logsErr != nil:
+		failure = "/api/log/token: " + logsErr.Error()
+		transient = isTransientUpstreamError(logsErr)
+	case !status.Success:
+		failure = "/api/status returned success=false"
+	case status.Data.QuotaPerUnit <= 0:
+		failure = fmt.Sprintf("/api/status returned quota_per_unit=%v", status.Data.QuotaPerUnit)
+	case status.Data.Price <= 0:
+		// 没有上游充值单价就无法把两边的 quota 折成同一种真实货币，
+		// 此时宁可跳过也不能退回「直接比 quota」——那会因为单位不同得出相反的结论。
+		failure = fmt.Sprintf("/api/status returned price=%v, cannot normalize upstream cost", status.Data.Price)
+	case common.QuotaPerUnit <= 0:
+		failure = fmt.Sprintf("local QuotaPerUnit=%v", common.QuotaPerUnit)
+	case operation_setting.Price <= 0:
+		failure = fmt.Sprintf("local recharge price=%v", operation_setting.Price)
+	}
+	if failure != "" {
+		common.SysError(fmt.Sprintf("upstream cost fetch failed for %s (%d logs): %s [transient=%v]",
+			group.baseURL, len(group.targets), failure, transient))
+		if transient && group.cacheKey != "" {
 			unsupportedUpstreamCostSources.Store(group.cacheKey, time.Now().Add(upstreamCostFailureTTL))
 		}
 		return nil
@@ -245,25 +300,58 @@ func fetchUpstreamCostGroup(parentCtx context.Context, group *upstreamCostGroup)
 	}
 
 	costs := make([]UpstreamCostInfo, 0, len(group.targets))
+	missing := make([]string, 0, len(group.targets))
 	for _, target := range group.targets {
 		upstreamQuota, ok := quotaByRequestId[target.requestId]
-		if !ok || upstreamQuota < 0 || target.platformQuota < 0 {
+		if !ok {
+			missing = append(missing, target.requestId)
 			continue
 		}
-		upstreamAmountUSD := float64(upstreamQuota) / status.Data.QuotaPerUnit
-		platformAmountUSD := float64(target.platformQuota) / common.QuotaPerUnit
+		if upstreamQuota < 0 || target.platformQuota < 0 {
+			continue
+		}
+		normalizedQuota, clamp := common.QuotaFromDecimalChecked(normalizeUpstreamQuota(upstreamQuota, status.Data.QuotaPerUnit, status.Data.Price))
+		if clamp != nil {
+			common.SysError(fmt.Sprintf("upstream cost normalization clamped for log %d: original=%f clamped=%d", target.logId, clamp.Original, clamp.Clamped))
+			continue
+		}
 		costs = append(costs, UpstreamCostInfo{
-			LogId:                target.logId,
-			UpstreamQuota:        upstreamQuota,
-			UpstreamQuotaPerUnit: status.Data.QuotaPerUnit,
-			PlatformQuota:        target.platformQuota,
-			PlatformQuotaPerUnit: common.QuotaPerUnit,
-			UpstreamAmountUSD:    upstreamAmountUSD,
-			PlatformAmountUSD:    platformAmountUSD,
-			ExceedsPlatform:      upstreamAmountUSD > platformAmountUSD,
+			LogId:                   target.logId,
+			UpstreamQuota:           upstreamQuota,
+			UpstreamQuotaPerUnit:    status.Data.QuotaPerUnit,
+			UpstreamPrice:           status.Data.Price,
+			PlatformQuota:           target.platformQuota,
+			PlatformQuotaPerUnit:    common.QuotaPerUnit,
+			PlatformPrice:           operation_setting.Price,
+			NormalizedUpstreamQuota: normalizedQuota,
+			UpstreamAmount:          float64(normalizedQuota) / common.QuotaPerUnit,
+			PlatformAmount:          float64(target.platformQuota) / common.QuotaPerUnit,
+			ExceedsPlatform:         normalizedQuota > target.platformQuota,
 		})
 	}
+	if len(missing) > 0 {
+		// 上游写自己的消费日志是异步的，刚结束的请求可能还查不到；这条日志用于区分
+		// 「上游不可达」和「上游还没落库」，是补扣未触发时最需要的诊断信息。
+		common.SysLog(fmt.Sprintf("upstream cost lookup: %d/%d request ids not found in %s recent logs (%d returned), first missing=%s",
+			len(missing), len(group.targets), group.baseURL, len(logs), missing[0]))
+	}
 	return costs
+}
+
+// normalizeUpstreamQuota 把上游 quota 折算成本平台的额度单位：
+//
+//	上游真实成本 = upstreamQuota / upstreamQuotaPerUnit * upstreamPrice
+//	本平台额度   = 上游真实成本 / Price * QuotaPerUnit
+//
+// 向上取整，保证补扣后至少覆盖上游成本。两边的 price 都以「1 系统美元折合多少元」计价，
+// 这是 new-api 的既定语义；接入非同币种计价的上游会失真，因此 price 缺失时调用方直接跳过。
+func normalizeUpstreamQuota(upstreamQuota int, upstreamQuotaPerUnit, upstreamPrice float64) decimal.Decimal {
+	return decimal.NewFromInt(int64(upstreamQuota)).
+		Mul(decimal.NewFromFloat(upstreamPrice)).
+		Mul(decimal.NewFromFloat(common.QuotaPerUnit)).
+		Div(decimal.NewFromFloat(upstreamQuotaPerUnit)).
+		Div(decimal.NewFromFloat(operation_setting.Price)).
+		Ceil()
 }
 
 func fetchUpstreamLogs(ctx context.Context, baseURL, apiKey string) ([]upstreamLogItem, error) {
@@ -304,11 +392,17 @@ func fetchUpstreamJSON(ctx context.Context, endpoint, apiKey string, target inte
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return transientUpstreamError{err: err}
 	}
 	defer CloseResponseBodyGracefully(resp)
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		return fmt.Errorf("upstream returned status %d", resp.StatusCode)
+		statusErr := fmt.Errorf("upstream returned status %d", resp.StatusCode)
+		// 429 是上游明确要求退避（new-api 的 /api/log/token 默认 20 次/20 分钟限流），
+		// 5xx 是上游自身故障，两者稍后重试才有意义。
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= http.StatusInternalServerError {
+			return transientUpstreamError{err: statusErr}
+		}
+		return statusErr
 	}
 	return common.DecodeJson(io.LimitReader(resp.Body, upstreamCostMaxBodyBytes), target)
 }

@@ -92,6 +92,15 @@ export function isViolationFeeLog(other: LogOtherData | null): boolean {
   )
 }
 
+/**
+ * Check if the log is a standalone upstream-cost surcharge record
+ */
+export function isCostProtectionSurchargeLog(
+  other: LogOtherData | null
+): boolean {
+  return other?.cost_protection_surcharge === true
+}
+
 function isPositiveFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
 }

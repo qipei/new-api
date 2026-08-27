@@ -83,7 +83,7 @@ func TestCostProtectionRoutesToAlternativeAndFallsBackForContinuity(t *testing.T
 	require.NoError(t, db.Create(&log).Error)
 	applyCostProtection(context.Background(), UpstreamCostInfo{
 		LogId: log.Id, UpstreamQuota: 150, UpstreamQuotaPerUnit: common.QuotaPerUnit,
-		UpstreamAmountUSD: 0.0003, PlatformAmountUSD: 0.0002,
+		NormalizedUpstreamQuota: 150, UpstreamAmount: 0.0003, PlatformAmount: 0.0002,
 		ExceedsPlatform: true,
 	})
 
@@ -141,6 +141,8 @@ func TestCostProtectionAutoGroupSearchesLaterGroupBeforeFallback(t *testing.T) {
 	assert.Equal(t, "default", group)
 }
 
+// Rounding noise in the float amounts must never move money: the surcharge is
+// driven by the integer normalized quota, so an equal quota is always a no-op.
 func TestCostProtectionIgnoresFloatOnlyDifferenceAtSameNormalizedQuota(t *testing.T) {
 	db := setupCostProtectionTestDB(t)
 	modelName := "cost-precision-" + strings.ReplaceAll(t.Name(), "/", "-")
@@ -155,7 +157,8 @@ func TestCostProtectionIgnoresFloatOnlyDifferenceAtSameNormalizedQuota(t *testin
 
 	applyCostProtection(context.Background(), UpstreamCostInfo{
 		LogId: log.Id, UpstreamQuota: 100, UpstreamQuotaPerUnit: common.QuotaPerUnit,
-		UpstreamAmountUSD: 0.2000000000001, PlatformAmountUSD: 0.2, ExceedsPlatform: true,
+		NormalizedUpstreamQuota: 100,
+		UpstreamAmount:          0.2000000000001, PlatformAmount: 0.2, ExceedsPlatform: true,
 	})
 	assert.Empty(t, getCostProtectedChannelIDs("default", modelName))
 }
@@ -163,13 +166,14 @@ func TestCostProtectionIgnoresFloatOnlyDifferenceAtSameNormalizedQuota(t *testin
 func TestProcessCostProtectionJobsFetchesInBackgroundBatchAndRoutes(t *testing.T) {
 	db := setupCostProtectionTestDB(t)
 	InitHttpClient()
+	setUpstreamCostBillingUnits(t, common.QuotaPerUnit, 1)
 	var statusCalls atomic.Int32
 	var logCalls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/status":
 			statusCalls.Add(1)
-			_, err := fmt.Fprintf(w, `{"success":true,"data":{"quota_per_unit":%f}}`, common.QuotaPerUnit)
+			_, err := fmt.Fprintf(w, `{"success":true,"data":{"quota_per_unit":%f,"price":1}}`, common.QuotaPerUnit)
 			assert.NoError(t, err)
 		case "/api/log/token":
 			logCalls.Add(1)
@@ -232,7 +236,8 @@ func TestCostProtectionSurchargeAdjustsBalancesAndLogOnce(t *testing.T) {
 	require.NoError(t, db.Create(&log).Error)
 	cost := UpstreamCostInfo{
 		LogId: log.Id, UpstreamQuota: 150, UpstreamQuotaPerUnit: common.QuotaPerUnit,
-		UpstreamAmountUSD: 0.0003, PlatformAmountUSD: 0.0002, ExceedsPlatform: true,
+		NormalizedUpstreamQuota: 150, UpstreamAmount: 0.0003, PlatformAmount: 0.0002,
+		ExceedsPlatform: true,
 	}
 
 	applyCostProtection(context.Background(), cost)
@@ -251,7 +256,7 @@ func TestCostProtectionSurchargeAdjustsBalancesAndLogOnce(t *testing.T) {
 	assert.Equal(t, 850, gotToken.RemainQuota)
 	assert.Equal(t, 150, gotToken.UsedQuota)
 	assert.EqualValues(t, 150, gotChannel.UsedQuota)
-	assert.Equal(t, 150, gotLog.Quota)
+	assert.Equal(t, 100, gotLog.Quota, "original request log keeps its own charge; the surcharge is a separate record")
 
 	logOther, err := common.StrToMap(gotLog.Other)
 	require.NoError(t, err)
@@ -261,4 +266,68 @@ func TestCostProtectionSurchargeAdjustsBalancesAndLogOnce(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "surcharge", protection["action"])
 	assert.Equal(t, float64(50), protection["delta_quota"])
+
+	var surchargeLogs []model.Log
+	require.NoError(t, db.Where("type = ? AND id <> ?", model.LogTypeConsume, log.Id).Find(&surchargeLogs).Error)
+	require.Len(t, surchargeLogs, 1, "surcharge must show up in the usage log exactly once")
+	assert.Equal(t, 50, surchargeLogs[0].Quota)
+	assert.Equal(t, user.Id, surchargeLogs[0].UserId)
+	assert.Equal(t, "kimi-k3", surchargeLogs[0].ModelName)
+	assert.Empty(t, surchargeLogs[0].UpstreamRequestId, "surcharge rows must not be re-checked against upstream cost")
+	surchargeOther, err := common.StrToMap(surchargeLogs[0].Other)
+	require.NoError(t, err)
+	assert.Equal(t, true, surchargeOther["cost_protection_surcharge"])
+	assert.Equal(t, float64(log.Id), surchargeOther["source_log_id"])
+}
+
+// Production channels are multi-key, so the upstream API key is resolved from the
+// log's admin_info.multi_key_index rather than from Channel.Key directly. A break
+// here silently disables cost protection for every multi-key upstream.
+func TestCostProtectionResolvesUpstreamKeyForMultiKeyChannel(t *testing.T) {
+	db := setupCostProtectionTestDB(t)
+	InitHttpClient()
+	setUpstreamCostBillingUnits(t, common.QuotaPerUnit, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/status":
+			_, err := fmt.Fprintf(w, `{"success":true,"data":{"quota_per_unit":%f,"price":1}}`, common.QuotaPerUnit)
+			assert.NoError(t, err)
+		case "/api/log/token":
+			assert.Equal(t, "Bearer second-key", r.Header.Get("Authorization"))
+			_, err := fmt.Fprint(w, `{"success":true,"data":{"items":[{"request_id":"upstream-7211","quota":150}]}}`)
+			assert.NoError(t, err)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	modelName := "cost-multikey-" + strings.ReplaceAll(t.Name(), "/", "-")
+	priority := int64(0)
+	weight := uint(100)
+	require.NoError(t, db.Create(&model.Channel{
+		Id: 7211, Type: constant.ChannelTypeOpenAI, Key: "first-key\nsecond-key",
+		Status: common.ChannelStatusEnabled, Name: "channel-7211", BaseURL: &server.URL,
+		Weight: &weight, Models: modelName, Group: "default", Priority: &priority,
+		ChannelInfo: model.ChannelInfo{IsMultiKey: true, MultiKeySize: 2},
+	}).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group: "default", Model: modelName, ChannelId: 7211, Enabled: true,
+		Priority: &priority, Weight: weight,
+	}).Error)
+	model.InitChannelCache()
+	log := model.Log{
+		Type: model.LogTypeConsume, ModelName: modelName, Quota: 100,
+		ChannelId: 7211, Group: "default", UpstreamRequestId: "upstream-7211",
+		Other: common.MapToJsonStr(map[string]interface{}{
+			"billing_source": BillingSourceWallet,
+			"admin_info":     map[string]interface{}{"is_multi_key": true, "multi_key_index": 1},
+		}),
+	}
+	require.NoError(t, db.Create(&log).Error)
+
+	costs, err := GetUpstreamCosts(context.Background(), []int{log.Id})
+	require.NoError(t, err)
+	require.Len(t, costs, 1)
+	assert.True(t, costs[0].ExceedsPlatform)
 }

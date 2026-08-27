@@ -8,31 +8,51 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestFetchUpstreamCostGroupComparesNormalizedCharges(t *testing.T) {
-	InitHttpClient()
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// setUpstreamCostBillingUnits pins both sides of the comparison, because a raw
+// quota is only meaningful together with the deployment's quota_per_unit and
+// recharge price.
+func setUpstreamCostBillingUnits(t *testing.T, quotaPerUnit, price float64) {
+	t.Helper()
+	previousQuotaPerUnit := common.QuotaPerUnit
+	previousPrice := operation_setting.Price
+	common.QuotaPerUnit = quotaPerUnit
+	operation_setting.Price = price
+	t.Cleanup(func() {
+		common.QuotaPerUnit = previousQuotaPerUnit
+		operation_setting.Price = previousPrice
+	})
+}
+
+func newUpstreamCostStub(t *testing.T, quotaPerUnit, price float64, itemsJSON string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/status":
-			_, err := fmt.Fprint(w, `{"success":true,"data":{"quota_per_unit":500000}}`)
+			_, err := fmt.Fprintf(w, `{"success":true,"data":{"quota_per_unit":%v,"price":%v}}`, quotaPerUnit, price)
 			assert.NoError(t, err)
 		case "/api/log/token":
-			assert.Equal(t, "Bearer upstream-key", r.Header.Get("Authorization"))
-			assert.Equal(t, "1000", r.URL.Query().Get("page_size"))
-			_, err := fmt.Fprint(w, `{"success":true,"data":{"items":[{"request_id":"upstream-request","quota":200000}]}}`)
+			_, err := fmt.Fprintf(w, `{"success":true,"data":{"items":[%s]}}`, itemsJSON)
 			assert.NoError(t, err)
 		default:
 			http.NotFound(w, r)
 		}
 	}))
-	defer server.Close()
+}
 
-	previousQuotaPerUnit := common.QuotaPerUnit
-	common.QuotaPerUnit = 500000
-	t.Cleanup(func() { common.QuotaPerUnit = previousQuotaPerUnit })
+// The two deployments price a quota unit differently (upstream ¥6.82 per system
+// dollar, ours ¥1), so comparing raw quota/quota_per_unit reports the upstream as
+// six times cheaper when it actually costs more. Numbers are a real production
+// request: we billed 922255 (¥1.8445) while the upstream billed 154357 (¥2.1054).
+func TestFetchUpstreamCostGroupComparesRealCurrencyNotRawQuota(t *testing.T) {
+	InitHttpClient()
+	server := newUpstreamCostStub(t, 500000, 6.82, `{"request_id":"upstream-request","quota":154357}`)
+	defer server.Close()
+	setUpstreamCostBillingUnits(t, 500000, 1)
 
 	costs := fetchUpstreamCostGroup(context.Background(), &upstreamCostGroup{
 		baseURL: server.URL,
@@ -40,14 +60,51 @@ func TestFetchUpstreamCostGroupComparesNormalizedCharges(t *testing.T) {
 		targets: []upstreamCostTarget{{
 			logId:         7,
 			requestId:     "upstream-request",
-			platformQuota: 100000,
+			platformQuota: 922255,
 		}},
 	})
 
 	require.Len(t, costs, 1)
-	assert.Equal(t, 0.4, costs[0].UpstreamAmountUSD)
-	assert.Equal(t, 0.2, costs[0].PlatformAmountUSD)
-	assert.True(t, costs[0].ExceedsPlatform)
+	assert.Equal(t, 1052715, costs[0].NormalizedUpstreamQuota)
+	assert.InDelta(t, 2.10543, costs[0].UpstreamAmount, 1e-5)
+	assert.InDelta(t, 1.84451, costs[0].PlatformAmount, 1e-5)
+	assert.True(t, costs[0].ExceedsPlatform, "upstream charged more real money and must be flagged")
+}
+
+// A cheaper upstream must not be flagged once both sides are normalized.
+func TestFetchUpstreamCostGroupIgnoresCheaperUpstream(t *testing.T) {
+	InitHttpClient()
+	server := newUpstreamCostStub(t, 500000, 6.82, `{"request_id":"upstream-request","quota":10000}`)
+	defer server.Close()
+	setUpstreamCostBillingUnits(t, 500000, 1)
+
+	costs := fetchUpstreamCostGroup(context.Background(), &upstreamCostGroup{
+		baseURL: server.URL,
+		apiKey:  "upstream-key",
+		targets: []upstreamCostTarget{{logId: 7, requestId: "upstream-request", platformQuota: 922255}},
+	})
+
+	require.Len(t, costs, 1)
+	assert.Equal(t, 68200, costs[0].NormalizedUpstreamQuota)
+	assert.False(t, costs[0].ExceedsPlatform)
+}
+
+// Without the upstream recharge price the two quota units cannot be reconciled;
+// falling back to a raw quota comparison would invert the verdict, so the group
+// must be skipped instead.
+func TestFetchUpstreamCostGroupSkipsUpstreamWithoutPrice(t *testing.T) {
+	InitHttpClient()
+	server := newUpstreamCostStub(t, 500000, 0, `{"request_id":"upstream-request","quota":154357}`)
+	defer server.Close()
+	setUpstreamCostBillingUnits(t, 500000, 1)
+
+	costs := fetchUpstreamCostGroup(context.Background(), &upstreamCostGroup{
+		baseURL: server.URL,
+		apiKey:  "upstream-key",
+		targets: []upstreamCostTarget{{logId: 7, requestId: "upstream-request", platformQuota: 922255}},
+	})
+
+	assert.Empty(t, costs)
 }
 
 func TestFetchUpstreamLogsSupportsLegacyArrayResponse(t *testing.T) {

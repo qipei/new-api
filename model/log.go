@@ -150,11 +150,38 @@ func GetConsumeLogsByIds(ids []int) ([]*Log, error) {
 	return logs, err
 }
 
-func UpdateConsumeLogQuotaAndOther(logID, expectedQuota, quota int, other string) (bool, error) {
+// CostProtectionMarker 是写入原始消费日志 other.admin_info 的补扣/换路审计标记键。
+const CostProtectionMarker = "cost_protection"
+
+// MarkConsumeLogCostProtection 在原始消费日志上写入上游计费保护的审计标记。
+// "not like" 条件同时充当幂等锁：同一条消费日志只会被标记一次，
+// 因此并发或重试的补扣不会把用户余额扣第二遍。
+func MarkConsumeLogCostProtection(logID int, other string) (bool, error) {
 	result := LOG_DB.Model(&Log{}).
-		Where("id = ? AND type = ? AND quota = ?", logID, LogTypeConsume, expectedQuota).
-		Updates(map[string]interface{}{"quota": quota, "other": other})
+		Where("id = ? AND type = ? AND (other IS NULL OR other NOT LIKE ?)",
+			logID, LogTypeConsume, "%"+CostProtectionMarker+"%").
+		Update("other", other)
 	return result.RowsAffected == 1, result.Error
+}
+
+// RecordCostProtectionSurchargeLog 为上游计费补扣写入一条独立的消费日志，
+// 让补扣在用户可见的使用记录中留痕；原始请求日志的金额保持不变，两条相加即最终扣费。
+// 这里刻意不走 RecordConsumeLog：补扣日志本身不应再次触发上游计费核对钩子。
+func RecordCostProtectionSurchargeLog(source *Log, quota int, other map[string]interface{}) error {
+	return createLog(&Log{
+		UserId:    source.UserId,
+		Username:  source.Username,
+		CreatedAt: common.GetTimestamp(),
+		Type:      LogTypeConsume,
+		Content:   "Upstream cost surcharge",
+		TokenName: source.TokenName,
+		ModelName: source.ModelName,
+		Quota:     quota,
+		ChannelId: source.ChannelId,
+		TokenId:   source.TokenId,
+		Group:     source.Group,
+		Other:     common.MapToJsonStr(other),
+	})
 }
 
 func RecordLog(userId int, logType int, content string) {

@@ -40,15 +40,25 @@ describe('homepage product tool links', () => {
       </I18nextProvider>
     )
 
-    assert.match(
-      markup,
-      /href="https:\/\/files\.token01\.net\/tools\/dj\/index\.html"/
+    // Order is a product decision: DouKuaizhuang leads, DouYing is the newest.
+    const positions = [
+      'https://files.token01.net/tools/dkz/index.html',
+      'https://files.token01.net/tools/dj/index.html',
+      'https://files.token01.net/tools/dy/index.html',
+    ].map((url) => {
+      const index = markup.indexOf(`href="${url}"`)
+      assert.notEqual(index, -1, `missing product card for ${url}`)
+      return index
+    })
+    assert.deepEqual(
+      positions,
+      [...positions].sort((a, b) => a - b)
     )
-    assert.match(
-      markup,
-      /href="https:\/\/files\.token01\.net\/tools\/dkz\/index\.html"/
+
+    assert.equal(markup.match(/target="_blank"/g)?.length, positions.length)
+    assert.equal(
+      markup.match(/rel="noopener noreferrer"/g)?.length,
+      positions.length
     )
-    assert.equal(markup.match(/target="_blank"/g)?.length, 2)
-    assert.equal(markup.match(/rel="noopener noreferrer"/g)?.length, 2)
   })
 })

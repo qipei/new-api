@@ -56,8 +56,36 @@ import { formatFirstTierHomePrice, selectHomeModels } from '../lib/home-models'
 const DASHBOARD_URL = 'https://token01.net/dashboard'
 const DOCS_URL = 'https://token01.apifox.cn/'
 const PRICING_URL = 'https://token01.net/pricing'
-const DOUJU_URL = 'https://files.token01.net/tools/dj/index.html'
-const DOUKUAIZHUANG_URL = 'https://files.token01.net/tools/dkz/index.html'
+// Ordered as shown on the homepage.
+const PRODUCT_TOOLS = [
+  {
+    name: 'DouKuaizhuang',
+    linkLabel: 'Learn about DouKuaizhuang',
+    url: 'https://files.token01.net/tools/dkz/index.html',
+    image: '/doukuaizhuang.png',
+    description:
+      'Install and configure popular AI desktop apps in one step, including the gateway address and API key.',
+    linkClassName: 'text-[#128c4b]',
+  },
+  {
+    name: 'DouJu',
+    linkLabel: 'Learn about DouJu',
+    url: 'https://files.token01.net/tools/dj/index.html',
+    image: '/douju.png',
+    description:
+      'A local AI short-drama studio covering scripts, characters, storyboards, video generation, and final assembly.',
+    linkClassName: 'text-[#a77900] dark:text-[#ffc800]',
+  },
+  {
+    name: 'DouYing',
+    linkLabel: 'Learn about DouYing',
+    url: 'https://files.token01.net/tools/dy/index.html',
+    image: '/douying.png',
+    description:
+      'An AI tool for short dramas and comic dramas: the whole pipeline is AI-driven, so one person is a whole production team.',
+    linkClassName: 'text-[#1a6ee0] dark:text-[#7db3ff]',
+  },
+]
 const API_ENDPOINT = 'https://www.token01.net/v1'
 const CONTACT_PHONE = '15332462764'
 
@@ -364,55 +392,34 @@ export function ProductTools() {
       <p className='mt-1 text-[13px] text-[#8c8a82]'>
         {t('Tools that make creating and working with AI simpler.')}
       </p>
-      <div className='mt-5 grid gap-4 md:grid-cols-2'>
-        <a
-          href={DOUJU_URL}
-          target='_blank'
-          rel='noopener noreferrer'
-          className='flex gap-5 rounded-[18px] border border-[#eae8e0] bg-white p-5 text-[#141414] transition-colors hover:border-[#ffc800] hover:text-[#141414] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffc800] sm:p-7 dark:border-white/10 dark:bg-[#191919] dark:text-white dark:hover:text-white'
-        >
-          <img
-            src='/douju.png'
-            alt='DouJu'
-            loading='lazy'
-            className='size-[76px] shrink-0 rounded-[20px] object-cover sm:size-[84px]'
-          />
-          <div>
-            <h3 className='text-[17px] font-black'>{t('DouJu')}</h3>
-            <p className='mt-2 text-[13px] leading-6 text-[#55534b] dark:text-white/65'>
-              {t(
-                'A local AI short-drama studio covering scripts, characters, storyboards, video generation, and final assembly.'
-              )}
-            </p>
-            <span className='mt-2 inline-block text-[13px] font-medium text-[#a77900] dark:text-[#ffc800]'>
-              {t('Learn about DouJu')} →
-            </span>
-          </div>
-        </a>
-        <a
-          href={DOUKUAIZHUANG_URL}
-          target='_blank'
-          rel='noopener noreferrer'
-          className='flex gap-5 rounded-[18px] border border-[#eae8e0] bg-white p-5 text-[#141414] transition-colors hover:border-[#ffc800] hover:text-[#141414] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffc800] sm:p-7 dark:border-white/10 dark:bg-[#191919] dark:text-white dark:hover:text-white'
-        >
-          <img
-            src='/doukuaizhuang.png'
-            alt='DouKuaizhuang'
-            loading='lazy'
-            className='size-[76px] shrink-0 rounded-[20px] object-cover sm:size-[84px]'
-          />
-          <div>
-            <h3 className='text-[17px] font-black'>{t('DouKuaizhuang')}</h3>
-            <p className='mt-2 text-[13px] leading-6 text-[#55534b] dark:text-white/65'>
-              {t(
-                'Install and configure popular AI desktop apps in one step, including the gateway address and API key.'
-              )}
-            </p>
-            <span className='mt-2 inline-block text-[13px] font-medium text-[#128c4b]'>
-              {t('Learn about DouKuaizhuang')} →
-            </span>
-          </div>
-        </a>
+      <div className='mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
+        {PRODUCT_TOOLS.map((tool) => (
+          <a
+            key={tool.name}
+            href={tool.url}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='flex gap-5 rounded-[18px] border border-[#eae8e0] bg-white p-5 text-[#141414] transition-colors hover:border-[#ffc800] hover:text-[#141414] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#ffc800] sm:p-7 dark:border-white/10 dark:bg-[#191919] dark:text-white dark:hover:text-white'
+          >
+            <img
+              src={tool.image}
+              alt={tool.name}
+              loading='lazy'
+              className='size-[76px] shrink-0 rounded-[20px] object-cover sm:size-[84px]'
+            />
+            <div>
+              <h3 className='text-[17px] font-black'>{t(tool.name)}</h3>
+              <p className='mt-2 text-[13px] leading-6 text-[#55534b] dark:text-white/65'>
+                {t(tool.description)}
+              </p>
+              <span
+                className={`mt-2 inline-block text-[13px] font-medium ${tool.linkClassName}`}
+              >
+                {t(tool.linkLabel)} →
+              </span>
+            </div>
+          </a>
+        ))}
       </div>
     </section>
   )

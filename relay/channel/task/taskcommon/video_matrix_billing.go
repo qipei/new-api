@@ -2,11 +2,28 @@
 package taskcommon
 
 import (
+	"fmt"
+
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/video_billing"
 )
+
+// maxBillableImageCount 兜住上游返回的异常张数：它是计费乘数，
+// 未经约束的大数会把一次结算放大到不可接受的额度。
+const maxBillableImageCount = 100
+
+func clampBillableImageCount(count int) int {
+	if count <= 0 {
+		return 0
+	}
+	if count > maxBillableImageCount {
+		common.SysError(fmt.Sprintf("upstream reported %d billable input images, clamped to %d", count, maxBillableImageCount))
+		return maxBillableImageCount
+	}
+	return count
+}
 
 // VideoMatrixQuotaOnComplete 按提交时快照的矩阵档价与分组倍率，
 // 用实际 token 用量计算最终额度；不适用（非矩阵 token 计费、无 usage）时返回 0，
@@ -39,7 +56,10 @@ func VideoMatrixQuotaOnComplete(task *model.Task, taskResult *relaycommon.TaskIn
 		if !bc.SettleOnComplete || billingDuration <= 0 || bc.GroupRatio <= 0 {
 			return 0
 		}
-		quota, clamp := common.QuotaFromFloatChecked(billingDuration * bc.ModelPrice * common.QuotaPerUnit * bc.GroupRatio)
+		// 输入参考图是独立于输出秒数的一笔上游成本，只按秒计价会漏掉它。
+		// 上游返回的张数已扣除免费额度，这里不再重复减免。
+		imageCost := float64(clampBillableImageCount(taskResult.BillableImageCount)) * table.InputImagePrice
+		quota, clamp := common.QuotaFromFloatChecked((billingDuration*bc.ModelPrice + imageCost) * common.QuotaPerUnit * bc.GroupRatio)
 		taskResult.QuotaClamp = clamp
 		return quota
 	}

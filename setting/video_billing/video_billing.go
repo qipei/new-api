@@ -59,13 +59,16 @@ type ResolutionBucket struct {
 }
 
 // ModelPriceTable 单个模型的价格表。
-// per_image 单位额外支持两个可选附加单价（加法组件）：
-// 输入图按张、输入 prompt 按百万 token，与输出档价相加构成单次费用。
+// 两个可选附加单价（加法组件），与输出档价相加构成单次费用：
+//   - InputImagePrice 对 per_image 与 per_second 都生效。视频模型的参考图同样
+//     产生上游成本（例如百炼对超出免费额度的输入图按张计费），只按输出秒数计价
+//     会漏掉这部分，导致平台净亏。
+//   - InputTokenPrice 目前只有 per_image 使用。
 type ModelPriceTable struct {
 	Unit              string             `json:"unit"`
 	Tiers             []PriceTier        `json:"tiers,omitempty"`
 	ResolutionBuckets []ResolutionBucket `json:"resolution_buckets,omitempty"`
-	InputImagePrice   float64            `json:"input_image_price,omitempty"` // USD/张，仅 per_image
+	InputImagePrice   float64            `json:"input_image_price,omitempty"` // USD/张，per_image 与 per_second
 	InputTokenPrice   float64            `json:"input_token_price,omitempty"` // USD/百万 token，仅 per_image
 }
 

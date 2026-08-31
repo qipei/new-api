@@ -959,18 +959,21 @@ func (t *TaskSubmitReq) UnmarshalMetadata(v any) error {
 }
 
 type TaskInfo struct {
-	Code             int                `json:"code"`
-	TaskID           string             `json:"task_id"`
-	Status           string             `json:"status"`
-	Reason           string             `json:"reason,omitempty"`
-	Url              string             `json:"url,omitempty"`
-	RemoteUrl        string             `json:"remote_url,omitempty"`
-	Progress         string             `json:"progress,omitempty"`
-	CompletionTokens int                `json:"completion_tokens,omitempty"` // 用于按倍率计费
-	TotalTokens      int                `json:"total_tokens,omitempty"`      // 用于按倍率计费
-	Duration         int                `json:"duration,omitempty"`          // 上游实际输出时长（秒）
-	BillingDuration  float64            `json:"billing_duration,omitempty"`  // 上游用于计费的实际时长（秒，可含小数）
-	QuotaClamp       *common.QuotaClamp `json:"-"`                           // 完成结算额度饱和审计标记
+	Code             int     `json:"code"`
+	TaskID           string  `json:"task_id"`
+	Status           string  `json:"status"`
+	Reason           string  `json:"reason,omitempty"`
+	Url              string  `json:"url,omitempty"`
+	RemoteUrl        string  `json:"remote_url,omitempty"`
+	Progress         string  `json:"progress,omitempty"`
+	CompletionTokens int     `json:"completion_tokens,omitempty"` // 用于按倍率计费
+	TotalTokens      int     `json:"total_tokens,omitempty"`      // 用于按倍率计费
+	Duration         int     `json:"duration,omitempty"`          // 上游实际输出时长（秒）
+	BillingDuration  float64 `json:"billing_duration,omitempty"`  // 上游用于计费的实际时长（秒，可含小数）
+	// BillableImageCount 是上游按张计费的输入图数量，已扣除上游的免费额度
+	// （百炼对输入图 5 张以内返回 0，超出时只返回超出部分）。
+	BillableImageCount int                `json:"billable_image_count,omitempty"`
+	QuotaClamp         *common.QuotaClamp `json:"-"` // 完成结算额度饱和审计标记
 }
 
 func FailTaskInfo(reason string) *TaskInfo {

@@ -163,3 +163,25 @@ func TestTaskVideoDimsReadsTopLevelPassThroughResolution(t *testing.T) {
 	assert.Equal(t, "768p", resolution)
 	assert.Equal(t, 5, seconds)
 }
+
+// Kling expresses its quality tier through parameters.mode while the price matrix
+// prices on the resolution dimension. A missing branch silently falls through to the
+// default tier, which for these tables is less than half the 4K price.
+func TestTaskVideoDims4kModeMapsToTheFourKTier(t *testing.T) {
+	c := audioTestContext(t)
+	req := relaycommon.TaskSubmitReq{
+		Model: "kling/kling-v3-omni-video-generation",
+		Metadata: map[string]interface{}{
+			"parameters": map[string]interface{}{
+				"mode":     "4k",
+				"duration": 5,
+			},
+		},
+	}
+	c.Set("task_request", req)
+
+	info := &relaycommon.RelayInfo{TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
+	_, resolution, _, _ := taskVideoDims(c, info)
+
+	assert.Equal(t, "4k", resolution)
+}

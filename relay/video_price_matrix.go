@@ -126,11 +126,15 @@ func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string,
 		} else if metaResolution := metadataParameterString(req.Metadata, "resolution"); metaResolution != "" {
 			resolution = metaResolution
 		} else {
+			// Kling 用 parameters.mode 表达档位，价格矩阵按 resolution 维度取价，
+			// 少一个分支就会落到默认档：4k 的档价是默认档的两倍以上。
 			switch strings.ToLower(metadataParameterString(req.Metadata, "mode")) {
 			case "std":
 				resolution = "720p"
 			case "pro":
 				resolution = "1080p"
+			case "4k":
+				resolution = "4k"
 			}
 		}
 	}

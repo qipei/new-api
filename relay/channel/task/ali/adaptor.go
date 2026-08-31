@@ -751,6 +751,9 @@ func applyKlingSize(parameters *AliVideoParameters, size string) error {
 	case "pro", "1080p":
 		parameters.Mode = lo.ToPtr("pro")
 		return nil
+	case "4k":
+		parameters.Mode = lo.ToPtr("4k")
+		return nil
 	case "16:9", "9:16", "1:1":
 		parameters.AspectRatio = lo.ToPtr(normalized)
 		return nil
@@ -770,7 +773,7 @@ func applyKlingSize(parameters *AliVideoParameters, size string) error {
 	}
 	mapped, ok := knownSizes[strings.ReplaceAll(normalized, "x", "*")]
 	if !ok {
-		return fmt.Errorf("unsupported Kling size %q; use 720p, 1080p, std, pro, 16:9, 9:16, or 1:1", size)
+		return fmt.Errorf("unsupported Kling size %q; use 720p, 1080p, 4k, std, pro, 16:9, 9:16, or 1:1", size)
 	}
 	parameters.Mode = lo.ToPtr(mapped.mode)
 	parameters.AspectRatio = lo.ToPtr(mapped.ratio)
@@ -1180,7 +1183,7 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 	}
 	if isAliKlingVideoModel(upstreamModel) {
 		mode := strings.ToLower(strings.TrimSpace(req.Mode))
-		if mode == "std" || mode == "pro" {
+		if mode == "std" || mode == "pro" || mode == "4k" {
 			parameters.Mode = lo.ToPtr(mode)
 		}
 	}

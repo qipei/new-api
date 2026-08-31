@@ -185,3 +185,23 @@ func TestTaskVideoDims4kModeMapsToTheFourKTier(t *testing.T) {
 
 	assert.Equal(t, "4k", resolution)
 }
+
+// The quality tier can arrive as the top-level mode field, not only inside metadata.
+// Reading just one of them prices a 4K job at the default tier — less than half.
+func TestTaskVideoDimsReadsTopLevelModeForTier(t *testing.T) {
+	for _, tc := range []struct{ mode, want string }{
+		{"4k", "4k"},
+		{"pro", "1080p"},
+		{"std", "720p"},
+	} {
+		c := audioTestContext(t)
+		c.Set("task_request", relaycommon.TaskSubmitReq{
+			Model: "kling/kling-v3-video-generation", Mode: tc.mode, Duration: 5,
+		})
+		info := &relaycommon.RelayInfo{TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
+
+		_, resolution, _, _ := taskVideoDims(c, info)
+
+		assert.Equal(t, tc.want, resolution, "mode=%s", tc.mode)
+	}
+}

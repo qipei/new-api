@@ -899,3 +899,30 @@ func TestValidateAliViduImg2VideoEnforcesPerModelLimits(t *testing.T) {
 	q3Audio.Parameters.Audio = lo.ToPtr(true)
 	require.NoError(t, validateAliViduImg2VideoRequest(q3Audio))
 }
+
+// 4K was reachable only through metadata: applyKlingSize rejected size="4k" outright
+// and the top-level mode passthrough silently dropped it, so a documented mode either
+// failed or was downgraded without notice.
+func TestConvertToAliRequestKlingAcceptsFourKOnEveryEntryPoint(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	base := func(size, mode string) relaycommon.TaskSubmitReq {
+		return relaycommon.TaskSubmitReq{
+			Model: "kling/kling-v3-video-generation", Prompt: "p",
+			Images: []string{"https://example.com/a.png"}, Duration: 5,
+			Size: size, Mode: mode,
+		}
+	}
+	for _, tc := range []struct{ label, size, mode string }{
+		{"size", "4k", ""},
+		{"mode", "", "4k"},
+	} {
+		aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), base(tc.size, tc.mode))
+		require.NoError(t, err, tc.label)
+		assert.Equal(t, "4k", pointerString(aliReq.Parameters.Mode), tc.label)
+	}
+
+	turbo := base("", "4k")
+	turbo.Model = "kling/kling-v3-turbo-video-generation"
+	_, err := adaptor.convertToAliRequest(testRelayInfo(), turbo)
+	require.ErrorContains(t, err, "does not support 4k mode")
+}

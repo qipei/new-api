@@ -37,6 +37,19 @@ const defaultVideoEstimateSeconds = 5
 
 // resolveTaskPriceData 任务提交期的价格解析：视频价格矩阵优先，
 // 未配置矩阵的模型回退到原有的 ModelPriceHelperPerCall 逻辑。
+// klingModeResolution 把可灵的画质档位映射到价格矩阵的 resolution 维度。
+func klingModeResolution(mode string) string {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "std":
+		return "720p"
+	case "pro":
+		return "1080p"
+	case "4k":
+		return "4k"
+	}
+	return ""
+}
+
 func resolveTaskPriceData(c *gin.Context, info *relaycommon.RelayInfo) (hosttypes.PriceData, error) {
 	if _, ok := video_billing.GetPriceTable(info.OriginModelName); !ok {
 		return helper.ModelPriceHelperPerCall(c, info)
@@ -126,15 +139,12 @@ func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string,
 		} else if metaResolution := metadataParameterString(req.Metadata, "resolution"); metaResolution != "" {
 			resolution = metaResolution
 		} else {
-			// Kling 用 parameters.mode 表达档位，价格矩阵按 resolution 维度取价，
-			// 少一个分支就会落到默认档：4k 的档价是默认档的两倍以上。
-			switch strings.ToLower(metadataParameterString(req.Metadata, "mode")) {
-			case "std":
-				resolution = "720p"
-			case "pro":
-				resolution = "1080p"
-			case "4k":
-				resolution = "4k"
+			// Kling 用 mode 表达画质档位，价格矩阵按 resolution 维度取价，
+			// 漏掉任一入口都会落到默认档：4k 的档价是默认档的两倍以上。
+			// 顶层 mode 与 metadata 里的 parameters.mode 都是有效入口。
+			resolution = klingModeResolution(req.Mode)
+			if resolution == "" {
+				resolution = klingModeResolution(metadataParameterString(req.Metadata, "mode"))
 			}
 		}
 	}

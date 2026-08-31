@@ -5500,6 +5500,7 @@
     "Learn about DouYing": "了解豆影",
     "An AI tool for short dramas and comic dramas: the whole pipeline is AI-driven, so one person is a whole production team.": "豆影是一款 AI 短劇漫劇創作工具，全流程 AI 化，一個人就是一支短劇創作團隊。",
     "Loss": "虧損",
-    "Invite users via your referral link and earn commission once they make a paid top-up. Transfer accumulated rewards to your balance anytime.": "透過邀請連結邀請好友註冊，好友付費儲值後即可賺取返佣。累計獎勵可隨時轉入餘額。"
+    "Invite users via your referral link and earn commission once they make a paid top-up. Transfer accumulated rewards to your balance anytime.": "透過邀請連結邀請好友註冊，好友付費儲值後即可賺取返佣。累計獎勵可隨時轉入餘額。",
+    "Optional additive component charged per billable input image reported by the provider.": "可選的附加項：依上游回傳的計費輸入圖張數收取。"
   }
 }

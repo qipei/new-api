@@ -322,3 +322,28 @@ describe('video pricing core', () => {
     )
   })
 })
+
+// 按秒计费的视频模型同样要收参考图费用，而通用短边归档规则表达不了供应商
+// 自定义的档位（Vidu 的 540P）。这两项此前只在按张计费时序列化，后端读得到、
+// 管理端却存不进去。
+test('keeps input image price and resolution buckets on per_second tables', () => {
+  const raw = JSON.stringify({
+    'vidu-q3-pro': {
+      unit: 'per_second',
+      input_image_price: 0.05,
+      resolution_buckets: [{ name: '540p', sizes: ['1024*576', '1024*1024'] }],
+      tiers: [{ resolution: '540p', price: 0.3125 }],
+    },
+  })
+
+  const tables = parseVideoPricingTables(raw)
+  const roundTripped = JSON.parse(serializeVideoPricingTables(tables))
+
+  assert.equal(roundTripped['vidu-q3-pro'].input_image_price, 0.05)
+  // 尺寸分隔符会被归一为 x，后端 canonicalSize 两种写法都认。
+  assert.deepEqual(roundTripped['vidu-q3-pro'].resolution_buckets, [
+    { name: '540p', sizes: ['1024x576', '1024x1024'] },
+  ])
+  // 输入 token 单价目前只有按张计费使用，不应写进按秒计费的表。
+  assert.equal(roundTripped['vidu-q3-pro'].input_token_price, undefined)
+})

@@ -372,7 +372,8 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                     'Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.'
                   )}
                 </p>
-                {table.unit === 'per_image' && (
+                {(table.unit === 'per_image' ||
+                  table.unit === 'per_second') && (
                   <div className='space-y-4'>
                     <div className='flex flex-wrap items-center gap-4'>
                       <div className='flex items-center gap-2'>
@@ -392,27 +393,33 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                           }
                         />
                       </div>
-                      <div className='flex items-center gap-2'>
-                        <span className='text-muted-foreground text-sm'>
-                          {t('Input token price')}
-                        </span>
-                        <Input
-                          className='w-28'
-                          inputMode='decimal'
-                          placeholder={t('Optional')}
-                          value={table.inputTokenPrice}
-                          aria-label={`${table.model} ${t('Input token price')}`}
-                          onChange={(e) =>
-                            patchTable(tableIndex, {
-                              inputTokenPrice: e.target.value,
-                            })
-                          }
-                        />
-                      </div>
+                      {table.unit === 'per_image' && (
+                        <div className='flex items-center gap-2'>
+                          <span className='text-muted-foreground text-sm'>
+                            {t('Input token price')}
+                          </span>
+                          <Input
+                            className='w-28'
+                            inputMode='decimal'
+                            placeholder={t('Optional')}
+                            value={table.inputTokenPrice}
+                            aria-label={`${table.model} ${t('Input token price')}`}
+                            onChange={(e) =>
+                              patchTable(tableIndex, {
+                                inputTokenPrice: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      )}
                       <span className='text-muted-foreground/70 text-xs'>
-                        {t(
-                          'Optional additive components: per input image, and per million prompt tokens.'
-                        )}
+                        {table.unit === 'per_image'
+                          ? t(
+                              'Optional additive components: per input image, and per million prompt tokens.'
+                            )
+                          : t(
+                              'Optional additive component charged per billable input image reported by the provider.'
+                            )}
                       </span>
                     </div>
                     <div className='space-y-2 rounded-md border p-3'>

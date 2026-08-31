@@ -292,14 +292,22 @@ export function serializeVideoPricingTables(
     const model = table.model.trim()
     if (!model) continue
     const entry: VideoPriceTablePayload = { unit: table.unit }
-    if (table.unit === VIDEO_UNIT_PER_IMAGE) {
+    // 输入图单价与归档表对按张和按秒都生效：视频模型的参考图同样产生上游成本，
+    // 而通用的短边归档规则表达不了供应商自定义的档位（例如 Vidu 的 540P）。
+    // 输入 token 单价目前只有按张计费在用。
+    if (
+      table.unit === VIDEO_UNIT_PER_IMAGE ||
+      table.unit === VIDEO_UNIT_PER_SECOND
+    ) {
       const inputImagePrice = Number(table.inputImagePrice)
       if (table.inputImagePrice.trim() && inputImagePrice > 0) {
         entry.input_image_price = inputImagePrice
       }
-      const inputTokenPrice = Number(table.inputTokenPrice)
-      if (table.inputTokenPrice.trim() && inputTokenPrice > 0) {
-        entry.input_token_price = inputTokenPrice
+      if (table.unit === VIDEO_UNIT_PER_IMAGE) {
+        const inputTokenPrice = Number(table.inputTokenPrice)
+        if (table.inputTokenPrice.trim() && inputTokenPrice > 0) {
+          entry.input_token_price = inputTokenPrice
+        }
       }
       const resolutionBuckets = table.resolutionBuckets
         .map((bucket): VideoResolutionBucketPayload | null => {

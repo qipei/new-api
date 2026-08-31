@@ -250,3 +250,35 @@ func TestGetPriceMatchesImagePixelRanges(t *testing.T) {
 		})
 	}
 }
+
+// The generic short-edge rule only emits 480p/720p/1080p/2k/4k, so a provider tier
+// like Vidu's 540P (1024*576 has a 576 short edge) is unreachable by size and the
+// request silently prices at the 720p tier — 2.5x the intended rate. Buckets are the
+// escape hatch and must work for per_second, not just per_image.
+func TestGetPriceUsesResolutionBucketsForPerSecondTables(t *testing.T) {
+	withTables(t, map[string]ModelPriceTable{
+		"vidu-bucketed": {
+			Unit: UnitPerSecond,
+			ResolutionBuckets: []ResolutionBucket{
+				{Name: "540p", Sizes: []string{"1024*576", "1024*1024", "960*528"}},
+			},
+			Tiers: []PriceTier{
+				{Price: 0.3125, Resolution: "540p"},
+				{Price: 0.78125, Resolution: "720p"},
+				{Price: 0.9375, Resolution: "1080p"},
+			},
+		},
+	})
+
+	for _, size := range []string{"1024*576", "1024*1024", "960*528", "540p"} {
+		price, unit, ok := GetPrice("vidu-bucketed", "", size, "")
+		require.True(t, ok, "size %s must match a tier", size)
+		assert.Equal(t, UnitPerSecond, unit)
+		assert.Equal(t, 0.3125, price, "size %s must price at the 540p tier", size)
+	}
+
+	// Sizes outside the bucket keep the generic short-edge classification.
+	price, _, ok := GetPrice("vidu-bucketed", "", "1920*1080", "")
+	require.True(t, ok)
+	assert.Equal(t, 0.9375, price)
+}

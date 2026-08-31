@@ -204,31 +204,43 @@ func canonicalSize(res string) (string, bool) {
 
 func normalizeForTable(res string, table ModelPriceTable) string {
 	res = strings.ToLower(strings.TrimSpace(res))
+	// 归档表对所有计价单位都生效：通用的短边规则只产出 480p/720p/1080p/2k/4k，
+	// 供应商自定义的档位（例如 Vidu 的 540P，其 1024*576 短边是 576）无法表达，
+	// 不配归档表就会命中错误的档价。
+	if name, ok := matchResolutionBucket(res, table.ResolutionBuckets); ok {
+		return name
+	}
 	if table.Unit != UnitPerImage {
 		return NormalizeResolution(res)
 	}
-	for _, bucket := range table.ResolutionBuckets {
+	return NormalizeImageResolution(res)
+}
+
+// matchResolutionBucket 先按档位名精确匹配，再按具体尺寸匹配。
+func matchResolutionBucket(res string, buckets []ResolutionBucket) (string, bool) {
+	for _, bucket := range buckets {
 		name := strings.ToLower(strings.TrimSpace(bucket.Name))
 		if name != "" && res == name {
-			return name
+			return name, true
 		}
 	}
 	requestSize, requestIsSize := canonicalSize(res)
-	if requestIsSize {
-		for _, bucket := range table.ResolutionBuckets {
-			name := strings.ToLower(strings.TrimSpace(bucket.Name))
-			if name == "" {
-				continue
-			}
-			for _, size := range bucket.Sizes {
-				bucketSize, ok := canonicalSize(size)
-				if ok && bucketSize == requestSize {
-					return name
-				}
+	if !requestIsSize {
+		return "", false
+	}
+	for _, bucket := range buckets {
+		name := strings.ToLower(strings.TrimSpace(bucket.Name))
+		if name == "" {
+			continue
+		}
+		for _, size := range bucket.Sizes {
+			bucketSize, ok := canonicalSize(size)
+			if ok && bucketSize == requestSize {
+				return name, true
 			}
 		}
 	}
-	return NormalizeImageResolution(res)
+	return "", false
 }
 
 // ResolveImageResolution applies a model's exact resolution buckets first,

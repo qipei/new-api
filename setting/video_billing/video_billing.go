@@ -8,9 +8,11 @@
 package video_billing
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/config"
 )
 
@@ -84,6 +86,22 @@ var videoBillingSettings = VideoBillingSettings{
 
 func init() {
 	config.GlobalConfig.Register("video_billing", &videoBillingSettings)
+}
+
+// AdditiveInputPrices 返回两个附加单价的安全取值。
+// 负单价会让附加项变成减项，把一次计费算成部分退款；管理端已拦截负值，
+// 但配置也可能被直接改库或经其他接口写入，计费侧不依赖上游校验。
+func (table ModelPriceTable) AdditiveInputPrices() (imagePrice, tokenPrice float64) {
+	imagePrice, tokenPrice = table.InputImagePrice, table.InputTokenPrice
+	if imagePrice < 0 {
+		common.SysError(fmt.Sprintf("negative input_image_price %v ignored", imagePrice))
+		imagePrice = 0
+	}
+	if tokenPrice < 0 {
+		common.SysError(fmt.Sprintf("negative input_token_price %v ignored", tokenPrice))
+		tokenPrice = 0
+	}
+	return imagePrice, tokenPrice
 }
 
 // GetPriceTable 返回指定模型的价格表；第二个返回值表示是否配置且单位合法。

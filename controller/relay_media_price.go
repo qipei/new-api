@@ -55,8 +55,9 @@ func resolveRelayPriceData(c *gin.Context, info *relaycommon.RelayInfo, promptTo
 		imageN = int(*imageRequest.N)
 	}
 
-	extraCost := float64(inputImages)*table.InputImagePrice +
-		float64(promptTokens)/1_000_000*table.InputTokenPrice
+	inputImagePrice, inputTokenPrice := table.AdditiveInputPrices()
+	extraCost := float64(inputImages)*inputImagePrice +
+		float64(promptTokens)/1_000_000*inputTokenPrice
 
 	groupRatioInfo := helper.HandleGroupRatio(c, info)
 	priceData := hosttypes.PriceData{

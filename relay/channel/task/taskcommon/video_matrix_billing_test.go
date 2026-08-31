@@ -163,3 +163,24 @@ func TestVideoMatrixQuotaOnCompleteClampsAbsurdImageCount(t *testing.T) {
 	expected := common.QuotaFromFloat((5*0.2 + float64(maxBillableImageCount)*0.05) * common.QuotaPerUnit * 1)
 	assert.Equal(t, expected, quota)
 }
+
+// 负单价会把附加项变成减项，等于给用户返钱。管理端已拦截，但计费侧不能依赖
+// 上游校验：配置也可能被直接改库或经其他接口写入。
+func TestVideoMatrixQuotaOnCompleteIgnoresNegativeInputImagePrice(t *testing.T) {
+	withTables(t, map[string]video_billing.ModelPriceTable{
+		"seedance-matrix": {
+			Unit:            video_billing.UnitPerSecond,
+			Tiers:           []video_billing.PriceTier{{Price: 0.2}},
+			InputImagePrice: -0.05,
+		},
+	})
+
+	task := matrixTask(0.2, 1, true)
+	task.PrivateData.BillingContext.SettleOnComplete = true
+	result := &relaycommon.TaskInfo{BillingDuration: 5, BillableImageCount: 4}
+
+	quota := VideoMatrixQuotaOnComplete(task, result)
+
+	// 负单价被忽略，退回纯按秒计费，绝不低于它。
+	assert.Equal(t, common.QuotaFromFloat(5*0.2*common.QuotaPerUnit*1), quota)
+}

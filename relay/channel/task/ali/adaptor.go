@@ -387,6 +387,16 @@ func isAliViduReferenceVideoModel(model string) bool {
 	return strings.HasPrefix(model, "vidu/vidu") && strings.HasSuffix(model, "_reference2video")
 }
 
+func isAliViduImg2VideoModel(model string) bool {
+	return strings.HasPrefix(model, "vidu/vidu") && strings.HasSuffix(model, "_img2video")
+}
+
+// isAliViduVideoModel 覆盖百炼上 Vidu 的两个模型族。图生视频与参考生视频共用
+// 同一套请求协议与默认值，只有素材组成与取值范围不同，路由判断必须一起认。
+func isAliViduVideoModel(model string) bool {
+	return isAliViduReferenceVideoModel(model) || isAliViduImg2VideoModel(model)
+}
+
 func isAliViduDramaModel(model string) bool {
 	return model == "vidu/viduq3-drama_reference2video"
 }
@@ -538,7 +548,7 @@ func taskImages(req relaycommon.TaskSubmitReq) []string {
 }
 
 func normalizeAliThirdPartyMedia(aliReq *AliVideoRequest, req relaycommon.TaskSubmitReq) error {
-	if !isAliKlingVideoModel(aliReq.Model) && !isAliViduReferenceVideoModel(aliReq.Model) &&
+	if !isAliKlingVideoModel(aliReq.Model) && !isAliViduVideoModel(aliReq.Model) &&
 		!isAliMiniMaxVideoModel(aliReq.Model) {
 		return nil
 	}
@@ -568,6 +578,11 @@ func normalizeAliThirdPartyMedia(aliReq *AliVideoRequest, req relaycommon.TaskSu
 					aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "last_frame", URL: images[1]})
 				}
 			}
+		} else if isAliViduImg2VideoModel(aliReq.Model) {
+			// 图生视频有且只有一张输入图。
+			if len(images) > 0 {
+				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "image", URL: images[0]})
+			}
 		} else if isAliViduReferenceVideoModel(aliReq.Model) {
 			for _, image := range images {
 				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "image", URL: image})
@@ -587,7 +602,7 @@ func normalizeAliThirdPartyMedia(aliReq *AliVideoRequest, req relaycommon.TaskSu
 	aliReq.Input.LastFrameURL = ""
 	aliReq.Input.AudioURL = ""
 
-	if isAliViduReferenceVideoModel(aliReq.Model) && len(aliReq.Input.Media) == 0 {
+	if isAliViduVideoModel(aliReq.Model) && len(aliReq.Input.Media) == 0 {
 		return fmt.Errorf("%s requires at least one input.media item or image", aliReq.Model)
 	}
 	return nil
@@ -776,6 +791,9 @@ func validateAliThirdPartyVideoRequest(aliReq *AliVideoRequest) error {
 	}
 	if isAliViduReferenceVideoModel(aliReq.Model) {
 		return validateAliViduRequest(aliReq)
+	}
+	if isAliViduImg2VideoModel(aliReq.Model) {
+		return validateAliViduImg2VideoRequest(aliReq)
 	}
 	if isAliMiniMaxVideoModel(aliReq.Model) {
 		return validateAliMiniMaxRequest(aliReq)
@@ -999,6 +1017,46 @@ func validateAliViduRequest(aliReq *AliVideoRequest) error {
 	return nil
 }
 
+// validateAliViduImg2VideoRequest 校验 Vidu 图生视频请求。
+// 与参考生视频同协议但取值范围不同：素材恰好一张图、prompt 可选、
+// pro-fast 不支持 540P、q2 系列时长上限是 10 秒、只有 q3 系列支持 audio。
+func validateAliViduImg2VideoRequest(aliReq *AliVideoRequest) error {
+	parameters := aliReq.Parameters
+	resolution := strings.ToUpper(pointerString(parameters.Resolution))
+	allowedResolutions := map[string]bool{"540P": true, "720P": true, "1080P": true}
+	if strings.Contains(aliReq.Model, "-pro-fast_") {
+		delete(allowedResolutions, "540P")
+	}
+	if !allowedResolutions[resolution] {
+		return fmt.Errorf("unsupported resolution %q for %s", resolution, aliReq.Model)
+	}
+
+	maxDuration := 10
+	if strings.HasPrefix(aliReq.Model, "vidu/viduq3-") {
+		maxDuration = 16
+	}
+	if duration := pointerInt(parameters.Duration); duration < 1 || duration > maxDuration {
+		return fmt.Errorf("duration %d is unsupported for %s", duration, aliReq.Model)
+	}
+	if parameters.Seed != nil && (*parameters.Seed < 0 || *parameters.Seed > 2147483647) {
+		return fmt.Errorf("Vidu seed must be between 0 and 2147483647")
+	}
+
+	counts := mediaTypeCounts(aliReq.Input.Media)
+	for mediaType := range counts {
+		if mediaType != "image" {
+			return fmt.Errorf("%s only supports image media", aliReq.Model)
+		}
+	}
+	if counts["image"] != 1 {
+		return fmt.Errorf("%s requires exactly one input image", aliReq.Model)
+	}
+	if parameters.Audio != nil && !strings.HasPrefix(aliReq.Model, "vidu/viduq3-") {
+		return fmt.Errorf("%s does not support parameters.audio", aliReq.Model)
+	}
+	return nil
+}
+
 func normalizeWan27I2VInput(aliReq *AliVideoRequest, req relaycommon.TaskSubmitReq) error {
 	if !isWan27I2VModel(aliReq.Model) {
 		return nil
@@ -1077,10 +1135,15 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 			parameters.Size = lo.ToPtr(req.Size)
 			// 只发 size 时上游会忽略它并强制按 720P 出片（见百炼 Vidu 文档 FAQ），
 			// 而我们按 size 取价，两边就对不上；补出 resolution 一起发。
-			if isAliViduReferenceVideoModel(upstreamModel) && parameters.Resolution == nil {
+			if isAliViduVideoModel(upstreamModel) && parameters.Resolution == nil {
 				if resolution, ok := viduResolutionForSize(req.Size); ok {
 					parameters.Resolution = lo.ToPtr(resolution)
 				}
+			}
+			// 图生视频没有 size 参数，分辨率由 resolution 档位决定，
+			// 画面比例跟随输入图；继续下发 size 会被上游拒绝。
+			if isAliViduImg2VideoModel(upstreamModel) {
+				parameters.Size = nil
 			}
 		} else {
 			resolution := strings.ToUpper(req.Size)
@@ -1093,7 +1156,9 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 		// 根据模型设置默认分辨率
 		if isAliHappyHorseModel(upstreamModel) {
 			parameters.Resolution = lo.ToPtr("1080P")
-		} else if isAliViduReferenceVideoModel(upstreamModel) {
+		} else if isAliViduVideoModel(upstreamModel) {
+			// 不传 resolution 时上游按 720P 出片（短剧模型默认 1080P），
+			// 而取价用的是这个字段，留空会落到默认档从而与实际出片不符。
 			resolution := "720P"
 			if isAliViduDramaModel(upstreamModel) {
 				resolution = "1080P"

@@ -821,3 +821,81 @@ func TestConvertToAliRequestViduDerivesResolutionFromSize(t *testing.T) {
 		assert.Equal(t, tc.size, pointerString(aliReq.Parameters.Size), "size must still be forwarded")
 	}
 }
+
+// Three of the production Vidu models map to the _img2video family, whose names the
+// reference-to-video suffix check never matched: media was left in the legacy Wan
+// img_url field, no validation ran, and resolution stayed empty so pricing fell to the
+// default tier while the upstream delivered its own 720P default.
+func TestConvertToAliRequestViduImg2VideoBuildsMediaAndResolution(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	cases := []struct {
+		model      string
+		size       string
+		resolution string
+	}{
+		{"vidu/viduq3-pro_img2video", "", "720P"},
+		{"vidu/viduq3-pro_img2video", "1024*576", "540P"},
+		{"vidu/viduq3-pro_img2video", "1920*1080", "1080P"},
+		{"vidu/viduq3-turbo_img2video", "", "720P"},
+		{"vidu/viduq2-pro_img2video", "1280*720", "720P"},
+	}
+	for _, tc := range cases {
+		req := relaycommon.TaskSubmitReq{
+			Model: tc.model, Prompt: "p",
+			Images:   []string{"https://example.com/a.png"},
+			Size:     tc.size,
+			Duration: 5,
+		}
+
+		aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), req)
+
+		require.NoError(t, err, "%s size=%s", tc.model, tc.size)
+		assert.Equal(t, []AliVideoMedia{{Type: "image", URL: "https://example.com/a.png"}}, aliReq.Input.Media)
+		assert.Empty(t, aliReq.Input.ImgURL, "legacy Wan field must be cleared")
+		assert.Equal(t, tc.resolution, pointerString(aliReq.Parameters.Resolution), "%s size=%s", tc.model, tc.size)
+		// img2video has no size parameter; the aspect ratio follows the input image.
+		assert.Empty(t, pointerString(aliReq.Parameters.Size))
+	}
+}
+
+func TestValidateAliViduImg2VideoEnforcesPerModelLimits(t *testing.T) {
+	base := func(model string) *AliVideoRequest {
+		return &AliVideoRequest{
+			Model: model,
+			Input: AliVideoInput{
+				Prompt: "p",
+				Media:  []AliVideoMedia{{Type: "image", URL: "https://example.com/a.png"}},
+			},
+			Parameters: &AliVideoParameters{Duration: lo.ToPtr(5), Resolution: lo.ToPtr("720P")},
+		}
+	}
+
+	// pro-fast has no 540P tier upstream.
+	proFast := base("vidu/viduq3-pro-fast_img2video")
+	proFast.Parameters.Resolution = lo.ToPtr("540P")
+	require.ErrorContains(t, validateAliViduImg2VideoRequest(proFast), "unsupported resolution")
+
+	// q2 models cap at 10 seconds, q3 at 16.
+	q2Long := base("vidu/viduq2-pro_img2video")
+	q2Long.Parameters.Duration = lo.ToPtr(16)
+	require.ErrorContains(t, validateAliViduImg2VideoRequest(q2Long), "duration 16 is unsupported")
+	q3Long := base("vidu/viduq3-pro_img2video")
+	q3Long.Parameters.Duration = lo.ToPtr(16)
+	require.NoError(t, validateAliViduImg2VideoRequest(q3Long))
+
+	// Exactly one image, image media only.
+	twoImages := base("vidu/viduq3-pro_img2video")
+	twoImages.Input.Media = append(twoImages.Input.Media, AliVideoMedia{Type: "image", URL: "https://example.com/b.png"})
+	require.ErrorContains(t, validateAliViduImg2VideoRequest(twoImages), "exactly one input image")
+	withVideo := base("vidu/viduq3-pro_img2video")
+	withVideo.Input.Media = []AliVideoMedia{{Type: "video", URL: "https://example.com/v.mp4"}}
+	require.ErrorContains(t, validateAliViduImg2VideoRequest(withVideo), "only supports image media")
+
+	// audio is a q3-only parameter.
+	q2Audio := base("vidu/viduq2-turbo_img2video")
+	q2Audio.Parameters.Audio = lo.ToPtr(true)
+	require.ErrorContains(t, validateAliViduImg2VideoRequest(q2Audio), "does not support parameters.audio")
+	q3Audio := base("vidu/viduq3-turbo_img2video")
+	q3Audio.Parameters.Audio = lo.ToPtr(true)
+	require.NoError(t, validateAliViduImg2VideoRequest(q3Audio))
+}

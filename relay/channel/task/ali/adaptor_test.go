@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/video_billing"
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -689,4 +690,100 @@ func TestEstimateBillingAliMatrixTokenDoesNotDoubleMultiplyDuration(t *testing.T
 	info.OriginModelName = modelName
 
 	assert.Nil(t, (&TaskAdaptor{}).EstimateBilling(aliTaskContext(t, req), info))
+}
+
+// MiniMax requires typed input.media; without a dedicated branch the generic path
+// emits the legacy Wan image fields and every image-to-video request fails upstream.
+func TestConvertToAliRequestMiniMaxBuildsFrameMedia(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	req := relaycommon.TaskSubmitReq{
+		Model:  "MiniMax/MiniMax-H3",
+		Prompt: "让图片中的人物动起来",
+		Images: []string{
+			"https://example.com/first.png",
+			"https://example.com/last.png",
+		},
+		Duration: 5,
+	}
+
+	aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), req)
+
+	require.NoError(t, err)
+	require.Equal(t, []AliVideoMedia{
+		{Type: "first_frame", URL: "https://example.com/first.png"},
+		{Type: "last_frame", URL: "https://example.com/last.png"},
+	}, aliReq.Input.Media)
+	require.Empty(t, aliReq.Input.ImgURL)
+	require.Empty(t, aliReq.Input.FirstFrameURL)
+}
+
+// Reference-to-video and frame-driven media are mutually exclusive upstream.
+func TestValidateAliMiniMaxRejectsMixedMediaAndOutOfRangeDuration(t *testing.T) {
+	base := func() *AliVideoRequest {
+		return &AliVideoRequest{
+			Model: "MiniMax/MiniMax-H3",
+			Input: AliVideoInput{Prompt: "p"},
+			Parameters: &AliVideoParameters{
+				Duration: lo.ToPtr(5),
+				Ratio:    lo.ToPtr("16:9"),
+			},
+		}
+	}
+
+	mixed := base()
+	mixed.Input.Media = []AliVideoMedia{
+		{Type: "first_frame", URL: "https://example.com/a.png"},
+		{Type: "feature", URL: "https://example.com/v.mp4"},
+	}
+	require.ErrorContains(t, validateAliMiniMaxRequest(mixed), "cannot combine")
+
+	tooShort := base()
+	tooShort.Parameters.Duration = lo.ToPtr(3)
+	require.ErrorContains(t, validateAliMiniMaxRequest(tooShort), "between 4 and 15")
+
+	tooManyRefs := base()
+	for i := 0; i < 10; i++ {
+		tooManyRefs.Input.Media = append(tooManyRefs.Input.Media, AliVideoMedia{Type: "image_url", URL: "https://example.com/r.png"})
+	}
+	require.ErrorContains(t, validateAliMiniMaxRequest(tooManyRefs), "at most 9 reference images")
+
+	ok := base()
+	ok.Input.Media = []AliVideoMedia{{Type: "first_frame", URL: "https://example.com/a.png"}}
+	require.NoError(t, validateAliMiniMaxRequest(ok))
+}
+
+// 4k is a documented Kling mode for v3/omni; rejecting it blocked valid requests.
+// Turbo is the narrower model: first_frame only, no element_list, no 4k.
+func TestValidateAliKlingModeAndTurboRestrictions(t *testing.T) {
+	base := func(model string) *AliVideoRequest {
+		return &AliVideoRequest{
+			Model:      model,
+			Input:      AliVideoInput{Prompt: "p"},
+			Parameters: &AliVideoParameters{Duration: lo.ToPtr(5)},
+		}
+	}
+
+	fourK := base("kling/kling-v3-video-generation")
+	fourK.Parameters.Mode = lo.ToPtr("4k")
+	require.NoError(t, validateAliKlingRequest(fourK))
+
+	turbo4k := base("kling/kling-v3-turbo-video-generation")
+	turbo4k.Parameters.Mode = lo.ToPtr("4k")
+	require.ErrorContains(t, validateAliKlingRequest(turbo4k), "does not support 4k")
+
+	turboLastFrame := base("kling/kling-v3-turbo-video-generation")
+	turboLastFrame.Input.Media = []AliVideoMedia{
+		{Type: "first_frame", URL: "https://example.com/a.png"},
+		{Type: "last_frame", URL: "https://example.com/b.png"},
+	}
+	require.ErrorContains(t, validateAliKlingRequest(turboLastFrame), "only supports first_frame")
+
+	turboElements := base("kling/kling-v3-turbo-video-generation")
+	turboElements.Input.ElementList = []AliVideoElement{{ElementID: 1}}
+	require.ErrorContains(t, validateAliKlingRequest(turboElements), "does not support element_list")
+
+	tooManyElements := base("kling/kling-v3-video-generation")
+	tooManyElements.Input.Media = []AliVideoMedia{{Type: "first_frame", URL: "https://example.com/a.png"}}
+	tooManyElements.Input.ElementList = []AliVideoElement{{ElementID: 1}, {ElementID: 2}, {ElementID: 3}, {ElementID: 4}}
+	require.ErrorContains(t, validateAliKlingRequest(tooManyElements), "at most 3 elements")
 }

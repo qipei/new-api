@@ -8,8 +8,10 @@ var ModelList = []string{
 	"wan2.2-i2v-plus",    // 万相2.2专业版（无声视频）
 	"wanx2.1-i2v-plus",   // 万相2.1专业版（无声视频）
 	"wanx2.1-i2v-turbo",  // 万相2.1极速版（无声视频）
+	"kling/kling-v3-turbo-video-generation",
 	"kling/kling-v3-video-generation",
 	"kling/kling-v3-omni-video-generation",
+	"MiniMax/MiniMax-H3",
 	"vidu/viduq3-ad_reference2video",
 	"vidu/viduq3-drama_reference2video",
 	"vidu/viduq3-mix_reference2video",

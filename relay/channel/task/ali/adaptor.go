@@ -137,6 +137,9 @@ type AliUsage struct {
 	VideoCount          dto.IntValue  `json:"video_count,omitempty"`
 	SR                  dto.IntValue  `json:"SR,omitempty"`
 	Ratio               string        `json:"ratio,omitempty"`
+	// ImageCount 是超出免费额度、需要计费的输入图张数（5 张以内返回 0，
+	// 7 张返回 2）。不解析它就等于把这部分上游成本白送。
+	ImageCount dto.IntValue `json:"image_count,omitempty"`
 }
 
 type AliMetadata struct {
@@ -341,6 +344,14 @@ func isAliKlingVideoModel(model string) bool {
 	return strings.HasPrefix(model, "kling/kling-v3-")
 }
 
+func isAliKlingTurboVideoModel(model string) bool {
+	return model == "kling/kling-v3-turbo-video-generation"
+}
+
+func isAliMiniMaxVideoModel(model string) bool {
+	return strings.HasPrefix(model, "MiniMax/MiniMax-")
+}
+
 func isAliViduReferenceVideoModel(model string) bool {
 	return strings.HasPrefix(model, "vidu/vidu") && strings.HasSuffix(model, "_reference2video")
 }
@@ -496,13 +507,37 @@ func taskImages(req relaycommon.TaskSubmitReq) []string {
 }
 
 func normalizeAliThirdPartyMedia(aliReq *AliVideoRequest, req relaycommon.TaskSubmitReq) error {
-	if !isAliKlingVideoModel(aliReq.Model) && !isAliViduReferenceVideoModel(aliReq.Model) {
+	if !isAliKlingVideoModel(aliReq.Model) && !isAliViduReferenceVideoModel(aliReq.Model) &&
+		!isAliMiniMaxVideoModel(aliReq.Model) {
 		return nil
 	}
 
 	if len(aliReq.Input.Media) == 0 {
 		images := taskImages(req)
-		if isAliViduReferenceVideoModel(aliReq.Model) {
+		if isAliMiniMaxVideoModel(aliReq.Model) {
+			// 带参考视频或音频时按多模态参考生视频组装，否则按首尾帧。
+			// 两种组合互斥，混用会被上游拒绝。
+			video := strings.TrimSpace(req.Video)
+			audio := strings.TrimSpace(req.Audio)
+			if video != "" || audio != "" || len(req.Audios) > 0 {
+				for _, image := range images {
+					aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "image_url", URL: image})
+				}
+				if video != "" {
+					aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "feature", URL: video})
+				}
+				for _, item := range append([]string{audio}, req.Audios...) {
+					if item = strings.TrimSpace(item); item != "" {
+						aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "driving_audio", URL: item})
+					}
+				}
+			} else if len(images) > 0 {
+				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "first_frame", URL: images[0]})
+				if len(images) > 1 {
+					aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "last_frame", URL: images[1]})
+				}
+			}
+		} else if isAliViduReferenceVideoModel(aliReq.Model) {
 			for _, image := range images {
 				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "image", URL: image})
 			}
@@ -711,13 +746,84 @@ func validateAliThirdPartyVideoRequest(aliReq *AliVideoRequest) error {
 	if isAliViduReferenceVideoModel(aliReq.Model) {
 		return validateAliViduRequest(aliReq)
 	}
+	if isAliMiniMaxVideoModel(aliReq.Model) {
+		return validateAliMiniMaxRequest(aliReq)
+	}
+	return nil
+}
+
+// validateAliMiniMaxRequest 校验 MiniMax 视频生成请求。
+// 图生视频（first_frame/last_frame）与多模态参考生视频（image_url/feature/
+// driving_audio）互斥，上游不接受混用。
+func validateAliMiniMaxRequest(aliReq *AliVideoRequest) error {
+	parameters := aliReq.Parameters
+	if resolution := strings.ToUpper(pointerString(parameters.Resolution)); resolution != "" &&
+		resolution != "768P" && resolution != "2K" {
+		return fmt.Errorf("MiniMax parameters.resolution must be 768P or 2K")
+	}
+	switch ratio := pointerString(parameters.Ratio); ratio {
+	case "", "adaptive", "16:9", "9:16", "1:1", "4:3", "3:4", "21:9":
+	default:
+		return fmt.Errorf("MiniMax parameters.ratio %s is unsupported", ratio)
+	}
+	if duration := pointerInt(parameters.Duration); duration < 4 || duration > 15 {
+		return fmt.Errorf("MiniMax duration must be between 4 and 15 seconds")
+	}
+	if len([]rune(aliReq.Input.Prompt)) > 7000 {
+		return fmt.Errorf("MiniMax prompt must not exceed 7000 characters")
+	}
+
+	counts := mediaTypeCounts(aliReq.Input.Media)
+	for mediaType, count := range counts {
+		if count <= 0 {
+			continue
+		}
+		switch mediaType {
+		case "first_frame", "last_frame", "image_url", "feature", "driving_audio":
+		default:
+			return fmt.Errorf("MiniMax does not support media type %s", mediaType)
+		}
+	}
+	frameCount := counts["first_frame"] + counts["last_frame"]
+	referenceCount := counts["image_url"] + counts["feature"] + counts["driving_audio"]
+	if frameCount > 0 && referenceCount > 0 {
+		return fmt.Errorf("MiniMax cannot combine first_frame/last_frame with reference media")
+	}
+	if counts["first_frame"] > 1 || counts["last_frame"] > 1 {
+		return fmt.Errorf("MiniMax accepts at most one first frame and one last frame")
+	}
+	if counts["image_url"] > 9 {
+		return fmt.Errorf("MiniMax accepts at most 9 reference images")
+	}
+	if counts["feature"] > 3 {
+		return fmt.Errorf("MiniMax accepts at most 3 reference videos")
+	}
+	if counts["driving_audio"] > 3 {
+		return fmt.Errorf("MiniMax accepts at most 3 reference audios")
+	}
+	// 文生视频必须指定具体比例；图生视频以首帧为准，ratio 会被上游忽略。
+	if frameCount == 0 && referenceCount == 0 {
+		if ratio := pointerString(parameters.Ratio); ratio == "" || ratio == "adaptive" {
+			return fmt.Errorf("MiniMax text-to-video requires an explicit parameters.ratio")
+		}
+	}
+	if strings.TrimSpace(aliReq.Input.Prompt) == "" {
+		return fmt.Errorf("MiniMax prompt is required")
+	}
 	return nil
 }
 
 func validateAliKlingRequest(aliReq *AliVideoRequest) error {
 	parameters := aliReq.Parameters
-	if mode := pointerString(parameters.Mode); mode != "" && mode != "std" && mode != "pro" {
-		return fmt.Errorf("Kling parameters.mode must be std or pro")
+	isTurbo := isAliKlingTurboVideoModel(aliReq.Model)
+	switch mode := pointerString(parameters.Mode); mode {
+	case "", "std", "pro":
+	case "4k":
+		if isTurbo {
+			return fmt.Errorf("%s does not support 4k mode", aliReq.Model)
+		}
+	default:
+		return fmt.Errorf("Kling parameters.mode must be std, pro, or 4k")
 	}
 	if ratio := pointerString(parameters.AspectRatio); ratio != "" && ratio != "16:9" && ratio != "9:16" && ratio != "1:1" {
 		return fmt.Errorf("Kling parameters.aspect_ratio must be 16:9, 9:16, or 1:1")
@@ -733,12 +839,23 @@ func validateAliKlingRequest(aliReq *AliVideoRequest) error {
 		if count <= 0 {
 			continue
 		}
+		if isTurbo && mediaType != "first_frame" {
+			return fmt.Errorf("%s only supports first_frame media", aliReq.Model)
+		}
 		if !isOmni && mediaType != "first_frame" && mediaType != "last_frame" {
 			return fmt.Errorf("%s does not support media type %s", aliReq.Model, mediaType)
 		}
 		if isOmni && mediaType != "first_frame" && mediaType != "last_frame" && mediaType != "refer" && mediaType != "base" && mediaType != "feature" {
 			return fmt.Errorf("unsupported Kling Omni media type %s", mediaType)
 		}
+	}
+	if isTurbo && len(aliReq.Input.ElementList) > 0 {
+		return fmt.Errorf("%s does not support element_list", aliReq.Model)
+	}
+	// 帧驱动场景（首帧/首尾帧）的主体上限是 3，与参考生视频的 7 不同。
+	if counts["first_frame"] > 0 && counts["feature"] == 0 && counts["base"] == 0 &&
+		len(aliReq.Input.ElementList) > 3 {
+		return fmt.Errorf("Kling frame-driven generation accepts at most 3 elements")
 	}
 	if counts["first_frame"] > 1 || counts["last_frame"] > 1 || counts["base"] > 1 || counts["feature"] > 1 {
 		return fmt.Errorf("Kling accepts at most one first frame, last frame, base video, and feature video")
@@ -1155,6 +1272,9 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		taskResult.Url = aliResp.Output.VideoURL
 		taskResult.RemoteUrl = aliResp.Output.WatermarkVideoURL
 		if aliResp.Usage != nil {
+			if count := int(aliResp.Usage.ImageCount); count > 0 {
+				taskResult.BillableImageCount = count
+			}
 			duration := float64(aliResp.Usage.Duration)
 			if duration > 0 {
 				if duration > float64(relaycommon.MaxTaskDurationSeconds) {

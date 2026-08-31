@@ -787,3 +787,37 @@ func TestValidateAliKlingModeAndTurboRestrictions(t *testing.T) {
 	tooManyElements.Input.ElementList = []AliVideoElement{{ElementID: 1}, {ElementID: 2}, {ElementID: 3}, {ElementID: 4}}
 	require.ErrorContains(t, validateAliKlingRequest(tooManyElements), "at most 3 elements")
 }
+
+// A size in WxH form left parameters.resolution empty, so our own validator rejected
+// every Vidu request that used the documented size parameter. Sending size alone is
+// also wrong upstream: it is ignored and forced to 720P while we price by size.
+func TestConvertToAliRequestViduDerivesResolutionFromSize(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	cases := []struct {
+		size       string
+		resolution string
+	}{
+		{"1920*1080", "1080P"},
+		{"1080*1920", "1080P"},
+		{"1280*720", "720P"},
+		{"1280*1280", "720P"},
+		{"1024*576", "540P"},
+		{"1024*1024", "540P"},
+		{"576*1024", "540P"},
+	}
+	for _, tc := range cases {
+		req := relaycommon.TaskSubmitReq{
+			Model:    "vidu/viduq3_reference2video",
+			Prompt:   "p",
+			Images:   []string{"https://example.com/a.png"},
+			Size:     tc.size,
+			Duration: 5,
+		}
+
+		aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), req)
+
+		require.NoError(t, err, "size %s must be accepted", tc.size)
+		assert.Equal(t, tc.resolution, pointerString(aliReq.Parameters.Resolution), "size %s", tc.size)
+		assert.Equal(t, tc.size, pointerString(aliReq.Parameters.Size), "size must still be forwarded")
+	}
+}

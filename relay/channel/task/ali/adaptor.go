@@ -344,6 +344,37 @@ func isAliKlingVideoModel(model string) bool {
 	return strings.HasPrefix(model, "kling/kling-v3-")
 }
 
+// viduResolutionForSize 按百炼文档的 size 取值表推导 Vidu 的分辨率档位。
+// 文档的三档按长边区分：540P 最长 1024、720P 最长 1280、1080P 到 1920。
+func viduResolutionForSize(size string) (string, bool) {
+	parts := strings.Split(strings.ToLower(strings.TrimSpace(size)), "*")
+	if len(parts) != 2 {
+		return "", false
+	}
+	width, err := strconv.Atoi(strings.TrimSpace(parts[0]))
+	if err != nil {
+		return "", false
+	}
+	height, err := strconv.Atoi(strings.TrimSpace(parts[1]))
+	if err != nil {
+		return "", false
+	}
+	longEdge := width
+	if height > longEdge {
+		longEdge = height
+	}
+	switch {
+	case longEdge <= 0:
+		return "", false
+	case longEdge <= 1024:
+		return "540P", true
+	case longEdge <= 1280:
+		return "720P", true
+	default:
+		return "1080P", true
+	}
+}
+
 func isAliKlingTurboVideoModel(model string) bool {
 	return model == "kling/kling-v3-turbo-video-generation"
 }
@@ -1044,6 +1075,13 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 			return nil, fmt.Errorf("invalid size: %s, example: %s", req.Size, "1920*1080")
 		} else if strings.Contains(req.Size, "*") {
 			parameters.Size = lo.ToPtr(req.Size)
+			// 只发 size 时上游会忽略它并强制按 720P 出片（见百炼 Vidu 文档 FAQ），
+			// 而我们按 size 取价，两边就对不上；补出 resolution 一起发。
+			if isAliViduReferenceVideoModel(upstreamModel) && parameters.Resolution == nil {
+				if resolution, ok := viduResolutionForSize(req.Size); ok {
+					parameters.Resolution = lo.ToPtr(resolution)
+				}
+			}
 		} else {
 			resolution := strings.ToUpper(req.Size)
 			if !strings.HasSuffix(resolution, "P") {

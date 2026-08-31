@@ -94,6 +94,10 @@ func GetStatus(c *gin.Context) {
 		"password_register_enabled":     common.PasswordRegisterEnabled,
 		"default_use_auto_group":        setting.DefaultUseAutoGroup,
 
+		// 注册奖励为 0 时前端需要换一套推荐计划文案，只承诺充值返佣。
+		"quota_for_inviter": common.QuotaForInviter,
+		"quota_for_invitee": common.QuotaForInvitee,
+
 		"usd_exchange_rate": operation_setting.USDExchangeRate,
 		"price":             operation_setting.Price,
 		"stripe_unit_price": setting.StripeUnitPrice,

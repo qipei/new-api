@@ -36,6 +36,8 @@ interface AffiliateRewardsCardProps {
   onTransfer: () => void
   onShowCommissions: () => void
   complianceConfirmed?: boolean
+  /** 注册奖励额度配置为 0 时不能承诺"注册即得"，只有充值返佣是真的。 */
+  signupRewardEnabled?: boolean
   loading?: boolean
 }
 
@@ -45,6 +47,7 @@ export function AffiliateRewardsCard({
   onTransfer,
   onShowCommissions,
   complianceConfirmed = true,
+  signupRewardEnabled = false,
   loading,
 }: AffiliateRewardsCardProps) {
   const { t } = useTranslation()
@@ -82,9 +85,13 @@ export function AffiliateRewardsCard({
             <div className='min-w-0'>
               <h3 className='text-sm font-semibold'>{t('Referral Program')}</h3>
               <p className='text-muted-foreground mt-1 max-w-3xl text-xs leading-relaxed'>
-                {t(
-                  'Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.'
-                )}
+                {signupRewardEnabled
+                  ? t(
+                      'Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.'
+                    )
+                  : t(
+                      'Invite users via your referral link and earn commission once they make a paid top-up. Transfer accumulated rewards to your balance anytime.'
+                    )}
               </p>
             </div>
           </div>

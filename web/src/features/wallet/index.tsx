@@ -83,6 +83,8 @@ export function Wallet(props: WalletProps) {
   const [showSubscriptionPanel, setShowSubscriptionPanel] = useState(true)
 
   const { status } = useStatus()
+  // 注册奖励额度为 0 时不能承诺"注册即得"，推荐计划只承诺充值返佣。
+  const signupRewardEnabled = Number(status?.data?.quota_for_inviter ?? 0) > 0
   const { currency } = useSystemConfig()
   const { topupInfo, presetAmounts, loading: topupLoading } = useTopupInfo()
 
@@ -349,6 +351,7 @@ export function Wallet(props: WalletProps) {
               complianceConfirmed={
                 topupInfo?.payment_compliance_confirmed !== false
               }
+              signupRewardEnabled={signupRewardEnabled}
               loading={affiliateLoading}
             />
           </div>

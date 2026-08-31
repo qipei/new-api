@@ -94,3 +94,33 @@ describe('AffiliateRewardsCard layout', () => {
     assert.ok(transferIndex < linkRowIndex)
   })
 })
+
+describe('AffiliateRewardsCard referral copy', () => {
+  const render = (signupRewardEnabled: boolean) =>
+    renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <AffiliateRewardsCard
+          user={null}
+          affiliateLink='https://example.com/sign-up?aff=test'
+          onTransfer={() => {}}
+          onShowCommissions={() => {}}
+          signupRewardEnabled={signupRewardEnabled}
+        />
+      </I18nextProvider>
+    )
+
+  // Promising a sign-up reward while the configured amount is 0 tells users they
+  // earn something they will never receive; only the top-up commission is real.
+  test('omits the sign-up reward promise when the inviter reward is unset', () => {
+    const markup = render(false)
+
+    assert.ok(markup.includes('earn commission once they make a paid top-up'))
+    assert.ok(!markup.includes('sign-up rewards'))
+  })
+
+  test('promises the sign-up reward once the inviter reward is configured', () => {
+    const markup = render(true)
+
+    assert.ok(markup.includes('earn sign-up rewards'))
+  })
+})

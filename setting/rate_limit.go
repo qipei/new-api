@@ -25,6 +25,19 @@ var ModelRequestRateLimitSuccessCount = 1000
 var ModelRequestRateLimitGroup = map[string][2]int{}
 var ModelRequestRateLimitMutex sync.RWMutex
 
+// ModelRequestRateLimitGroupCopy 返回分组限流配置的副本，供只读展示使用。
+// 直接把内部 map 交出去会绕过互斥量，调用方遍历时可能与后台改配置并发。
+func ModelRequestRateLimitGroupCopy() map[string][2]int {
+	ModelRequestRateLimitMutex.RLock()
+	defer ModelRequestRateLimitMutex.RUnlock()
+
+	copied := make(map[string][2]int, len(ModelRequestRateLimitGroup))
+	for group, limits := range ModelRequestRateLimitGroup {
+		copied[group] = limits
+	}
+	return copied
+}
+
 func ModelRequestRateLimitGroup2JSONString() string {
 	ModelRequestRateLimitMutex.RLock()
 	defer ModelRequestRateLimitMutex.RUnlock()

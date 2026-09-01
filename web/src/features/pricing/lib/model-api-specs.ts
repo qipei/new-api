@@ -192,7 +192,380 @@ const MINIMAX_VIDEO: ModelApiSpec = {
   applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
 }
 
-const SPECS: ModelApiSpec[] = [MINIMAX_VIDEO]
+// ---------------------------------------------------------------------------
+// 可灵视频（百炼）
+// 依据：relay/channel/task/ali/adaptor.go validateAliKlingRequest
+// ---------------------------------------------------------------------------
+
+const KLING_VIDEO: ModelApiSpec = {
+  family: 'kling-video',
+  // 同前缀下还有 Kling-3.0-image，那是图片模型、端点不同，必须排除。
+  match: /^kling-3\.0-(video|omni)$/i,
+  endpointPath: '/v1/video/generations',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey: 'Model name, e.g. MiniMax-H3.',
+    },
+    {
+      name: 'prompt',
+      location: 'body',
+      type: 'string',
+      required: true,
+      range: '≤ 2500',
+      descriptionKey:
+        'Text prompt describing the video. Up to 2500 characters.',
+    },
+    {
+      name: 'duration',
+      location: 'body',
+      type: 'integer',
+      required: true,
+      range: '3 ~ 15',
+      defaultValue: 5,
+      descriptionKey:
+        'Video length in seconds. Capped at 10 when a feature reference video is supplied.',
+    },
+    {
+      name: 'size',
+      location: 'body',
+      type: 'enum',
+      enumValues: ['std', 'pro', '4k', '720p', '1080p'],
+      descriptionKey:
+        'Quality tier. std is 720P, pro is 1080P, 4k is the 4K tier. Turbo models do not support 4k.',
+    },
+    {
+      name: 'metadata.parameters.aspect_ratio',
+      location: 'metadata.parameters',
+      type: 'enum',
+      enumValues: ['16:9', '9:16', '1:1'],
+      descriptionKey:
+        'Aspect ratio. Required for text-to-video and for reference-driven generation; ignored when a first frame decides the ratio.',
+    },
+    {
+      name: 'metadata.parameters.audio',
+      location: 'metadata.parameters',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Generates a soundtrack. Must stay false when a base or feature video is supplied.',
+    },
+    {
+      name: 'image',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'First-frame image URL. Supplying it switches the request to image-to-video; a second image becomes the last frame.',
+    },
+    {
+      name: 'metadata.parameters.watermark',
+      location: 'metadata.parameters',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Also returns a watermarked copy of the video alongside the clean one.',
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Text to video',
+      body: {
+        model: 'kling-3.0-video',
+        prompt: '一只小猫在月光下奔跑，镜头缓慢跟随',
+        size: 'pro',
+        duration: 5,
+        metadata: { parameters: { aspect_ratio: '16:9', audio: false } },
+      },
+    },
+    {
+      titleKey: 'Image to video (first frame)',
+      body: {
+        model: 'kling-3.0-video',
+        prompt: '让图片中的人物动起来，头发被微风吹动',
+        image: 'https://example.com/first-frame.png',
+        size: 'std',
+        duration: 5,
+      },
+    },
+  ],
+  applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
+}
+
+// ---------------------------------------------------------------------------
+// Vidu 参考生视频（百炼）
+// 依据：relay/channel/task/ali/adaptor.go validateAliViduRequest
+// ---------------------------------------------------------------------------
+
+const VIDU_REFERENCE: ModelApiSpec = {
+  family: 'vidu-reference',
+  match: /^vidu-q\d-(ad|drama)$/i,
+  endpointPath: '/v1/video/generations',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey: 'Model name, e.g. MiniMax-H3.',
+    },
+    {
+      name: 'prompt',
+      location: 'body',
+      type: 'string',
+      required: true,
+      range: '≤ 5000',
+      descriptionKey:
+        'Text prompt describing the video. Longer input is truncated rather than rejected.',
+    },
+    {
+      name: 'images',
+      location: 'body',
+      type: 'array',
+      required: true,
+      range: '1 ~ 7',
+      descriptionKey:
+        'Reference image URLs whose subjects are composed into the generated scene. At least one is required.',
+    },
+    {
+      name: 'duration',
+      location: 'body',
+      type: 'integer',
+      required: true,
+      descriptionKey:
+        'Video length in seconds. The accepted range differs per model: 3-15 for the ad model and 2-15 for the drama model.',
+    },
+    {
+      name: 'size',
+      location: 'body',
+      type: 'enum',
+      descriptionKey:
+        'Resolution tier. The drama model defaults to 1080P, the others to 720P.',
+    },
+    {
+      name: 'metadata.parameters.seed',
+      location: 'metadata.parameters',
+      type: 'integer',
+      range: '0 ~ 2147483647',
+      descriptionKey:
+        'Random seed. Fixing it improves reproducibility but does not guarantee identical output.',
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Reference to video',
+      body: {
+        model: 'vidu-q3-ad',
+        prompt: '男人坐在靠窗的椅子上弹吉他，暖色调，镜头缓慢推近',
+        images: [
+          'https://example.com/subject.png',
+          'https://example.com/background.png',
+        ],
+        size: '720P',
+        duration: 5,
+      },
+    },
+  ],
+  applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
+}
+
+// ---------------------------------------------------------------------------
+// Vidu 图生视频（百炼）
+// 依据：relay/channel/task/ali/adaptor.go validateAliViduImg2VideoRequest
+// ---------------------------------------------------------------------------
+
+const VIDU_IMG2VIDEO: ModelApiSpec = {
+  family: 'vidu-img2video',
+  match: /^vidu-q\d-(pro|pro-fast|turbo)$/i,
+  endpointPath: '/v1/video/generations',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey: 'Model name, e.g. MiniMax-H3.',
+    },
+    {
+      name: 'prompt',
+      location: 'body',
+      type: 'string',
+      range: '≤ 5000',
+      descriptionKey:
+        'Text prompt describing the motion. Optional for image-to-video.',
+    },
+    {
+      name: 'image',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'The single input image. Exactly one image is accepted; the output aspect ratio follows it.',
+    },
+    {
+      name: 'duration',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 5,
+      descriptionKey:
+        'Video length in seconds. Up to 16 for the q3 family and up to 10 for the q2 family.',
+    },
+    {
+      name: 'size',
+      location: 'body',
+      type: 'enum',
+      descriptionKey:
+        'Resolution tier. The pro-fast model has no 540P tier; the others accept 540P, 720P and 1080P.',
+    },
+    {
+      name: 'metadata.parameters.audio',
+      location: 'metadata.parameters',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey: 'Generates a soundtrack. Only the q3 family supports it.',
+      partialRoutes: true,
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Image to video (first frame)',
+      body: {
+        model: 'vidu-q3-pro',
+        prompt: '镜头从海龟下方缓缓上移，海龟悠然游动',
+        image: 'https://example.com/turtle.webp',
+        size: '720P',
+        duration: 5,
+      },
+    },
+  ],
+  applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
+}
+
+// ---------------------------------------------------------------------------
+// 对话通用参数
+// 依据：relaykit/dto/openai_request.go GeneralOpenAIRequest 里真实会透传的字段。
+// 这里只列各家上游普遍支持的部分；上游特有的字段用 extra_body 原样透传。
+// ---------------------------------------------------------------------------
+
+export const CHAT_PARAMS: ModelApiParam[] = [
+  {
+    name: 'model',
+    location: 'body',
+    type: 'string',
+    required: true,
+    descriptionKey: 'Model name, e.g. MiniMax-H3.',
+  },
+  {
+    name: 'messages',
+    location: 'body',
+    type: 'array',
+    required: true,
+    descriptionKey:
+      'Conversation history. Each item carries a role (system, user, assistant or tool) and its content.',
+  },
+  {
+    name: 'stream',
+    location: 'body',
+    type: 'boolean',
+    defaultValue: false,
+    descriptionKey:
+      'Streams the reply as server-sent events instead of returning it in one response.',
+  },
+  {
+    name: 'max_tokens',
+    location: 'body',
+    type: 'integer',
+    descriptionKey:
+      'Upper bound on generated tokens. Leaving it empty lets the upstream decide; it never extends the model context window.',
+  },
+  {
+    name: 'temperature',
+    location: 'body',
+    type: 'number',
+    range: '0 ~ 2',
+    descriptionKey:
+      'Sampling randomness. Lower values are more deterministic; use either this or top_p rather than both.',
+  },
+  {
+    name: 'top_p',
+    location: 'body',
+    type: 'number',
+    range: '0 ~ 1',
+    descriptionKey:
+      'Nucleus sampling threshold. Only the most probable tokens summing to this value are considered.',
+  },
+  {
+    name: 'n',
+    location: 'body',
+    type: 'integer',
+    defaultValue: 1,
+    descriptionKey:
+      'Number of completions to generate. Every completion is billed, so the cost scales with this value.',
+  },
+  {
+    name: 'stop',
+    location: 'body',
+    type: 'array',
+    descriptionKey:
+      'Up to four strings that stop generation as soon as one of them appears.',
+  },
+  {
+    name: 'frequency_penalty',
+    location: 'body',
+    type: 'number',
+    range: '-2 ~ 2',
+    descriptionKey:
+      'Positive values discourage repeating tokens that already appeared often.',
+  },
+  {
+    name: 'presence_penalty',
+    location: 'body',
+    type: 'number',
+    range: '-2 ~ 2',
+    descriptionKey:
+      'Positive values encourage the model to introduce new topics.',
+  },
+  {
+    name: 'response_format',
+    location: 'body',
+    type: 'object',
+    descriptionKey:
+      'Forces a reply shape, for example JSON. Support varies by upstream and is ignored where unavailable.',
+    partialRoutes: true,
+  },
+  {
+    name: 'tools',
+    location: 'body',
+    type: 'array',
+    descriptionKey:
+      'Function definitions the model may call. Pair it with tool_choice to force or forbid a call.',
+    partialRoutes: true,
+  },
+  {
+    name: 'seed',
+    location: 'body',
+    type: 'integer',
+    descriptionKey:
+      'Random seed. Fixing it improves reproducibility but does not guarantee identical output.',
+    partialRoutes: true,
+  },
+  {
+    name: 'extra_body',
+    location: 'body',
+    type: 'object',
+    descriptionKey:
+      'Passed through to the upstream untouched. Use it for provider-specific fields that have no standard equivalent.',
+  },
+]
+
+const SPECS: ModelApiSpec[] = [
+  MINIMAX_VIDEO,
+  KLING_VIDEO,
+  VIDU_REFERENCE,
+  VIDU_IMG2VIDEO,
+]
 
 /** 返回命中的族定义；没有专属定义时返回 undefined，由调用方回落到通用逻辑。 */
 export function findModelApiSpec(modelName: string): ModelApiSpec | undefined {
@@ -201,15 +574,27 @@ export function findModelApiSpec(modelName: string): ModelApiSpec | undefined {
   return SPECS.find((spec) => spec.match.test(name))
 }
 
-/** 解析出该模型的参数表；未命中专属定义时返回 undefined。 */
+/**
+ * 解析出该模型的参数表。命中专属族时用族定义；否则对话类模型回落到真实的
+ * 通用表。返回 undefined 表示这类模型（图片、向量等）暂无专属定义，
+ * 由调用方回落到上游原有逻辑。
+ */
 export function resolveModelApiParams(
   model: PricingModel
 ): ModelApiParam[] | undefined {
   const spec = findModelApiSpec(model.model_name)
-  if (!spec) return undefined
+  if (!spec) {
+    return isChatModel(model) ? CHAT_PARAMS : undefined
+  }
   const table = model.matrix_price_table
   if (!table || !spec.applyMatrix) return spec.params
   return spec.applyMatrix(spec.params, table)
+}
+
+/** 只有走对话补全端点的模型才适用通用对话参数表。 */
+function isChatModel(model: PricingModel): boolean {
+  const types = model.supported_endpoint_types ?? []
+  return types.includes('openai') || types.includes('openai-response')
 }
 
 /** 暴露给测试与调试：当前登记了哪些族。 */

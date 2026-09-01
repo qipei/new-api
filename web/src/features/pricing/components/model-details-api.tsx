@@ -16,14 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  ChevronRight,
-  Gauge,
-  KeyRound,
-  ScrollText,
-  Sigma,
-  Zap,
-} from 'lucide-react'
+import { ChevronRight, KeyRound, ScrollText, Sigma, Zap } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BundledLanguage } from 'shiki/bundle/web'
@@ -41,14 +34,14 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useStatus } from '@/hooks/use-status'
 
 import {
-  buildRateLimits,
   buildSupportedParameters,
-  formatRateLimit,
   type SupportedParameter,
 } from '../lib/mock-stats'
-import { resolveModelApiParams } from '../lib/model-api-specs'
+import { findModelApiSpec, resolveModelApiParams } from '../lib/model-api-specs'
 import { replaceModelInPath } from '../lib/model-helpers'
 import type { PricingModel } from '../types'
+import { ModelApiSamplesSection } from './model-api-samples-section'
+import { ModelRateLimitsSection } from './model-rate-limits-section'
 
 // ---------------------------------------------------------------------------
 // Code-sample registry
@@ -669,65 +662,6 @@ function ParamRangeCell(props: { param: SupportedParameter }) {
 // Rate-limits table
 // ---------------------------------------------------------------------------
 
-function RateLimitsSection(props: { model: PricingModel }) {
-  const { t } = useTranslation()
-  const limits = useMemo(() => buildRateLimits(props.model), [props.model])
-
-  if (limits.length === 0) return null
-
-  return (
-    <section>
-      <SectionTitle icon={Gauge}>{t('Rate limits')}</SectionTitle>
-      <StaticDataTable
-        className={tableStyles.sectionContainer}
-        headerRowClassName={tableStyles.mutedHeaderRow}
-        data={limits}
-        getRowKey={(limit) => limit.group}
-        getRowClassName={() => 'hover:bg-muted/20'}
-        columns={[
-          {
-            id: 'group',
-            header: t('Group'),
-            className: 'h-9',
-            cellClassName: 'py-2 font-mono',
-            cell: (limit) => limit.group,
-          },
-          {
-            id: 'rpm',
-            header: 'RPM',
-            className: 'h-9 text-right',
-            cellClassName: tableStyles.topNumericCell,
-            cell: (limit) => formatRateLimit(limit.rpm),
-          },
-          {
-            id: 'tpm',
-            header: 'TPM',
-            className: 'h-9 text-right',
-            cellClassName: tableStyles.topNumericCell,
-            cell: (limit) => formatRateLimit(limit.tpm),
-          },
-          {
-            id: 'rpd',
-            header: 'RPD',
-            className: 'h-9 text-right',
-            cellClassName: tableStyles.topNumericCell,
-            cell: (limit) => formatRateLimit(limit.rpd),
-          },
-        ]}
-      />
-      <p className='text-muted-foreground mt-2 text-[11px] leading-relaxed'>
-        {t(
-          'RPM = requests per minute, TPM = tokens per minute, RPD = requests per day. Limits apply per token group.'
-        )}
-      </p>
-    </section>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Authentication preview
-// ---------------------------------------------------------------------------
-
 function AuthSection() {
   const { t } = useTranslation()
   return (
@@ -768,10 +702,19 @@ export function ModelDetailsApi(props: {
 }) {
   return (
     <div className='space-y-6'>
-      <CodeSamplesSection model={props.model} endpointMap={props.endpointMap} />
+      {/* CUSTOM: 已登记的模型族给按场景的带注释示例，其余仍走通用示例。 */}
+      {findModelApiSpec(props.model.model_name) ? (
+        <ModelApiSamplesSection model={props.model} />
+      ) : (
+        <CodeSamplesSection
+          model={props.model}
+          endpointMap={props.endpointMap}
+        />
+      )}
       <AuthSection />
       <SupportedParametersSection model={props.model} />
-      <RateLimitsSection model={props.model} />
+      {/* CUSTOM: 改用真实限流配置；原实现是按模型名生成的随机数。 */}
+      <ModelRateLimitsSection model={props.model} />
     </div>
   )
 }

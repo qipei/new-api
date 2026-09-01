@@ -98,6 +98,14 @@ func GetStatus(c *gin.Context) {
 		"quota_for_inviter": common.QuotaForInviter,
 		"quota_for_invitee": common.QuotaForInvitee,
 
+		// 模型详情页的请求限流说明；未启用时前端明确显示"未启用"，
+		// 不再展示任何编造的数值。
+		"model_rate_limit_enabled":          setting.ModelRequestRateLimitEnabled,
+		"model_rate_limit_duration_minutes": setting.ModelRequestRateLimitDurationMinutes,
+		"model_rate_limit_count":            setting.ModelRequestRateLimitCount,
+		"model_rate_limit_success_count":    setting.ModelRequestRateLimitSuccessCount,
+		"model_rate_limit_group":            setting.ModelRequestRateLimitGroupCopy(),
+
 		"usd_exchange_rate": operation_setting.USDExchangeRate,
 		"price":             operation_setting.Price,
 		"stripe_unit_price": setting.StripeUnitPrice,

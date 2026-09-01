@@ -50,6 +50,23 @@ describe('model API specs', () => {
     assert.equal(findModelApiSpec('deepseek-v3'), undefined)
   })
 
+  // 同前缀下混着不同端点的模型：Kling-3.0-image 走 /v1/images/generations，
+  // 套用视频参数会给出完全错误的文档。
+  test('does not pull sibling models with a different endpoint into a family', () => {
+    assert.equal(findModelApiSpec('kling-3.0-video')?.family, 'kling-video')
+    assert.equal(findModelApiSpec('kling-3.0-Omni')?.family, 'kling-video')
+    assert.equal(findModelApiSpec('Kling-3.0-image'), undefined)
+  })
+
+  // Vidu 的两个族请求协议不同，参考生视频收多张图，图生视频只收一张。
+  test('separates the two Vidu families', () => {
+    assert.equal(findModelApiSpec('vidu-q3-ad')?.family, 'vidu-reference')
+    assert.equal(findModelApiSpec('vidu-q3-drama')?.family, 'vidu-reference')
+    assert.equal(findModelApiSpec('vidu-q3-pro')?.family, 'vidu-img2video')
+    assert.equal(findModelApiSpec('vidu-q3-pro-fast')?.family, 'vidu-img2video')
+    assert.equal(findModelApiSpec('vidu-q3-turbo')?.family, 'vidu-img2video')
+  })
+
   test('matches the MiniMax video family case-insensitively', () => {
     assert.equal(findModelApiSpec('MiniMax-H3')?.family, 'minimax-video')
     assert.equal(findModelApiSpec('minimax-h3')?.family, 'minimax-video')

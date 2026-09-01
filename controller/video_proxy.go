@@ -37,8 +37,9 @@ func VideoProxy(c *gin.Context) {
 		return
 	}
 
+	// 管理员在任务日志里看的是全站任务，按归属过滤会让预览对他们完全不可用。
 	userID := c.GetInt("id")
-	task, exists, err := model.GetByTaskId(userID, taskID)
+	task, exists, err := model.GetTaskForViewing(userID, c.GetInt("role"), taskID)
 	if err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Failed to query task %s: %s", taskID, err.Error()))
 		videoProxyError(c, http.StatusInternalServerError, "server_error", "Failed to query task")

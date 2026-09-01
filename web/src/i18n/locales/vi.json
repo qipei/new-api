@@ -5561,6 +5561,7 @@
     "Only for the video-edit model: auto regenerates the soundtrack, origin keeps the sound of the input clip.": "Only for the video-edit model: auto regenerates the soundtrack, origin keeps the sound of the input clip.",
     "Input image URL. The i2v model accepts exactly one; the r2v model takes reference images.": "Input image URL. The i2v model accepts exactly one; the r2v model takes reference images.",
     "Input video URL. Only the video-edit model uses it, and its duration decides the billed length.": "Input video URL. Only the video-edit model uses it, and its duration decides the billed length.",
-    "Image editing": "Image editing"
+    "Image editing": "Image editing",
+    "Failed to load the video.": "Không tải được video."
   }
 }

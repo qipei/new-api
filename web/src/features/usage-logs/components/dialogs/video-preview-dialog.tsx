@@ -18,10 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 // CUSTOM: 任务日志里的视频结果预览（fork 扩展）。
 import { ExternalLink, Video } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
 import { IconBadge } from '@/components/ui/icon-badge'
+import { api } from '@/lib/http-client'
 
 interface VideoPreviewDialogProps {
   open: boolean
@@ -33,6 +35,32 @@ interface VideoPreviewDialogProps {
 
 export function VideoPreviewDialog(props: VideoPreviewDialogProps) {
   const { t } = useTranslation()
+  const [objectUrl, setObjectUrl] = useState('')
+  const [failed, setFailed] = useState(false)
+
+  // 代理端点要求 Authorization 头，而 <video src> 只会带 cookie，直接引用会 401。
+  // 因此带鉴权取回后用 blob 播放；对话框关闭时释放，避免占着内存。
+  useEffect(() => {
+    if (!props.open) return
+    let revoked = false
+    let created = ''
+    setFailed(false)
+    api
+      .get(props.src, { responseType: 'blob' })
+      .then((response) => {
+        if (revoked) return
+        created = URL.createObjectURL(response.data as Blob)
+        setObjectUrl(created)
+      })
+      .catch(() => {
+        if (!revoked) setFailed(true)
+      })
+    return () => {
+      revoked = true
+      if (created) URL.revokeObjectURL(created)
+      setObjectUrl('')
+    }
+  }, [props.open, props.src])
 
   return (
     <Dialog
@@ -51,26 +79,35 @@ export function VideoPreviewDialog(props: VideoPreviewDialogProps) {
       contentHeight='auto'
       bodyClassName='space-y-3'
     >
-      {/* 代理端点同时接受会话与令牌鉴权，控制台里可直接播放。 */}
-      <video
-        key={props.src}
-        src={props.src}
-        controls
-        autoPlay
-        preload='metadata'
-        className='bg-muted/40 max-h-[60vh] w-full rounded-lg'
-      />
+      {failed ? (
+        <p className='text-muted-foreground py-8 text-center text-sm'>
+          {t('Failed to load the video.')}
+        </p>
+      ) : objectUrl ? (
+        <video
+          key={objectUrl}
+          src={objectUrl}
+          controls
+          autoPlay
+          className='bg-muted/40 max-h-[60vh] w-full rounded-lg'
+        />
+      ) : (
+        <div className='bg-muted/40 text-muted-foreground flex h-48 items-center justify-center rounded-lg text-sm'>
+          {t('Loading')}
+        </div>
+      )}
       <div className='text-muted-foreground flex items-center justify-between gap-2 text-xs'>
         <span className='truncate font-mono'>{props.taskId}</span>
-        <a
-          href={props.src}
-          target='_blank'
-          rel='noopener noreferrer'
-          className='hover:text-foreground inline-flex shrink-0 items-center gap-1 hover:underline'
-        >
-          <ExternalLink className='size-3' />
-          {t('Open in new tab')}
-        </a>
+        {objectUrl && (
+          <a
+            href={objectUrl}
+            download={`${props.taskId}.mp4`}
+            className='hover:text-foreground inline-flex shrink-0 items-center gap-1 hover:underline'
+          >
+            <ExternalLink className='size-3' />
+            {t('Download')}
+          </a>
+        )}
       </div>
     </Dialog>
   )

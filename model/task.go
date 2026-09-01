@@ -350,6 +350,25 @@ func GetByTaskId(userId int, taskId string) (*Task, bool, error) {
 	return task, exist, err
 }
 
+// GetTaskForViewing 供只读查看使用：管理员在任务日志里看到的是全站任务，
+// 因此不按归属过滤。中转链路仍必须用 GetByTaskId，那里放宽归属等于让用户
+// 拿别人的任务去改写或续费。
+func GetTaskForViewing(userId int, role int, taskId string) (*Task, bool, error) {
+	if taskId == "" {
+		return nil, false, nil
+	}
+	if role < common.RoleAdminUser {
+		return GetByTaskId(userId, taskId)
+	}
+	var task *Task
+	err := DB.Where("task_id = ?", taskId).First(&task).Error
+	exist, err := RecordExist(err)
+	if err != nil {
+		return nil, false, err
+	}
+	return task, exist, err
+}
+
 func GetByTaskIds(userId int, taskIds []any) ([]*Task, error) {
 	if len(taskIds) == 0 {
 		return nil, nil

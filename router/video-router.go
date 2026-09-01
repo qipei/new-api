@@ -8,7 +8,9 @@ import (
 )
 
 func SetVideoRouter(router *gin.Engine) {
-	// Video proxy: accepts either session auth (dashboard) or token auth (API clients)
+	// Video proxy: requires an Authorization header — either a dashboard access token or a
+	// relay API key. Session cookies are NOT accepted here, so the dashboard must fetch the
+	// video through the authenticated api client rather than putting the URL in <video src>.
 	videoProxyRouter := router.Group("/v1")
 	videoProxyRouter.Use(middleware.RouteTag("relay"))
 	videoProxyRouter.Use(middleware.TokenOrUserAuth())

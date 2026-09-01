@@ -39,14 +39,21 @@ export function VideoPreviewDialog(props: VideoPreviewDialogProps) {
   const [failed, setFailed] = useState(false)
 
   // 代理端点要求 Authorization 头，而 <video src> 只会带 cookie，直接引用会 401。
-  // 因此带鉴权取回后用 blob 播放；对话框关闭时释放，避免占着内存。
+  // 因此带鉴权取回后用 blob 播放；对话框关闭时释放，避免占着内存。整段下载完才能起播，
+  // 换来的是不用把令牌塞进 URL。skipErrorHandler 是因为失败已经在弹窗里就地提示，
+  // 而且 responseType 为 blob 时错误响应体也是 Blob，拦截器读不出 message；
+  // disableDuplicate 则避开按 URL 去重的 GET 缓存，那份缓存不区分 responseType。
   useEffect(() => {
     if (!props.open) return
     let revoked = false
     let created = ''
     setFailed(false)
     api
-      .get(props.src, { responseType: 'blob' })
+      .get(props.src, {
+        responseType: 'blob',
+        skipErrorHandler: true,
+        disableDuplicate: true,
+      })
       .then((response) => {
         if (revoked) return
         created = URL.createObjectURL(response.data as Blob)
@@ -61,6 +68,29 @@ export function VideoPreviewDialog(props: VideoPreviewDialogProps) {
       setObjectUrl('')
     }
   }, [props.open, props.src])
+
+  let player = (
+    <div className='bg-muted/40 text-muted-foreground flex h-48 items-center justify-center rounded-lg text-sm'>
+      {t('Loading')}
+    </div>
+  )
+  if (failed) {
+    player = (
+      <p className='text-muted-foreground py-8 text-center text-sm'>
+        {t('Failed to load the video.')}
+      </p>
+    )
+  } else if (objectUrl) {
+    player = (
+      <video
+        key={objectUrl}
+        src={objectUrl}
+        controls
+        autoPlay
+        className='bg-muted/40 max-h-[60vh] w-full rounded-lg'
+      />
+    )
+  }
 
   return (
     <Dialog
@@ -79,23 +109,7 @@ export function VideoPreviewDialog(props: VideoPreviewDialogProps) {
       contentHeight='auto'
       bodyClassName='space-y-3'
     >
-      {failed ? (
-        <p className='text-muted-foreground py-8 text-center text-sm'>
-          {t('Failed to load the video.')}
-        </p>
-      ) : objectUrl ? (
-        <video
-          key={objectUrl}
-          src={objectUrl}
-          controls
-          autoPlay
-          className='bg-muted/40 max-h-[60vh] w-full rounded-lg'
-        />
-      ) : (
-        <div className='bg-muted/40 text-muted-foreground flex h-48 items-center justify-center rounded-lg text-sm'>
-          {t('Loading')}
-        </div>
-      )}
+      {player}
       <div className='text-muted-foreground flex items-center justify-between gap-2 text-xs'>
         <span className='truncate font-mono'>{props.taskId}</span>
         {objectUrl && (

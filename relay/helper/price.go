@@ -267,7 +267,10 @@ func HasModelBillingConfig(modelName string) bool {
 }
 
 func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta, groupRatioInfo hosttypes.GroupRatioInfo) (hosttypes.PriceData, error) {
-	exprStr, ok := billing_setting.GetBillingExpr(info.OriginModelName)
+	// CUSTOM: 分组可以覆盖表达式，让同一个模型在不同分组下走不同计价（例如
+	// 某个分组分时打折、另一个分组固定价）。UsingGroup 此时已由 HandleGroupRatio
+	// 刷新为本次实际选中的分组，auto 重试换组后也是新组。
+	exprStr, ok := billing_setting.GetBillingExprForGroup(info.OriginModelName, info.UsingGroup)
 	if !ok {
 		return hosttypes.PriceData{}, fmt.Errorf("model %s is configured as tiered_expr but has no billing expression", info.OriginModelName)
 	}

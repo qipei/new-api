@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
@@ -1023,4 +1024,67 @@ func BenchmarkRatioBilling_Parallel(b *testing.B) {
 			ratioQuota(usage, false, 1.5, 5.0, 0.1, 1.0, 1.5)
 		}
 	})
+}
+
+// CUSTOM: 分组可以覆盖表达式后，auto 重试换组必须换掉整条价格结构，而不是把上一个
+// 分组的估价乘一个新倍率。倍率恰好相同的两个分组是最容易漏掉的一种。
+func TestPrepareTieredBillingForSelectedGroupSwitchesExpression(t *testing.T) {
+	const cheapExpr = `tier("night", p * 1)`
+	const pricyExpr = `tier("day", p * 4)`
+
+	origExpr, origGroup := billing_setting.SwapExprConfigForTest(
+		map[string]string{"m": cheapExpr},
+		map[string]map[string]string{"m": {"pricy": pricyExpr}},
+	)
+	t.Cleanup(func() { billing_setting.SwapExprConfigForTest(origExpr, origGroup) })
+
+	cases := []struct {
+		name            string
+		finalGroup      string
+		finalGroupRatio float64
+		// 结算按 p=1_000_000 跑：cheap=1 美元、pricy=4 美元，再乘 QuotaPerUnit 与分组倍率。
+		wantQuota int
+	}{
+		{name: "same ratio but a different expression must re-run", finalGroup: "pricy", finalGroupRatio: 0.5, wantQuota: 1_000_000},
+		{name: "no override keeps the model expression", finalGroup: "plain", finalGroupRatio: 0.5, wantQuota: 250_000},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			relayInfo := makeRelayInfo(cheapExpr, 0.5, 1_000_000, 0)
+			relayInfo.Billing = &recordingBillingSettler{preConsumedQuota: relayInfo.FinalPreConsumedQuota}
+			relayInfo.TieredBillingSnapshot.ModelName = "m"
+			relayInfo.UsingGroup = tc.finalGroup
+			relayInfo.PriceData = types.PriceData{
+				GroupRatioInfo: types.GroupRatioInfo{GroupRatio: tc.finalGroupRatio},
+			}
+
+			require.Nil(t, PrepareTieredBillingForSelectedGroup(nil, relayInfo))
+			ok, quota, result := TryTieredSettle(relayInfo, billingexpr.TokenParams{P: 1_000_000})
+
+			require.True(t, ok)
+			require.NotNil(t, result)
+			assert.Equal(t, tc.wantQuota, quota)
+		})
+	}
+}
+
+// 表达式在两次尝试之间被删掉时，沿用快照里冻结的那条，不让请求失败。
+func TestPrepareTieredBillingForSelectedGroupKeepsFrozenExprWhenConfigGone(t *testing.T) {
+	const expr = `tier("base", p * 2)`
+	origExpr, origGroup := billing_setting.SwapExprConfigForTest(map[string]string{}, map[string]map[string]string{})
+	t.Cleanup(func() { billing_setting.SwapExprConfigForTest(origExpr, origGroup) })
+
+	relayInfo := makeRelayInfo(expr, 1, 1_000_000, 0)
+	relayInfo.Billing = &recordingBillingSettler{preConsumedQuota: relayInfo.FinalPreConsumedQuota}
+	relayInfo.TieredBillingSnapshot.ModelName = "m"
+	relayInfo.UsingGroup = "default"
+	relayInfo.PriceData = types.PriceData{GroupRatioInfo: types.GroupRatioInfo{GroupRatio: 0.5}}
+
+	require.Nil(t, PrepareTieredBillingForSelectedGroup(nil, relayInfo))
+	assert.Equal(t, expr, relayInfo.TieredBillingSnapshot.ExprString)
+
+	ok, quota, _ := TryTieredSettle(relayInfo, billingexpr.TokenParams{P: 1_000_000})
+	require.True(t, ok)
+	assert.Equal(t, 500_000, quota)
 }

@@ -26,6 +26,7 @@ import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { CommissionSettingsSection } from './commission-settings-section'
+import { GroupBillingExprSection } from './group-billing-expr-section'
 import { VideoPricingSection } from './video-pricing-section'
 
 const getModelDefaults = (settings: BillingSettings) => ({
@@ -114,6 +115,19 @@ const BILLING_SECTIONS = [
         groupDefaults={getGroupDefaults(settings)}
         toolPricesDefault={settings['tool_price_setting.prices']}
         visibleTabs={['models', 'unset-models', 'tool-prices', 'upstream-sync']}
+      />
+    ),
+  },
+  // CUSTOM: 分组级计费表达式覆盖（fork 扩展）
+  {
+    id: 'group-billing-expr',
+    titleKey: 'Per-group Billing Expressions',
+    build: (settings: BillingSettings) => (
+      <GroupBillingExprSection
+        defaultValue={settings['billing_setting.group_billing_expr']}
+        billingMode={settings['billing_setting.billing_mode']}
+        billingExpr={settings['billing_setting.billing_expr']}
+        groupRatio={settings.GroupRatio}
       />
     ),
   },

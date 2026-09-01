@@ -76,6 +76,7 @@ export function Pricing() {
     setViewMode,
     setShowRechargePrice,
     filteredModels,
+    groupResolvedModels,
     hasActiveFilters,
     activeFilterCount,
     availableTags,
@@ -87,14 +88,15 @@ export function Pricing() {
     setSelectedModelName(modelName)
   }, [])
 
+  // CUSTOM: 详情弹窗也要拿分组解析后的表达式，否则选了分组还是显示模型级价格。
   const selectedModel = useMemo(
     () =>
       selectedModelName
-        ? (models || []).find(
+        ? groupResolvedModels.find(
             (model) => model.model_name === selectedModelName
           ) || null
         : null,
-    [models, selectedModelName]
+    [groupResolvedModels, selectedModelName]
   )
 
   const availableGroups = useMemo(

@@ -35,7 +35,9 @@ type Pricing struct {
 	SupportedEndpointTypes []constant.EndpointType `json:"supported_endpoint_types"`
 	BillingMode            string                  `json:"billing_mode,omitempty"`
 	BillingExpr            string                  `json:"billing_expr,omitempty"`
-	PricingVersion         string                  `json:"pricing_version,omitempty"`
+	// CUSTOM: 分组名 -> 表达式，覆盖该分组下的 BillingExpr。只包含本模型启用的分组。
+	GroupBillingExpr map[string]string `json:"group_billing_expr,omitempty"`
+	PricingVersion   string            `json:"pricing_version,omitempty"`
 }
 
 type PricingVendor struct {
@@ -354,6 +356,9 @@ func updatePricing() {
 		}
 	}
 
+	// CUSTOM: 分组级表达式覆盖读一次即可，循环里按模型取。
+	groupBillingExprOverrides := billing_setting.GetGroupBillingExprCopy()
+
 	pricingMap = make([]Pricing, 0)
 	for model, groups := range modelGroupsMap {
 		pricing := Pricing{
@@ -404,6 +409,24 @@ func updatePricing() {
 			if expr, ok := billing_setting.GetBillingExpr(model); ok && strings.TrimSpace(expr) != "" {
 				pricing.BillingMode = billingMode
 				pricing.BillingExpr = expr
+			}
+			// CUSTOM: 只下发这个模型真正启用的分组的覆盖，避免把全站分组表泄露给
+			// 前端；模型广场按用户选中的分组取表达式，取不到就用模型级的那条。
+			if overrides, ok := groupBillingExprOverrides[model]; ok {
+				exposed := make(map[string]string, len(overrides))
+				for group, expr := range overrides {
+					if strings.TrimSpace(expr) == "" {
+						continue
+					}
+					if !common.StringsContains(pricing.EnableGroup, group) {
+						continue
+					}
+					exposed[group] = expr
+				}
+				if len(exposed) > 0 {
+					pricing.BillingMode = billingMode
+					pricing.GroupBillingExpr = exposed
+				}
 			}
 		}
 		pricingMap = append(pricingMap, pricing)

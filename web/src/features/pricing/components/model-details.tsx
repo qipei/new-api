@@ -67,6 +67,7 @@ import {
   isDynamicPricingModel,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
+import { resolveBillingExprForGroup } from '../lib/group-billing-expr'
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
 import { formatFixedPrice, formatGroupPrice } from '../lib/price'
 import type {
@@ -76,6 +77,7 @@ import type {
   TokenUnit,
 } from '../types'
 import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
+import { GroupBillingExprNotice } from './group-billing-expr-notice'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelDetailsApi } from './model-details-api'
 import { ModelDetailsPerformance } from './model-details-performance'
@@ -941,25 +943,44 @@ function GroupPricingSection(props: {
       )
     }
 
-    const priceFields = getDynamicPriceFields(dynamicTiers, {
-      tokenUnit: props.tokenUnit,
-      showRechargePrice,
-      priceRate: props.priceRate,
-      usdExchangeRate: props.usdExchangeRate,
-      groupRatioMultiplier: 1,
-    })
+    // CUSTOM: 每个分组可能有自己的表达式，价格表必须按各自的档位算，
+    // 不能拿当前分组的档位乘一遍倍率就当成别的分组的价格（fork 扩展）。
+    const tiersByGroup = new Map(
+      availableGroups.map((group) => {
+        const expr = resolveBillingExprForGroup(props.model, group)
+        const tiers =
+          expr === props.model.billing_expr
+            ? dynamicTiers
+            : getDynamicPricingTiers({ ...props.model, billing_expr: expr })
+        return [group, tiers] as const
+      })
+    )
+    // 列取所有分组档位的并集：某个分组的覆盖可能多用或少用一个计价变量。
+    const priceFields = getDynamicPriceFields(
+      [dynamicTiers, ...tiersByGroup.values()].flat(),
+      {
+        tokenUnit: props.tokenUnit,
+        showRechargePrice,
+        priceRate: props.priceRate,
+        usdExchangeRate: props.usdExchangeRate,
+        groupRatioMultiplier: 1,
+      }
+    )
     const formattedPricesByGroup = new Map(
       availableGroups.map((group) => {
         const ratio = props.groupRatio[group] || 1
         return [
           group,
-          getDynamicFormattedPricesByTier(dynamicTiers, {
-            tokenUnit: props.tokenUnit,
-            showRechargePrice,
-            priceRate: props.priceRate,
-            usdExchangeRate: props.usdExchangeRate,
-            groupRatioMultiplier: ratio,
-          }),
+          getDynamicFormattedPricesByTier(
+            tiersByGroup.get(group) ?? dynamicTiers,
+            {
+              tokenUnit: props.tokenUnit,
+              showRechargePrice,
+              priceRate: props.priceRate,
+              usdExchangeRate: props.usdExchangeRate,
+              groupRatioMultiplier: ratio,
+            }
+          ),
         ] as const
       })
     )
@@ -971,6 +992,7 @@ function GroupPricingSection(props: {
         <div className='space-y-3'>
           {availableGroups.map((group) => {
             const ratio = props.groupRatio[group] || 1
+            const groupTiers = tiersByGroup.get(group) ?? dynamicTiers
             const formattedPricesByTier =
               formattedPricesByGroup.get(group) ??
               new Map<DynamicPricingTier, Map<string, string>>()
@@ -987,7 +1009,7 @@ function GroupPricingSection(props: {
                   className='rounded-none border-0'
                   tableClassName='text-sm'
                   headerRowClassName='hover:bg-transparent'
-                  data={dynamicTiers}
+                  data={groupTiers}
                   getRowKey={(tier, tierIndex) =>
                     `${group}-${tier.label || tierIndex}`
                   }
@@ -1191,6 +1213,8 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             {isDynamic && (
               <DynamicPricingBreakdown billingExpr={props.model.billing_expr} />
             )}
+            {/* CUSTOM: 分组级表达式覆盖提示（fork 扩展） */}
+            <GroupBillingExprNotice model={props.model} />
             {/* CUSTOM: 视频价格矩阵（fork 扩展） */}
             <VideoPriceSection
               model={props.model}

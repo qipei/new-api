@@ -1,12 +1,14 @@
 package service
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/gin-gonic/gin"
 )
 
@@ -104,8 +106,37 @@ func refreshTieredBillingGroup(relayInfo *relaycommon.RelayInfo) (*billingexpr.B
 	}
 
 	groupRatio := relayInfo.PriceData.GroupRatioInfo.GroupRatio
-	if snap.GroupRatio == groupRatio {
+
+	// CUSTOM: 分组可以覆盖表达式，所以换组后不能只按倍率缩放上一个分组的估价——
+	// 那等于拿旧分组的价格结构去算新分组的钱。两个分组倍率相同、表达式不同也必须
+	// 重算，因此这一步排在倍率相等的早返回之前。
+	// 查不到就沿用快照里冻结的那条：那是预扣费当时的事实。管理员在两次尝试之间
+	// 删掉表达式不该让这个请求直接失败。
+	exprStr, ok := billing_setting.GetBillingExprForGroup(snap.ModelName, relayInfo.UsingGroup)
+	exprChanged := ok && exprStr != snap.ExprString
+	if !exprChanged && snap.GroupRatio == groupRatio {
 		return snap, nil
+	}
+
+	if exprChanged {
+		requestInput := billingexpr.RequestInput{}
+		if relayInfo.BillingRequestInput != nil {
+			requestInput = *relayInfo.BillingRequestInput
+		}
+		// 用冻结的估算 token 与请求状态重跑，保持和首次预扣费同一口径。
+		rawCost, trace, err := billingexpr.RunExprWithRequest(exprStr, billingexpr.TokenParams{
+			P:   float64(snap.EstimatedPromptTokens),
+			C:   float64(snap.EstimatedCompletionTokens),
+			Len: float64(snap.EstimatedPromptTokens),
+		}, requestInput)
+		if err != nil {
+			return nil, fmt.Errorf("model %s group %s tiered expr run failed: %w", snap.ModelName, relayInfo.UsingGroup, err)
+		}
+		snap.ExprString = exprStr
+		snap.ExprHash = billingexpr.ExprHashString(exprStr)
+		snap.ExprVersion = billingexpr.ExprVersion(exprStr)
+		snap.EstimatedTier = trace.MatchedTier
+		snap.EstimatedQuotaBeforeGroup = rawCost / 1_000_000 * snap.QuotaPerUnit
 	}
 
 	estimatedQuotaAfterGroup := snap.EstimatedQuotaBeforeGroup * groupRatio

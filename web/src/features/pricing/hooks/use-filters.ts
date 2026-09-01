@@ -31,6 +31,7 @@ import {
   type ViewMode,
 } from '../constants'
 import { filterAndSortModels, extractAllTags } from '../lib/filters'
+import { withGroupBillingExpr } from '../lib/group-billing-expr'
 import type { PricingModel, TokenUnit } from '../types'
 
 type FilterState = {
@@ -146,10 +147,17 @@ export function useFilters(models: PricingModel[]) {
     return extractAllTags(models)
   }, [models])
 
-  const filteredModels = useMemo(() => {
-    if (!models || models.length === 0) return []
+  // CUSTOM: 先把 billing_expr 换成选中分组实际生效的那条，下游读 billing_expr
+  // 的十几处渲染代码就不必各自感知分组（fork 扩展）。
+  const groupResolvedModels = useMemo(
+    () => withGroupBillingExpr(models || [], groupFilter),
+    [models, groupFilter]
+  )
 
-    return filterAndSortModels(models, {
+  const filteredModels = useMemo(() => {
+    if (groupResolvedModels.length === 0) return []
+
+    return filterAndSortModels(groupResolvedModels, {
       search: debouncedSearchInput,
       vendor: vendorFilter,
       group: groupFilter,
@@ -159,7 +167,7 @@ export function useFilters(models: PricingModel[]) {
       sortBy,
     })
   }, [
-    models,
+    groupResolvedModels,
     debouncedSearchInput,
     vendorFilter,
     groupFilter,
@@ -225,6 +233,7 @@ export function useFilters(models: PricingModel[]) {
     setViewMode,
     setShowRechargePrice,
     filteredModels,
+    groupResolvedModels,
     hasActiveFilters,
     activeFilterCount,
     availableTags,

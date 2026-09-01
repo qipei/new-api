@@ -54,6 +54,13 @@ export type PricingModel = {
   billing_mode?: string
   /** Raw expression describing dynamic / tiered billing */
   billing_expr?: string
+  /** CUSTOM: 分组名 -> 表达式，覆盖该分组下的 billing_expr（fork 扩展） */
+  group_billing_expr?: Record<string, string>
+  /**
+   * CUSTOM: 模型级表达式的原件（fork 扩展）。billing_expr 会被换成当前选中分组
+   * 生效的那条，其它分组要回落时得拿这份原件，否则会错拿到选中分组的覆盖。
+   */
+  base_billing_expr?: string
   /** Pricing version returned by backend, useful for cache busting */
   pricing_version?: string
   /** Matrix pricing unit when this model overrides the regular model price. */

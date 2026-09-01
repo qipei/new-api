@@ -2,6 +2,7 @@ package billing_setting
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/setting/config"
@@ -20,11 +21,17 @@ const (
 type BillingSetting struct {
 	BillingMode map[string]string `json:"billing_mode"`
 	BillingExpr map[string]string `json:"billing_expr"`
+	// CUSTOM: 模型名 -> 分组名 -> 表达式，覆盖该分组下的 BillingExpr。
+	// 计费模式仍然是模型级的：一个分组要"不按分时计价"，给它配一条不含
+	// hour()/weekday() 等时间条件的固定价表达式即可，不必切换模式——切换
+	// 模式会让 auto 重试跨分组时在两套完全不同的计费结构之间跳，得不偿失。
+	GroupBillingExpr map[string]map[string]string `json:"group_billing_expr"`
 }
 
 var billingSetting = BillingSetting{
-	BillingMode: make(map[string]string),
-	BillingExpr: make(map[string]string),
+	BillingMode:      make(map[string]string),
+	BillingExpr:      make(map[string]string),
+	GroupBillingExpr: make(map[string]map[string]string),
 }
 
 func init() {
@@ -45,6 +52,28 @@ func GetBillingMode(model string) string {
 func GetBillingExpr(model string) (string, bool) {
 	expr, ok := billingSetting.BillingExpr[model]
 	return expr, ok
+}
+
+// GetBillingExprForGroup 返回该分组实际生效的表达式：先找分组覆盖，再回落到模型级。
+// group 为空时等价于 GetBillingExpr，这样非中转调用方（同步、校验）不必构造分组。
+func GetBillingExprForGroup(model string, group string) (string, bool) {
+	if group != "" {
+		if byGroup, ok := billingSetting.GroupBillingExpr[model]; ok {
+			if expr, ok := byGroup[group]; ok && strings.TrimSpace(expr) != "" {
+				return expr, true
+			}
+		}
+	}
+	return GetBillingExpr(model)
+}
+
+// GetGroupBillingExprCopy 返回分组覆盖的深拷贝，供只读展示与保存前的校验使用。
+func GetGroupBillingExprCopy() map[string]map[string]string {
+	out := make(map[string]map[string]string, len(billingSetting.GroupBillingExpr))
+	for model, byGroup := range billingSetting.GroupBillingExpr {
+		out[model] = lo.Assign(byGroup)
+	}
+	return out
 }
 
 func GetBillingModeCopy() map[string]string {
@@ -103,4 +132,19 @@ func smokeTestExpr(exprStr string) error {
 		}
 	}
 	return nil
+}
+
+// SwapExprConfigForTest 替换表达式配置并返回旧值，供跨包测试构造计费状态。
+// 生产代码不要调用：这里直接写共享 map，没有并发保护。
+func SwapExprConfigForTest(expr map[string]string, groupExpr map[string]map[string]string) (map[string]string, map[string]map[string]string) {
+	prevExpr, prevGroup := billingSetting.BillingExpr, billingSetting.GroupBillingExpr
+	billingSetting.BillingExpr, billingSetting.GroupBillingExpr = expr, groupExpr
+	return prevExpr, prevGroup
+}
+
+// SwapBillingModeForTest 替换计费模式配置并返回旧值，仅供测试使用。
+func SwapBillingModeForTest(mode map[string]string) map[string]string {
+	prev := billingSetting.BillingMode
+	billingSetting.BillingMode = mode
+	return prev
 }

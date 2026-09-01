@@ -32,9 +32,27 @@ func (input *tokenAutoGroupsInput) UnmarshalJSON(data []byte) error {
 	return common.Unmarshal(data, &input.Groups)
 }
 
+// crossGroupRetryInput 区分"没传这个字段"和"显式传了 false"。auto 分组的令牌
+// 默认要开跨分组重试——当前分组的渠道全挂时能顺延到下一个分组，这是绝大多数
+// 人选 auto 时期待的行为；但用户显式关掉的意愿必须保留。
+type crossGroupRetryInput struct {
+	Set   bool
+	Value bool
+}
+
+func (input *crossGroupRetryInput) UnmarshalJSON(data []byte) error {
+	input.Set = true
+	if strings.TrimSpace(string(data)) == "null" {
+		input.Value = false
+		return nil
+	}
+	return common.Unmarshal(data, &input.Value)
+}
+
 type tokenRequest struct {
 	model.Token
-	AutoGroups tokenAutoGroupsInput `json:"auto_groups"`
+	AutoGroups      tokenAutoGroupsInput `json:"auto_groups"`
+	CrossGroupRetry crossGroupRetryInput `json:"cross_group_retry"`
 }
 
 type tokenResponse struct {
@@ -311,6 +329,8 @@ func AddToken(c *gin.Context) {
 		return
 	}
 	if token.Group == "auto" {
+		// 没传就默认开启；显式传了什么就是什么。
+		token.CrossGroupRetry = !request.CrossGroupRetry.Set || request.CrossGroupRetry.Value
 		if !setTokenAutoGroups(c, &token, request.AutoGroups.Groups) {
 			return
 		}
@@ -417,7 +437,11 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.ModelLimits = token.ModelLimits
 		cleanToken.AllowIps = token.AllowIps
 		cleanToken.Group = token.Group
-		cleanToken.CrossGroupRetry = token.CrossGroupRetry
+		// 外层的 CrossGroupRetry 遮蔽了内嵌 Token 的同名字段，所以这里读 request；
+		// 没传就保留原值，免得局部更新把用户开着的开关悄悄关掉。
+		if request.CrossGroupRetry.Set {
+			cleanToken.CrossGroupRetry = request.CrossGroupRetry.Value
+		}
 		if token.Group != "auto" {
 			cleanToken.CrossGroupRetry = false
 			_ = cleanToken.SetAutoGroups(nil)

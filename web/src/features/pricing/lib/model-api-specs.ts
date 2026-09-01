@@ -31,8 +31,16 @@ import type { PricingModel, VideoPriceTable } from '../types'
 // 所有线路的交集；仅部分线路支持的参数用 partialRoutes 标注，不点名渠道。
 import type { SupportedParameter } from './mock-stats'
 
-/** 参数在请求体里的位置。文档必须写清楚，同名参数放错层级会被静默忽略。 */
-export type ParamLocation = 'body' | 'metadata.parameters' | 'metadata.input'
+/**
+ * 参数在请求体里的位置。文档必须写清楚，同名参数放错层级会被静默忽略。
+ * 各适配器的嵌套层级不同：百炼把 metadata 反序列化进 parameters/input，
+ * 火山则直接摊平在 metadata 下。
+ */
+export type ParamLocation =
+  | 'body'
+  | 'metadata'
+  | 'metadata.parameters'
+  | 'metadata.input'
 
 export type ModelApiParam = Omit<SupportedParameter, 'descriptionKey'> & {
   location: ParamLocation
@@ -560,11 +568,286 @@ export const CHAT_PARAMS: ModelApiParam[] = [
   },
 ]
 
+// ---------------------------------------------------------------------------
+// 火山方舟 Seedance 视频
+// 依据：relay/channel/task/doubao/constants.go validateModelParameters
+// 各代能力差异很大，取值范围写的是本站已上线的 2.0 / 2.5 两代。
+// ---------------------------------------------------------------------------
+
+const SEEDANCE_VIDEO: ModelApiSpec = {
+  family: 'seedance-video',
+  match: /^doubao-seedance-/i,
+  endpointPath: '/v1/video/generations',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey: 'Model name, e.g. MiniMax-H3.',
+    },
+    {
+      name: 'prompt',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'Text prompt describing the video. Billed per token, so a longer prompt costs slightly more.',
+    },
+    {
+      name: 'duration',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 5,
+      descriptionKey:
+        'Video length in seconds. 4-15 for the 2.0 family and 4-30 for 2.5; pass -1 to let the model decide.',
+    },
+    {
+      name: 'size',
+      location: 'body',
+      type: 'enum',
+      descriptionKey:
+        'Resolution tier. The fast and mini variants only accept 480p and 720p.',
+    },
+    {
+      name: 'metadata.ratio',
+      location: 'metadata',
+      type: 'string',
+      descriptionKey: 'Aspect ratio of the generated video, for example 16:9.',
+    },
+    {
+      name: 'metadata.generate_audio',
+      location: 'metadata',
+      type: 'boolean',
+      descriptionKey:
+        'Generates a soundtrack together with the video. Not available on the 1.0 family.',
+      partialRoutes: true,
+    },
+    {
+      name: 'metadata.camera_fixed',
+      location: 'metadata',
+      type: 'boolean',
+      descriptionKey:
+        'Locks the camera so the scene is rendered without camera movement.',
+    },
+    {
+      name: 'image',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'First-frame image URL. Supplying it switches the request to image-to-video; a second image becomes the last frame.',
+    },
+    {
+      name: 'metadata.watermark',
+      location: 'metadata',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Adds an "AI generated" watermark to the bottom-right corner of the output.',
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Text to video',
+      body: {
+        model: 'Doubao-Seedance-2.0',
+        prompt: '航拍视角掠过雪山之巅，云海翻涌，晨光洒在山脊上',
+        size: '720p',
+        duration: 5,
+        metadata: { ratio: '16:9', generate_audio: false },
+      },
+    },
+    {
+      titleKey: 'Image to video (first frame)',
+      body: {
+        model: 'Doubao-Seedance-2.0',
+        prompt: '画面中的花朵缓缓绽放，光线由暗转亮',
+        image: 'https://example.com/flower.png',
+        size: '720p',
+        duration: 5,
+      },
+    },
+  ],
+  applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
+}
+
+// ---------------------------------------------------------------------------
+// 图片生成（按张计费矩阵）
+// 走同步图片端点，与视频任务的异步协议不同。
+// ---------------------------------------------------------------------------
+
+const IMAGE_GENERATION: ModelApiSpec = {
+  family: 'image-generation',
+  // vidu-q2 名字里没有 image，但它是按张计费的图片模型，必须显式列出。
+  match:
+    /^(qwen-image|z-image|wan[\d.]*-image|seedream|doubao-seedream|kling-3\.0-image|vidu-image|vidu-q2$)/i,
+  endpointPath: '/v1/images/generations',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey: 'Model name, e.g. MiniMax-H3.',
+    },
+    {
+      name: 'prompt',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey: 'Text description of the image to generate.',
+    },
+    {
+      name: 'size',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Output size as WxH, for example 1024x1024. It selects the billing tier, so the price follows the size you ask for.',
+    },
+    {
+      name: 'n',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 1,
+      descriptionKey:
+        'Number of images to generate. Every image is billed, so the cost scales with this value.',
+    },
+    {
+      name: 'image',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Reference image URL. Supplying it switches the request to image editing, which is priced separately from text-to-image.',
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Text to image',
+      body: {
+        model: 'qwen-image-3.0',
+        prompt: '一只戴着宇航头盔的柴犬，工作室灯光，超写实',
+        size: '1024x1024',
+        n: 1,
+      },
+    },
+    {
+      titleKey: 'Image editing',
+      body: {
+        model: 'qwen-image-3.0',
+        prompt: '把背景换成星空',
+        image: 'https://example.com/dog.png',
+        size: '1024x1024',
+      },
+    },
+  ],
+}
+
+// ---------------------------------------------------------------------------
+// HappyHorse 视频（百炼）
+// 依据：relay/channel/task/ali/adaptor.go validateAliHappyHorseRequest
+// 四个模型分别对应文生、图生、参考生与视频编辑，输入媒体要求不同。
+// ---------------------------------------------------------------------------
+
+const HAPPYHORSE_VIDEO: ModelApiSpec = {
+  family: 'happyhorse-video',
+  match: /^happyhorse-/i,
+  endpointPath: '/v1/video/generations',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'Model name. The suffix selects the task: t2v for text, i2v for a single image, r2v for reference images and video-edit for editing an existing clip.',
+    },
+    {
+      name: 'prompt',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Text prompt describing the video. Required for every variant except image-to-video.',
+    },
+    {
+      name: 'size',
+      location: 'body',
+      type: 'enum',
+      descriptionKey:
+        'Resolution tier. Defaults to 1080P; the video-edit model does not accept 480P.',
+    },
+    {
+      name: 'metadata.parameters.ratio',
+      location: 'metadata.parameters',
+      type: 'string',
+      descriptionKey:
+        'Aspect ratio of the generated video. Not accepted by the video-edit model, which follows the input clip.',
+      partialRoutes: true,
+    },
+    {
+      name: 'metadata.parameters.audio_setting',
+      location: 'metadata.parameters',
+      type: 'enum',
+      enumValues: ['auto', 'origin'],
+      descriptionKey:
+        'Only for the video-edit model: auto regenerates the soundtrack, origin keeps the sound of the input clip.',
+      partialRoutes: true,
+    },
+    {
+      name: 'metadata.parameters.seed',
+      location: 'metadata.parameters',
+      type: 'integer',
+      range: '0 ~ 2147483647',
+      descriptionKey:
+        'Random seed. Fixing it improves reproducibility but does not guarantee identical output.',
+    },
+    {
+      name: 'image',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Input image URL. The i2v model accepts exactly one; the r2v model takes reference images.',
+    },
+    {
+      name: 'video',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Input video URL. Only the video-edit model uses it, and its duration decides the billed length.',
+      partialRoutes: true,
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Text to video',
+      body: {
+        model: 'happyhorse-1.1-t2v',
+        prompt: '雨后的城市街道，霓虹倒映在积水里，镜头缓慢平移',
+        size: '1080P',
+        duration: 5,
+        metadata: { parameters: { ratio: '16:9' } },
+      },
+    },
+    {
+      titleKey: 'Image to video (first frame)',
+      body: {
+        model: 'happyhorse-1.1-i2v',
+        image: 'https://example.com/scene.png',
+        size: '1080P',
+        duration: 5,
+      },
+    },
+  ],
+  applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
+}
+
 const SPECS: ModelApiSpec[] = [
   MINIMAX_VIDEO,
   KLING_VIDEO,
   VIDU_REFERENCE,
   VIDU_IMG2VIDEO,
+  SEEDANCE_VIDEO,
+  HAPPYHORSE_VIDEO,
+  IMAGE_GENERATION,
 ]
 
 /** 返回命中的族定义；没有专属定义时返回 undefined，由调用方回落到通用逻辑。 */

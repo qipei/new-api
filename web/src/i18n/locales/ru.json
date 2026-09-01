@@ -5543,6 +5543,24 @@
     "Positive values encourage the model to introduce new topics.": "Positive values encourage the model to introduce new topics.",
     "Forces a reply shape, for example JSON. Support varies by upstream and is ignored where unavailable.": "Forces a reply shape, for example JSON. Support varies by upstream and is ignored where unavailable.",
     "Function definitions the model may call. Pair it with tool_choice to force or forbid a call.": "Function definitions the model may call. Pair it with tool_choice to force or forbid a call.",
-    "Passed through to the upstream untouched. Use it for provider-specific fields that have no standard equivalent.": "Passed through to the upstream untouched. Use it for provider-specific fields that have no standard equivalent."
+    "Passed through to the upstream untouched. Use it for provider-specific fields that have no standard equivalent.": "Passed through to the upstream untouched. Use it for provider-specific fields that have no standard equivalent.",
+    "Text prompt describing the video. Billed per token, so a longer prompt costs slightly more.": "Text prompt describing the video. Billed per token, so a longer prompt costs slightly more.",
+    "Video length in seconds. 4-15 for the 2.0 family and 4-30 for 2.5; pass -1 to let the model decide.": "Video length in seconds. 4-15 for the 2.0 family and 4-30 for 2.5; pass -1 to let the model decide.",
+    "Resolution tier. The fast and mini variants only accept 480p and 720p.": "Resolution tier. The fast and mini variants only accept 480p and 720p.",
+    "Aspect ratio of the generated video, for example 16:9.": "Aspect ratio of the generated video, for example 16:9.",
+    "Generates a soundtrack together with the video. Not available on the 1.0 family.": "Generates a soundtrack together with the video. Not available on the 1.0 family.",
+    "Locks the camera so the scene is rendered without camera movement.": "Locks the camera so the scene is rendered without camera movement.",
+    "Text description of the image to generate.": "Text description of the image to generate.",
+    "Output size as WxH, for example 1024x1024. It selects the billing tier, so the price follows the size you ask for.": "Output size as WxH, for example 1024x1024. It selects the billing tier, so the price follows the size you ask for.",
+    "Number of images to generate. Every image is billed, so the cost scales with this value.": "Number of images to generate. Every image is billed, so the cost scales with this value.",
+    "Reference image URL. Supplying it switches the request to image editing, which is priced separately from text-to-image.": "Reference image URL. Supplying it switches the request to image editing, which is priced separately from text-to-image.",
+    "Model name. The suffix selects the task: t2v for text, i2v for a single image, r2v for reference images and video-edit for editing an existing clip.": "Model name. The suffix selects the task: t2v for text, i2v for a single image, r2v for reference images and video-edit for editing an existing clip.",
+    "Text prompt describing the video. Required for every variant except image-to-video.": "Text prompt describing the video. Required for every variant except image-to-video.",
+    "Resolution tier. Defaults to 1080P; the video-edit model does not accept 480P.": "Resolution tier. Defaults to 1080P; the video-edit model does not accept 480P.",
+    "Aspect ratio of the generated video. Not accepted by the video-edit model, which follows the input clip.": "Aspect ratio of the generated video. Not accepted by the video-edit model, which follows the input clip.",
+    "Only for the video-edit model: auto regenerates the soundtrack, origin keeps the sound of the input clip.": "Only for the video-edit model: auto regenerates the soundtrack, origin keeps the sound of the input clip.",
+    "Input image URL. The i2v model accepts exactly one; the r2v model takes reference images.": "Input image URL. The i2v model accepts exactly one; the r2v model takes reference images.",
+    "Input video URL. Only the video-edit model uses it, and its duration decides the billed length.": "Input video URL. Only the video-edit model uses it, and its duration decides the billed length.",
+    "Image editing": "Image editing"
   }
 }

@@ -953,3 +953,46 @@ func TestConvertToAliRequestMiniMaxResolvesEveryResolutionForm(t *testing.T) {
 		assert.Equal(t, tc.want, pointerString(aliReq.Parameters.Resolution), "size=%q", tc.size)
 	}
 }
+
+// 2K 档的 usage.SR 是字符串 "2K"，而 768p 档是数字 720。把它当数字解析会让
+// 整条响应反序列化失败，任务永远停在未完成状态：上游已经出片，我们却既不结算
+// 也不返回结果，直到 24 小时后被超时清理并退款，白白承担上游成本。
+// 这是线上真实发生过的故障，响应体取自百炼实际返回。
+func TestParseTaskResultAcceptsNonNumericResolutionTier(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"request_id": "126ce98e",
+		"output": {
+			"task_id": "5b4716db",
+			"task_status": "SUCCEEDED",
+			"video_url": "https://example.com/2k.mp4"
+		},
+		"usage": {"SR": "2K", "duration": 5, "image_count": 0, "input_seconds": 0,
+		          "output_seconds": 5, "size": "2560*1440", "total_seconds": 5, "video_count": 1}
+	}`)
+
+	result, err := adaptor.ParseTaskResult(body)
+
+	require.NoError(t, err)
+	assert.Equal(t, model.TaskStatusSuccess, result.Status)
+	assert.Equal(t, "https://example.com/2k.mp4", result.Url)
+	assert.Equal(t, 5.0, result.BillingDuration)
+}
+
+// 计费统计只影响结算口径，任何一个字段形状意外都不该让任务永远卡住。
+// 状态与结果地址必须照常解析出来。
+func TestParseTaskResultSurvivesUnparsableUsage(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	body := []byte(`{
+		"output": {"task_status": "SUCCEEDED", "task_id": "t", "video_url": "https://example.com/v.mp4"},
+		"usage": {"duration": {"unexpected": "shape"}}
+	}`)
+
+	result, err := adaptor.ParseTaskResult(body)
+
+	require.NoError(t, err)
+	assert.Equal(t, model.TaskStatusSuccess, result.Status)
+	assert.Equal(t, "https://example.com/v.mp4", result.Url)
+	// 拿不到用量时退回按请求参数计费，而不是卡住任务。
+	assert.Zero(t, result.BillingDuration)
+}

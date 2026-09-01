@@ -5543,6 +5543,24 @@
     "Positive values encourage the model to introduce new topics.": "存在惩罚，取值 -2~2。正值鼓励模型引入新话题。",
     "Forces a reply shape, for example JSON. Support varies by upstream and is ignored where unavailable.": "约束回复格式（如 JSON）。各上游支持程度不同，不支持时会被忽略。",
     "Function definitions the model may call. Pair it with tool_choice to force or forbid a call.": "可供模型调用的函数定义。配合 tool_choice 可强制或禁止调用。",
-    "Passed through to the upstream untouched. Use it for provider-specific fields that have no standard equivalent.": "原样透传给上游。用于没有标准对应项的供应商特有字段。"
+    "Passed through to the upstream untouched. Use it for provider-specific fields that have no standard equivalent.": "原样透传给上游。用于没有标准对应项的供应商特有字段。",
+    "Text prompt describing the video. Billed per token, so a longer prompt costs slightly more.": "描述视频内容的文本提示词。按 token 计费，提示词越长费用略高。",
+    "Video length in seconds. 4-15 for the 2.0 family and 4-30 for 2.5; pass -1 to let the model decide.": "生成视频的时长（秒）。2.0 系列 4~15，2.5 系列 4~30；传 -1 由模型自行决定。",
+    "Resolution tier. The fast and mini variants only accept 480p and 720p.": "分辨率档位。fast 与 mini 变体仅支持 480p 和 720p。",
+    "Aspect ratio of the generated video, for example 16:9.": "生成视频的画面宽高比，例如 16:9。",
+    "Generates a soundtrack together with the video. Not available on the 1.0 family.": "是否同时生成配音/音效。1.0 系列不支持。",
+    "Locks the camera so the scene is rendered without camera movement.": "锁定镜头，生成不含运镜的画面。",
+    "Text description of the image to generate.": "描述要生成图片内容的文本。",
+    "Output size as WxH, for example 1024x1024. It selects the billing tier, so the price follows the size you ask for.": "输出尺寸，格式为「宽x高」，例如 1024x1024。该值决定命中的计费档位，价格随尺寸变化。",
+    "Number of images to generate. Every image is billed, so the cost scales with this value.": "生成图片的张数。每张都计费，费用随该值成比例增加。",
+    "Reference image URL. Supplying it switches the request to image editing, which is priced separately from text-to-image.": "参考图 URL。传入后即为图片编辑，其计价档位与文生图不同。",
+    "Model name. The suffix selects the task: t2v for text, i2v for a single image, r2v for reference images and video-edit for editing an existing clip.": "模型名称。后缀决定任务类型：t2v 文生视频、i2v 单图生视频、r2v 参考图生视频、video-edit 视频编辑。",
+    "Text prompt describing the video. Required for every variant except image-to-video.": "描述视频内容的文本提示词。除图生视频外的变体均必填。",
+    "Resolution tier. Defaults to 1080P; the video-edit model does not accept 480P.": "分辨率档位。默认 1080P；视频编辑模型不支持 480P。",
+    "Aspect ratio of the generated video. Not accepted by the video-edit model, which follows the input clip.": "生成视频的画面宽高比。视频编辑模型不接受该项，以输入视频为准。",
+    "Only for the video-edit model: auto regenerates the soundtrack, origin keeps the sound of the input clip.": "仅视频编辑模型可用：auto 重新生成声音，origin 保留输入视频原声。",
+    "Input image URL. The i2v model accepts exactly one; the r2v model takes reference images.": "输入图片 URL。i2v 模型只接受一张；r2v 模型接收参考图。",
+    "Input video URL. Only the video-edit model uses it, and its duration decides the billed length.": "输入视频 URL。仅视频编辑模型使用，其时长决定计费时长。",
+    "Image editing": "图片编辑"
   }
 }

@@ -55,7 +55,11 @@ describe('model API specs', () => {
   test('does not pull sibling models with a different endpoint into a family', () => {
     assert.equal(findModelApiSpec('kling-3.0-video')?.family, 'kling-video')
     assert.equal(findModelApiSpec('kling-3.0-Omni')?.family, 'kling-video')
-    assert.equal(findModelApiSpec('Kling-3.0-image'), undefined)
+    // 图片模型必须归到图片族，绝不能落进视频族。
+    assert.equal(
+      findModelApiSpec('Kling-3.0-image')?.family,
+      'image-generation'
+    )
   })
 
   // Vidu 的两个族请求协议不同，参考生视频收多张图，图生视频只收一张。

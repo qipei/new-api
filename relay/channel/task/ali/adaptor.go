@@ -2,6 +2,7 @@ package ali
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -91,7 +92,28 @@ type AliVideoResponse struct {
 	RequestID string         `json:"request_id"`
 	Code      string         `json:"code,omitempty"`
 	Message   string         `json:"message,omitempty"`
-	Usage     *AliUsage      `json:"usage,omitempty"`
+	// Usage 延迟解析：它只用于计费统计，而任何一个字段的形状意外都不应该
+	// 让整条任务解析失败、从而永远停在未完成状态。
+	Usage json.RawMessage `json:"usage,omitempty"`
+}
+
+// aliStringValue 接受字符串或数字，统一按字符串保存。
+// 上游同一个字段在不同档位下会给出不同的 JSON 类型，用严格类型会导致整条
+// 响应解析失败。
+type aliStringValue string
+
+func (value *aliStringValue) UnmarshalJSON(data []byte) error {
+	var text string
+	if err := common.Unmarshal(data, &text); err == nil {
+		*value = aliStringValue(text)
+		return nil
+	}
+	var number json.Number
+	if err := common.Unmarshal(data, &number); err != nil {
+		return err
+	}
+	*value = aliStringValue(number.String())
+	return nil
 }
 
 type aliFloatValue float64
@@ -135,8 +157,10 @@ type AliUsage struct {
 	InputVideoDuration  aliFloatValue `json:"input_video_duration,omitempty"`
 	OutputVideoDuration aliFloatValue `json:"output_video_duration,omitempty"`
 	VideoCount          dto.IntValue  `json:"video_count,omitempty"`
-	SR                  dto.IntValue  `json:"SR,omitempty"`
-	Ratio               string        `json:"ratio,omitempty"`
+	// SR 是分辨率档位。上游两种形态都出现过：768p 档返回数字 720，
+	// 2K 档返回字符串 "2K"，因此必须两者都能接住。
+	SR    aliStringValue `json:"SR,omitempty"`
+	Ratio string         `json:"ratio,omitempty"`
 	// ImageCount 是超出免费额度、需要计费的输入图张数（5 张以内返回 0，
 	// 7 张返回 2）。不解析它就等于把这部分上游成本白送。
 	ImageCount dto.IntValue `json:"image_count,omitempty"`
@@ -1377,6 +1401,21 @@ func (a *TaskAdaptor) GetChannelName() string {
 	return ChannelName
 }
 
+// parseAliUsage 解析计费统计。解析失败只记录并返回 nil：拿不到用量最多让这次
+// 结算退回按请求参数计费，而让整条任务解析失败会使它永远停在未完成状态、
+// 直到 24 小时后被超时清理，用户既拿不到已生成的结果也白等一天。
+func parseAliUsage(raw json.RawMessage) *AliUsage {
+	if len(raw) == 0 {
+		return nil
+	}
+	var usage AliUsage
+	if err := common.Unmarshal(raw, &usage); err != nil {
+		common.SysError(fmt.Sprintf("ali task usage unmarshal failed, billing falls back to request parameters: %s; raw=%s", err.Error(), string(raw)))
+		return nil
+	}
+	return &usage
+}
+
 // ParseTaskResult 解析任务结果
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {
 	var aliResp AliVideoResponse
@@ -1399,11 +1438,11 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		// 阿里直接返回视频URL，不需要额外的代理端点
 		taskResult.Url = aliResp.Output.VideoURL
 		taskResult.RemoteUrl = aliResp.Output.WatermarkVideoURL
-		if aliResp.Usage != nil {
-			if count := int(aliResp.Usage.ImageCount); count > 0 {
+		if usage := parseAliUsage(aliResp.Usage); usage != nil {
+			if count := int(usage.ImageCount); count > 0 {
 				taskResult.BillableImageCount = count
 			}
-			duration := float64(aliResp.Usage.Duration)
+			duration := float64(usage.Duration)
 			if duration > 0 {
 				if duration > float64(relaycommon.MaxTaskDurationSeconds) {
 					taskResult.Duration = relaycommon.MaxTaskDurationSeconds

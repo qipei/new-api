@@ -46,6 +46,7 @@ import {
   formatRateLimit,
   type SupportedParameter,
 } from '../lib/mock-stats'
+import { resolveModelApiParams } from '../lib/model-api-specs'
 import { replaceModelInPath } from '../lib/model-helpers'
 import type { PricingModel } from '../types'
 
@@ -554,8 +555,11 @@ function CodeSamplesSection(props: {
 
 function SupportedParametersSection(props: { model: PricingModel }) {
   const { t } = useTranslation()
+  // CUSTOM: 优先用按模型族维护的参数说明，未登记的模型回落到通用分类表。
   const params = useMemo(
-    () => buildSupportedParameters(props.model),
+    () =>
+      resolveModelApiParams(props.model) ??
+      buildSupportedParameters(props.model),
     [props.model]
   )
 

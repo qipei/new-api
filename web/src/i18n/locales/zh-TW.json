@@ -3278,7 +3278,7 @@
     "Open a source model first": "請先打開一個源模型",
     "Open CC Switch": "打開 CC Switch",
     "Open in chat": "在聊天中打開",
-    "Open in new tab": "在新標籤頁中打開",
+    "Open in new tab": "在新分頁開啟",
     "Open in New Tab": "在新標籤頁中打開",
     "Open menu": "打開選單",
     "Open Query Balance to view the upstream JSON response": "請開啟「查詢餘額」檢視上游 JSON 回應",
@@ -5501,6 +5501,15 @@
     "An AI tool for short dramas and comic dramas: the whole pipeline is AI-driven, so one person is a whole production team.": "豆影是一款 AI 短劇漫劇創作工具，全流程 AI 化，一個人就是一支短劇創作團隊。",
     "Loss": "虧損",
     "Invite users via your referral link and earn commission once they make a paid top-up. Transfer accumulated rewards to your balance anytime.": "透過邀請連結邀請好友註冊，好友付費儲值後即可賺取返佣。累計獎勵可隨時轉入餘額。",
-    "Optional additive component charged per billable input image reported by the provider.": "可選的附加項：依上游回傳的計費輸入圖張數收取。"
+    "Optional additive component charged per billable input image reported by the provider.": "可選的附加項：依上游回傳的計費輸入圖張數收取。",
+    "Video Preview": "影片預覽",
+    "Model name, e.g. MiniMax-H3.": "Model name, e.g. MiniMax-H3.",
+    "Text prompt describing the video. Up to 7000 characters; longer input is rejected.": "Text prompt describing the video. Up to 7000 characters; longer input is rejected.",
+    "Video length in seconds. Billed per second, so a longer value costs proportionally more.": "Video length in seconds. Billed per second, so a longer value costs proportionally more.",
+    "Resolution tier. Accepts a tier name such as 768P or 2K, or a WxH size that is mapped to the nearest tier by its long edge.": "Resolution tier. Accepts a tier name such as 768P or 2K, or a WxH size that is mapped to the nearest tier by its long edge.",
+    "Aspect ratio. Required for text-to-video and must not be adaptive there. For image-to-video the ratio follows the input image and this value is ignored.": "Aspect ratio. Required for text-to-video and must not be adaptive there. For image-to-video the ratio follows the input image and this value is ignored.",
+    "First-frame image URL. Supplying it switches the request to image-to-video; a second image becomes the last frame.": "First-frame image URL. Supplying it switches the request to image-to-video; a second image becomes the last frame.",
+    "Adds an \"AI generated\" watermark to the bottom-right corner of the output.": "Adds an \"AI generated\" watermark to the bottom-right corner of the output.",
+    "Image to video (first frame)": "Image to video (first frame)"
   }
 }

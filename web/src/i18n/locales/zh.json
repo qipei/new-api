@@ -3278,7 +3278,7 @@
     "Open a source model first": "请先打开一个源模型",
     "Open CC Switch": "打开 CC Switch",
     "Open in chat": "在聊天中打开",
-    "Open in new tab": "在新标签页中打开",
+    "Open in new tab": "在新标签页打开",
     "Open in New Tab": "在新标签页中打开",
     "Open menu": "打开菜单",
     "Open Query Balance to view the upstream JSON response": "请打开“查询余额”查看上游 JSON 响应",
@@ -5501,6 +5501,15 @@
     "An AI tool for short dramas and comic dramas: the whole pipeline is AI-driven, so one person is a whole production team.": "豆影是一款 AI 短剧漫剧创作工具，全流程 AI 化，一个人就是一支短剧创作团队。",
     "Loss": "亏损",
     "Invite users via your referral link and earn commission once they make a paid top-up. Transfer accumulated rewards to your balance anytime.": "通过邀请链接邀请好友注册，好友付费充值后即可赚取返佣。累计奖励可随时划转到余额。",
-    "Optional additive component charged per billable input image reported by the provider.": "可选的附加项：按上游返回的计费输入图张数收取。"
+    "Optional additive component charged per billable input image reported by the provider.": "可选的附加项：按上游返回的计费输入图张数收取。",
+    "Video Preview": "视频预览",
+    "Model name, e.g. MiniMax-H3.": "模型名称，例如 MiniMax-H3。",
+    "Text prompt describing the video. Up to 7000 characters; longer input is rejected.": "描述视频内容的文本提示词。最长 7000 字符，超出会被拒绝。",
+    "Video length in seconds. Billed per second, so a longer value costs proportionally more.": "生成视频的时长（秒）。按秒计费，时长越长费用成比例增加。",
+    "Resolution tier. Accepts a tier name such as 768P or 2K, or a WxH size that is mapped to the nearest tier by its long edge.": "分辨率档位。可直接填档位名（如 768P、2K），也可填「宽*高」，系统按长边归入最接近的档位。",
+    "Aspect ratio. Required for text-to-video and must not be adaptive there. For image-to-video the ratio follows the input image and this value is ignored.": "画面宽高比。文生视频必填且不能填 adaptive；图生视频以输入图为准，此项会被忽略。",
+    "First-frame image URL. Supplying it switches the request to image-to-video; a second image becomes the last frame.": "首帧图片 URL。传入后即为图生视频；再传第二张则作为尾帧。",
+    "Adds an \"AI generated\" watermark to the bottom-right corner of the output.": "是否在输出视频右下角添加「AI生成」水印。",
+    "Image to video (first frame)": "图生视频（首帧）"
   }
 }

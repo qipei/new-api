@@ -5501,6 +5501,15 @@
     "An AI tool for short dramas and comic dramas: the whole pipeline is AI-driven, so one person is a whole production team.": "Un outil IA pour séries courtes et drames animés : tout le pipeline est piloté par l'IA, une personne suffit pour toute une équipe.",
     "Loss": "Perte",
     "Invite users via your referral link and earn commission once they make a paid top-up. Transfer accumulated rewards to your balance anytime.": "Invitez des utilisateurs via votre lien de parrainage et gagnez une commission dès qu'ils effectuent une recharge payante. Transférez vos gains cumulés vers votre solde à tout moment.",
-    "Optional additive component charged per billable input image reported by the provider.": "Composant additif facultatif, facturé par image d'entrée facturable remontée par le fournisseur."
+    "Optional additive component charged per billable input image reported by the provider.": "Composant additif facultatif, facturé par image d'entrée facturable remontée par le fournisseur.",
+    "Video Preview": "Aperçu vidéo",
+    "Model name, e.g. MiniMax-H3.": "Model name, e.g. MiniMax-H3.",
+    "Text prompt describing the video. Up to 7000 characters; longer input is rejected.": "Text prompt describing the video. Up to 7000 characters; longer input is rejected.",
+    "Video length in seconds. Billed per second, so a longer value costs proportionally more.": "Video length in seconds. Billed per second, so a longer value costs proportionally more.",
+    "Resolution tier. Accepts a tier name such as 768P or 2K, or a WxH size that is mapped to the nearest tier by its long edge.": "Resolution tier. Accepts a tier name such as 768P or 2K, or a WxH size that is mapped to the nearest tier by its long edge.",
+    "Aspect ratio. Required for text-to-video and must not be adaptive there. For image-to-video the ratio follows the input image and this value is ignored.": "Aspect ratio. Required for text-to-video and must not be adaptive there. For image-to-video the ratio follows the input image and this value is ignored.",
+    "First-frame image URL. Supplying it switches the request to image-to-video; a second image becomes the last frame.": "First-frame image URL. Supplying it switches the request to image-to-video; a second image becomes the last frame.",
+    "Adds an \"AI generated\" watermark to the bottom-right corner of the output.": "Adds an \"AI generated\" watermark to the bottom-right corner of the output.",
+    "Image to video (first frame)": "Image to video (first frame)"
   }
 }

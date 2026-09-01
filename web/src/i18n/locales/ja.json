@@ -5501,6 +5501,15 @@
     "An AI tool for short dramas and comic dramas: the whole pipeline is AI-driven, so one person is a whole production team.": "短編ドラマ・マンガドラマ制作の AI ツール。全工程が AI 化され、一人で制作チームに。",
     "Loss": "赤字",
     "Invite users via your referral link and earn commission once they make a paid top-up. Transfer accumulated rewards to your balance anytime.": "招待リンクから友だちが登録し、有料チャージを行うとコミッションを獲得できます。獲得した報酬はいつでも残高に振り替えられます。",
-    "Optional additive component charged per billable input image reported by the provider.": "任意の加算項目：上流が返す課金対象の入力画像枚数に応じて課金します。"
+    "Optional additive component charged per billable input image reported by the provider.": "任意の加算項目：上流が返す課金対象の入力画像枚数に応じて課金します。",
+    "Video Preview": "動画プレビュー",
+    "Model name, e.g. MiniMax-H3.": "Model name, e.g. MiniMax-H3.",
+    "Text prompt describing the video. Up to 7000 characters; longer input is rejected.": "Text prompt describing the video. Up to 7000 characters; longer input is rejected.",
+    "Video length in seconds. Billed per second, so a longer value costs proportionally more.": "Video length in seconds. Billed per second, so a longer value costs proportionally more.",
+    "Resolution tier. Accepts a tier name such as 768P or 2K, or a WxH size that is mapped to the nearest tier by its long edge.": "Resolution tier. Accepts a tier name such as 768P or 2K, or a WxH size that is mapped to the nearest tier by its long edge.",
+    "Aspect ratio. Required for text-to-video and must not be adaptive there. For image-to-video the ratio follows the input image and this value is ignored.": "Aspect ratio. Required for text-to-video and must not be adaptive there. For image-to-video the ratio follows the input image and this value is ignored.",
+    "First-frame image URL. Supplying it switches the request to image-to-video; a second image becomes the last frame.": "First-frame image URL. Supplying it switches the request to image-to-video; a second image becomes the last frame.",
+    "Adds an \"AI generated\" watermark to the bottom-right corner of the output.": "Adds an \"AI generated\" watermark to the bottom-right corner of the output.",
+    "Image to video (first frame)": "Image to video (first frame)"
   }
 }

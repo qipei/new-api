@@ -344,28 +344,37 @@ func isAliKlingVideoModel(model string) bool {
 	return strings.HasPrefix(model, "kling/kling-v3-")
 }
 
-// viduResolutionForSize 按百炼文档的 size 取值表推导 Vidu 的分辨率档位。
-// 文档的三档按长边区分：540P 最长 1024、720P 最长 1280、1080P 到 1920。
-func viduResolutionForSize(size string) (string, bool) {
+// longEdgeOfSize 解析「宽*高」并返回长边；分辨率档位都按长边区分。
+func longEdgeOfSize(size string) (int, bool) {
 	parts := strings.Split(strings.ToLower(strings.TrimSpace(size)), "*")
 	if len(parts) != 2 {
-		return "", false
+		return 0, false
 	}
 	width, err := strconv.Atoi(strings.TrimSpace(parts[0]))
 	if err != nil {
-		return "", false
+		return 0, false
 	}
 	height, err := strconv.Atoi(strings.TrimSpace(parts[1]))
 	if err != nil {
-		return "", false
+		return 0, false
 	}
-	longEdge := width
-	if height > longEdge {
-		longEdge = height
+	if height > width {
+		width = height
+	}
+	if width <= 0 {
+		return 0, false
+	}
+	return width, true
+}
+
+// viduResolutionForSize 按百炼文档的 size 取值表推导 Vidu 的分辨率档位。
+// 文档的三档按长边区分：540P 最长 1024、720P 最长 1280、1080P 到 1920。
+func viduResolutionForSize(size string) (string, bool) {
+	longEdge, ok := longEdgeOfSize(size)
+	if !ok {
+		return "", false
 	}
 	switch {
-	case longEdge <= 0:
-		return "", false
 	case longEdge <= 1024:
 		return "540P", true
 	case longEdge <= 1280:
@@ -809,9 +818,8 @@ func validateAliThirdPartyVideoRequest(aliReq *AliVideoRequest) error {
 // driving_audio）互斥，上游不接受混用。
 func validateAliMiniMaxRequest(aliReq *AliVideoRequest) error {
 	parameters := aliReq.Parameters
-	if resolution := strings.ToUpper(pointerString(parameters.Resolution)); resolution != "" &&
-		resolution != "768P" && resolution != "2K" {
-		return fmt.Errorf("MiniMax parameters.resolution must be 768P or 2K")
+	if resolution := strings.ToUpper(pointerString(parameters.Resolution)); resolution != "768P" && resolution != "2K" {
+		return fmt.Errorf("MiniMax parameters.resolution must be 768P or 2K, got %q", resolution)
 	}
 	switch ratio := pointerString(parameters.Ratio); ratio {
 	case "", "adaptive", "16:9", "9:16", "1:1", "4:3", "3:4", "21:9":
@@ -1138,6 +1146,16 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 			parameters.Size = lo.ToPtr(req.Size)
 			// 只发 size 时上游会忽略它并强制按 720P 出片（见百炼 Vidu 文档 FAQ），
 			// 而我们按 size 取价，两边就对不上；补出 resolution 一起发。
+			if isAliMiniMaxVideoModel(upstreamModel) && parameters.Resolution == nil {
+				// MiniMax 只有 768P/2K 两档，按长边归档。
+				if longEdge, ok := longEdgeOfSize(req.Size); ok {
+					if longEdge > 1280 {
+						parameters.Resolution = lo.ToPtr("2K")
+					} else {
+						parameters.Resolution = lo.ToPtr("768P")
+					}
+				}
+			}
 			if isAliViduVideoModel(upstreamModel) && parameters.Resolution == nil {
 				if resolution, ok := viduResolutionForSize(req.Size); ok {
 					parameters.Resolution = lo.ToPtr(resolution)
@@ -1149,9 +1167,11 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 				parameters.Size = nil
 			}
 		} else {
+			// 万相用「720」这种纯数字表示档位，需要补 P；而 2K/4K 本身就是完整
+			// 档位名，补 P 会得到 2KP 这种非法值。只对纯数字补。
 			resolution := strings.ToUpper(req.Size)
-			if !strings.HasSuffix(resolution, "P") {
-				resolution = resolution + "P"
+			if _, err := strconv.Atoi(resolution); err == nil {
+				resolution += "P"
 			}
 			parameters.Resolution = lo.ToPtr(resolution)
 		}
@@ -1159,6 +1179,8 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 		// 根据模型设置默认分辨率
 		if isAliHappyHorseModel(upstreamModel) {
 			parameters.Resolution = lo.ToPtr("1080P")
+		} else if isAliMiniMaxVideoModel(upstreamModel) {
+			parameters.Resolution = lo.ToPtr("768P")
 		} else if isAliViduVideoModel(upstreamModel) {
 			// 不传 resolution 时上游按 720P 出片（短剧模型默认 1080P），
 			// 而取价用的是这个字段，留空会落到默认档从而与实际出片不符。

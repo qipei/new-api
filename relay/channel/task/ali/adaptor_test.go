@@ -724,8 +724,9 @@ func TestValidateAliMiniMaxRejectsMixedMediaAndOutOfRangeDuration(t *testing.T) 
 			Model: "MiniMax/MiniMax-H3",
 			Input: AliVideoInput{Prompt: "p"},
 			Parameters: &AliVideoParameters{
-				Duration: lo.ToPtr(5),
-				Ratio:    lo.ToPtr("16:9"),
+				Duration:   lo.ToPtr(5),
+				Ratio:      lo.ToPtr("16:9"),
+				Resolution: lo.ToPtr("768P"),
 			},
 		}
 	}
@@ -925,4 +926,30 @@ func TestConvertToAliRequestKlingAcceptsFourKOnEveryEntryPoint(t *testing.T) {
 	turbo.Model = "kling/kling-v3-turbo-video-generation"
 	_, err := adaptor.convertToAliRequest(testRelayInfo(), turbo)
 	require.ErrorContains(t, err, "does not support 4k mode")
+}
+
+// "2K" is a complete tier name; the generic Wan heuristic that turns "720" into
+// "720P" must not turn it into "2KP", which the upstream rejects. Resolution is a
+// required upstream field, so it also needs a default and a WxH fallback.
+func TestConvertToAliRequestMiniMaxResolvesEveryResolutionForm(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	for _, tc := range []struct{ size, want string }{
+		{"768P", "768P"},
+		{"768p", "768P"},
+		{"2K", "2K"},
+		{"2k", "2K"},
+		{"1280*720", "768P"},
+		{"2560*1440", "2K"},
+		{"", "768P"},
+	} {
+		req := relaycommon.TaskSubmitReq{
+			Model: "MiniMax/MiniMax-H3", Prompt: "p", Size: tc.size, Duration: 5,
+			Metadata: map[string]interface{}{"parameters": map[string]interface{}{"ratio": "16:9"}},
+		}
+
+		aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), req)
+
+		require.NoError(t, err, "size=%q", tc.size)
+		assert.Equal(t, tc.want, pointerString(aliReq.Parameters.Resolution), "size=%q", tc.size)
+	}
 }

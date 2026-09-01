@@ -67,19 +67,3 @@ export function withGroupBillingExpr(
   })
   return changed ? resolved : models
 }
-
-/** 该模型在哪些分组上偏离了模型级表达式，用于在详情里说明"价格因分组而异"。 */
-export function groupsWithBillingExprOverride(model: PricingModel): string[] {
-  const overrides = model.group_billing_expr
-  if (!overrides) return []
-  const enabled = Array.isArray(model.enable_groups) ? model.enable_groups : []
-  const base = baseBillingExpr(model)
-  return Object.keys(overrides)
-    .filter((group) => {
-      const expr = overrides[group]
-      if (!expr || !expr.trim()) return false
-      if (expr === base) return false
-      return enabled.length === 0 || enabled.includes(group)
-    })
-    .sort((a, b) => a.localeCompare(b))
-}

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 
 import type { PricingModel } from '../../types'
 import {
-  groupsWithBillingExprOverride,
   resolveBillingExprForGroup,
   withGroupBillingExpr,
 } from '../group-billing-expr'
@@ -69,24 +68,6 @@ describe('withGroupBillingExpr', () => {
   })
 })
 
-describe('groupsWithBillingExprOverride', () => {
-  it('lists only enabled groups whose expression actually differs', () => {
-    const m = model({
-      group_billing_expr: {
-        '8.8折': NIGHT_EXPR,
-        default: MODEL_EXPR, // 与模型级相同，不算差异
-        '5折': NIGHT_EXPR, // 该模型未启用这个分组
-        blank: '  ',
-      },
-    })
-    expect(groupsWithBillingExprOverride(m)).toEqual(['8.8折'])
-  })
-
-  it('returns nothing when the model has no overrides', () => {
-    expect(groupsWithBillingExprOverride(model())).toEqual([])
-  })
-})
-
 // 选中分组的覆盖会替换 billing_expr，其它分组回落时必须拿到模型级原件，
 // 否则详情里的"按分组定价"会把选中分组的价格当成所有分组的价格。
 describe('base expression preservation', () => {
@@ -99,7 +80,6 @@ describe('base expression preservation', () => {
     expect(swapped.billing_expr).toBe(NIGHT_EXPR)
     expect(resolveBillingExprForGroup(swapped, 'default')).toBe(MODEL_EXPR)
     expect(resolveBillingExprForGroup(swapped, '8.8折')).toBe(NIGHT_EXPR)
-    expect(groupsWithBillingExprOverride(swapped)).toEqual(['8.8折'])
   })
 
   it('does not re-capture the base on a second swap', () => {

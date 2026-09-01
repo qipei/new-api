@@ -63,6 +63,7 @@ import { usePricingData } from '../hooks/use-pricing-data'
 import {
   getDynamicPriceEntries,
   getDynamicPricingSummary,
+  hasDynamicRequestRules,
   getDynamicPricingTiers,
   isDynamicPricingModel,
 } from '../lib/dynamic-price'
@@ -77,7 +78,6 @@ import type {
   TokenUnit,
 } from '../types'
 import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
-import { GroupBillingExprNotice } from './group-billing-expr-notice'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelDetailsApi } from './model-details-api'
 import { ModelDetailsPerformance } from './model-details-performance'
@@ -1175,6 +1175,17 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
     props.model.billing_mode === 'tiered_expr' &&
     Boolean(props.model.billing_expr)
 
+  // CUSTOM: 下面的"按分组定价"会按每个分组各自的表达式把档位列全，上面的
+  // 基础价格和 1x 分档表就成了同一份信息的重复——而且分组可以各配各的表达式
+  // 之后，1x 那份价格可能对任何一个分组都不成立。有分组价格表时就不再重复展示，
+  // 只在请求规则倍率存在时保留动态计费那一块（分组表里没有请求规则）。
+  const hasGroupPricing =
+    !hasMatrixPricing &&
+    getAvailableGroups(props.model, props.usableGroup || {}).length > 0
+  const collapseBasePricing = isDynamic && hasGroupPricing
+  const showDynamicBreakdown =
+    isDynamic && (!collapseBasePricing || hasDynamicRequestRules(props.model))
+
   return (
     <div className='@container/details space-y-4'>
       <ModelHeader model={props.model} />
@@ -1201,7 +1212,7 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
 
           <section className='bg-card/60 space-y-5 rounded-xl border p-4 shadow-sm'>
             <SectionTitle>{t('Pricing')}</SectionTitle>
-            {!hasMatrixPricing && (
+            {!hasMatrixPricing && !collapseBasePricing && (
               <PriceSection
                 model={props.model}
                 priceRate={props.priceRate}
@@ -1210,11 +1221,12 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
                 showRechargePrice={showRechargePrice}
               />
             )}
-            {isDynamic && (
-              <DynamicPricingBreakdown billingExpr={props.model.billing_expr} />
+            {showDynamicBreakdown && (
+              <DynamicPricingBreakdown
+                billingExpr={props.model.billing_expr}
+                hideTiers={collapseBasePricing}
+              />
             )}
-            {/* CUSTOM: 分组级表达式覆盖提示（fork 扩展） */}
-            <GroupBillingExprNotice model={props.model} />
             {/* CUSTOM: 视频价格矩阵（fork 扩展） */}
             <VideoPriceSection
               model={props.model}

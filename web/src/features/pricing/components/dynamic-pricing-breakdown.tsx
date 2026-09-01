@@ -68,6 +68,12 @@ type DynamicPricingBreakdownProps = {
    * icon header and uses the dialog's small text sizes. Defaults to false.
    */
   compact?: boolean
+  /**
+   * CUSTOM: 隐藏分档价格表，只保留请求规则倍率。模型详情在有"按分组定价"表时
+   * 传这个：那张表已经按每个分组各自的表达式列全了档位，这里再列一遍 1x 的
+   * 档位既重复，倍率也可能对谁都不成立。请求规则分组表里没有，所以留着。
+   */
+  hideTiers?: boolean
 }
 
 const VAR_LABELS: Record<string, string> = {
@@ -173,6 +179,7 @@ export function DynamicPricingBreakdown({
   requestRules,
   hideCacheColumns = false,
   compact = false,
+  hideTiers = false,
 }: DynamicPricingBreakdownProps) {
   const { t } = useTranslation()
   const expr = billingExpr || ''
@@ -268,7 +275,7 @@ export function DynamicPricingBreakdown({
         </div>
       )}
 
-      {hasTiers && (
+      {hasTiers && !hideTiers && (
         <div className={cn(compact ? cn(hasRules && 'mb-2') : 'mb-3 sm:mb-4')}>
           <div
             className={

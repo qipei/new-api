@@ -5588,6 +5588,7 @@
     "Not started": "Pas commencé",
     "Ended": "Terminé",
     "Participating groups (none selected means every group)": "Groupes participants (aucun sélectionné = tous les groupes)",
-    "Effective discount after stacking with the group ratio": "Remise effective après cumul avec le ratio de groupe"
+    "Effective discount after stacking with the group ratio": "Remise effective après cumul avec le ratio de groupe",
+    "Promotion": "Promotion"
   }
 }

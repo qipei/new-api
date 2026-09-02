@@ -70,6 +70,11 @@ import {
 import { parseTags } from '../lib/filters'
 import { resolveBillingExprForGroup } from '../lib/group-billing-expr'
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
+// CUSTOM: 限时活动（fork 扩展）
+import {
+  activePromotionForGroup,
+  effectiveGroupRatio,
+} from '../lib/model-promotion'
 import { formatFixedPrice, formatGroupPrice } from '../lib/price'
 import type {
   ModelCapability,
@@ -81,6 +86,7 @@ import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelDetailsApi } from './model-details-api'
 import { ModelDetailsPerformance } from './model-details-performance'
+import { PromotionBadge } from './promotion-badge'
 import { VideoPriceSection } from './video-price-section'
 
 // ----------------------------------------------------------------------------
@@ -579,6 +585,7 @@ function PriceSection(props: {
   const { t } = useTranslation()
   const isTokenBased = isTokenBasedModel(props.model)
   const tokenUnitLabel = props.tokenUnit === 'K' ? '1K' : '1M'
+
   const baseGroupKey = '_base'
   const baseGroupRatioMap = { [baseGroupKey]: 1 }
   const dynamicSummary = getDynamicPricingSummary(props.model, {
@@ -873,6 +880,23 @@ function GroupPricingSection(props: {
   const isTokenBased = isTokenBasedModel(props.model)
   const tokenUnitLabel = props.tokenUnit === 'K' ? '1K' : '1M'
 
+  // CUSTOM: 后端把活动倍率乘进了实际计费的 GroupRatio，这里也必须乘进展示用的
+  // 倍率——否则页面显示原价、实际按活动价扣费，两边对不上。
+  const promotionOf = (group: string) =>
+    activePromotionForGroup(props.model, group)
+
+  const effectiveRatios = useMemo(() => {
+    const out: Record<string, number> = { ...props.groupRatio }
+    for (const group of availableGroups) {
+      out[group] = effectiveGroupRatio(
+        props.model,
+        group,
+        props.groupRatio[group] || 1
+      )
+    }
+    return out
+  }, [props.model, props.groupRatio, availableGroups])
+
   const extraPriceTypes = useMemo(() => {
     const types: { label: string; type: PriceType }[] = []
     if (props.model.cache_ratio != null) {
@@ -968,7 +992,7 @@ function GroupPricingSection(props: {
     )
     const formattedPricesByGroup = new Map(
       availableGroups.map((group) => {
-        const ratio = props.groupRatio[group] || 1
+        const ratio = effectiveRatios[group] || 1
         return [
           group,
           getDynamicFormattedPricesByTier(
@@ -991,7 +1015,8 @@ function GroupPricingSection(props: {
         <AutoGroupChain model={props.model} autoGroups={props.autoGroups} />
         <div className='space-y-3'>
           {availableGroups.map((group) => {
-            const ratio = props.groupRatio[group] || 1
+            const ratio = effectiveRatios[group] || 1
+            const promotion = promotionOf(group)
             const groupTiers = tiersByGroup.get(group) ?? dynamicTiers
             const formattedPricesByTier =
               formattedPricesByGroup.get(group) ??
@@ -999,10 +1024,19 @@ function GroupPricingSection(props: {
 
             return (
               <div key={group} className='overflow-hidden rounded-lg border'>
-                <div className='bg-muted/20 flex items-center justify-between gap-3 border-b px-3 py-2'>
-                  <GroupBadge group={group} size='sm' />
+                <div className='bg-muted/20 flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2'>
+                  <div className='flex flex-wrap items-center gap-2'>
+                    <GroupBadge group={group} size='sm' />
+                    {/* CUSTOM: 限时活动角标（fork 扩展） */}
+                    {promotion && <PromotionBadge promotion={promotion} />}
+                  </div>
                   <span className='text-muted-foreground font-mono text-xs'>
-                    {ratio}x
+                    {promotion && (
+                      <span className='mr-1 line-through opacity-60'>
+                        {props.groupRatio[group] || 1}x
+                      </span>
+                    )}
+                    {Number(ratio.toFixed(4))}x
                   </span>
                 </div>
                 <StaticDataTable
@@ -1053,7 +1087,7 @@ function GroupPricingSection(props: {
       showRechargePrice,
       props.priceRate,
       props.usdExchangeRate,
-      props.groupRatio
+      effectiveRatios
     )
   const renderFixedGroupPrice = (group: string) =>
     formatFixedPrice(
@@ -1062,7 +1096,7 @@ function GroupPricingSection(props: {
       showRechargePrice,
       props.priceRate,
       props.usdExchangeRate,
-      props.groupRatio
+      effectiveRatios
     )
 
   return (
@@ -1088,7 +1122,22 @@ function GroupPricingSection(props: {
             header: t('Ratio'),
             className: thClass,
             cellClassName: 'text-muted-foreground py-2.5 font-mono',
-            cell: (group) => `${props.groupRatio[group] || 1}x`,
+            // CUSTOM: 命中活动时展示"原倍率 → 活动后倍率"，并挂上活动角标。
+            cell: (group) => {
+              const promotion = promotionOf(group)
+              if (!promotion) return `${props.groupRatio[group] || 1}x`
+              return (
+                <span className='flex flex-wrap items-center gap-1.5'>
+                  <span className='line-through opacity-60'>
+                    {props.groupRatio[group] || 1}x
+                  </span>
+                  <span className='text-foreground'>
+                    {Number((effectiveRatios[group] || 1).toFixed(4))}x
+                  </span>
+                  <PromotionBadge promotion={promotion} compact />
+                </span>
+              )
+            },
           },
           ...(isTokenBased
             ? [

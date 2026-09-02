@@ -5588,6 +5588,7 @@
     "Not started": "未開始",
     "Ended": "已結束",
     "Participating groups (none selected means every group)": "參與分組（不選表示所有分組都參與）",
-    "Effective discount after stacking with the group ratio": "與分組倍率疊加後的實際折扣"
+    "Effective discount after stacking with the group ratio": "與分組倍率疊加後的實際折扣",
+    "Promotion": "活動"
   }
 }

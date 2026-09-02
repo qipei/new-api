@@ -5588,6 +5588,7 @@
     "Not started": "未開始",
     "Ended": "終了",
     "Participating groups (none selected means every group)": "対象グループ（未選択の場合はすべてのグループ）",
-    "Effective discount after stacking with the group ratio": "グループ倍率と掛け合わせた実際の割引"
+    "Effective discount after stacking with the group ratio": "グループ倍率と掛け合わせた実際の割引",
+    "Promotion": "キャンペーン"
   }
 }

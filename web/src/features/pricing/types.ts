@@ -56,6 +56,8 @@ export type PricingModel = {
   billing_expr?: string
   /** CUSTOM: 分组名 -> 表达式，覆盖该分组下的 billing_expr（fork 扩展） */
   group_billing_expr?: Record<string, string>
+  /** CUSTOM: 进行中的限时活动（fork 扩展）。后端只下发已开始且未结束的。 */
+  promotions?: ModelPromotionInfo[]
   /**
    * CUSTOM: 模型级表达式的原件（fork 扩展）。billing_expr 会被换成当前选中分组
    * 生效的那条，其它分组要回落时得拿这份原件，否则会错拿到选中分组的覆盖。
@@ -138,3 +140,12 @@ export type PriceType =
   | 'audio_input'
   | 'audio_output'
 export type QuotaType = 0 | 1 // 0: token-based, 1: per-request
+
+/** CUSTOM: 限时活动（fork 扩展）。groups 为空表示该模型所有分组都参与。 */
+export interface ModelPromotionInfo {
+  name: string
+  start: string
+  end: string
+  ratio: number
+  groups?: string[]
+}

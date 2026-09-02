@@ -5588,6 +5588,7 @@
     "Not started": "Не начата",
     "Ended": "Завершена",
     "Participating groups (none selected means every group)": "Участвующие группы (ничего не выбрано — все группы)",
-    "Effective discount after stacking with the group ratio": "Итоговая скидка с учётом коэффициента группы"
+    "Effective discount after stacking with the group ratio": "Итоговая скидка с учётом коэффициента группы",
+    "Promotion": "Акция"
   }
 }

@@ -80,6 +80,46 @@ func appendPromotionInfo(priceData hosttypes.PriceData, other map[string]interfa
 	other["promotion_name"] = priceData.GroupRatioInfo.PromotionName
 }
 
+// CUSTOM: 比价路由的选中依据（fork 扩展）。
+//
+// 比价路由下用户看到的分组是系统挑的，"为什么走了这个分组"必须能回答。倍率本身
+// 解释不了：候选里可能有更便宜的分组因为没有该模型的渠道、或者渠道全挂了而被跳过。
+//
+// 名次和候选总数放在外层，用户自己就能看到"当时是第几便宜"；完整的候选顺序放进
+// admin_info——它会暴露站点全部分组的相对价格，只该给管理员看。
+func appendPriceRoutingInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {
+	if ctx == nil || relayInfo == nil {
+		return
+	}
+	if relayInfo.TokenGroup != AutoPriceGroup {
+		return
+	}
+	other["price_routing"] = AutoPriceGroup
+
+	value, ok := common.GetContextKey(ctx, constant.ContextKeyPriceRankedGroups)
+	if !ok {
+		return
+	}
+	ranked, ok := value.([]string)
+	if !ok || len(ranked) == 0 {
+		return
+	}
+	other["price_candidate_count"] = len(ranked)
+	for i, group := range ranked {
+		if group == relayInfo.UsingGroup {
+			other["price_rank"] = i + 1
+			break
+		}
+	}
+
+	adminInfo, ok := other["admin_info"].(map[string]interface{})
+	if !ok || adminInfo == nil {
+		adminInfo = map[string]interface{}{}
+		other["admin_info"] = adminInfo
+	}
+	adminInfo["price_ranked_groups"] = append([]string(nil), ranked...)
+}
+
 func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelRatio, groupRatio, completionRatio float64,
 	cacheTokens int, cacheRatio float64, modelPrice float64, userGroupRatio float64) map[string]interface{} {
 	other := make(map[string]interface{})
@@ -121,6 +161,8 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	AppendChannelAffinityAdminInfo(ctx, adminInfo)
 
 	other["admin_info"] = adminInfo
+	// 必须排在上面那行之后：它是整体替换，早写进 admin_info 的内容会被丢掉。
+	appendPriceRoutingInfo(ctx, relayInfo, other)
 	appendRequestPath(ctx, relayInfo, other)
 	appendRequestConversionChain(relayInfo, other)
 	appendFinalRequestFormat(relayInfo, other)

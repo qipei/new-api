@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useQuery } from '@tanstack/react-query'
 // CUSTOM: 限时活动（fork 扩展）。整块自成一个 section，只在 section-registry 里
 // 挂一行，避免把新字段穿过上游的 ratio-settings-card → model-ratio-form 那条链路。
 import { Plus, Trash2 } from 'lucide-react'
@@ -26,13 +27,7 @@ import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { getPricing } from '@/features/pricing/api'
 
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
@@ -49,6 +44,7 @@ import {
   validatePromotion,
   type ModelPromotion,
 } from './model-promotion-core'
+import { PromotionModelPicker } from './promotion-model-picker'
 
 interface ModelPromotionSectionProps {
   /** billing_setting.model_promotions 的 JSON 字符串 */
@@ -99,13 +95,26 @@ export function ModelPromotionSection(props: ModelPromotionSectionProps) {
   )
   const [pendingModel, setPendingModel] = useState('')
 
+  // 只列模型广场上真实存在的模型：给没上架的模型配活动没有意义。接口取不到时
+  // 退回按倍率/价格表配置过的模型，免得整块选择器变空。
+  const { data: pricingData } = useQuery({
+    queryKey: ['pricing-models-for-promotions'],
+    queryFn: getPricing,
+    staleTime: 60_000,
+  })
   const modelNames = useMemo(() => {
+    const listed = (pricingData?.data || [])
+      .map((item) => item.model_name)
+      .filter(Boolean)
+    if (listed.length > 0) {
+      return [...new Set(listed)].sort((a, b) => a.localeCompare(b))
+    }
     const names = new Set([
       ...Object.keys(parseJsonRecord<number>(props.modelRatio)),
       ...Object.keys(parseJsonRecord<number>(props.modelPrice)),
     ])
     return [...names].sort((a, b) => a.localeCompare(b))
-  }, [props.modelRatio, props.modelPrice])
+  }, [pricingData, props.modelRatio, props.modelPrice])
 
   const groupRatios = useMemo(
     () => parseJsonRecord<number>(props.groupRatio) as Record<string, number>,
@@ -216,21 +225,11 @@ export function ModelPromotionSection(props: ModelPromotionSectionProps) {
       />
 
       <div className='flex flex-wrap items-center gap-2'>
-        <Select
+        <PromotionModelPicker
+          models={modelNames}
           value={pendingModel}
-          onValueChange={(value) => setPendingModel(value ?? '')}
-        >
-          <SelectTrigger className='w-72'>
-            <SelectValue placeholder={t('Select a model')} />
-          </SelectTrigger>
-          <SelectContent>
-            {modelNames.map((model) => (
-              <SelectItem key={model} value={model}>
-                {model}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          onChange={setPendingModel}
+        />
         <Button
           type='button'
           variant='outline'

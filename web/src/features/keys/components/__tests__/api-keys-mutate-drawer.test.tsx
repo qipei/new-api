@@ -210,7 +210,7 @@ describe('API keys mutate drawer Auto group integration', () => {
     await renderCreateDrawer()
 
     expect(screen.getByRole('alert')).toHaveTextContent(
-      'An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.'
+      'An API key in the auto or auto_price group can reach every model on the site with a single key. Keys in any other group can only reach the models in that group.'
     )
   })
 

@@ -440,22 +440,17 @@ export function ApiKeysMutateDrawer({
                       {!isUpdate ? (
                         <Alert className='border-primary/40 bg-primary/10 min-w-0 flex-1 px-3 py-1.5'>
                           <AlertDescription className='text-foreground text-xs leading-5 font-medium'>
-                            {/* CUSTOM: 比价路由有自己的说明（fork 扩展） */}
-                            {selectedGroup === AUTO_PRICE_GROUP ? (
-                              <>
+                            {/* CUSTOM: 两种自动路由共用同一句访问范围说明，比价
+                                路由再补一段自己的行为（fork 扩展）。 */}
+                            {t(
+                              'An API key in the auto or auto_price group can reach every model on the site with a single key. Keys in any other group can only reach the models in that group.'
+                            )}
+                            {selectedGroup === AUTO_PRICE_GROUP && (
+                              <span className='mt-1 block font-normal'>
                                 {t(
-                                  'An API key in the auto_price group can access all models, and always uses the cheapest group available at that moment.'
+                                  'auto_price always uses the cheapest group available at that moment, comparing prices with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.'
                                 )}
-                                <span className='mt-1 block font-normal'>
-                                  {t(
-                                    'Pricing is compared with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.'
-                                  )}
-                                </span>
-                              </>
-                            ) : (
-                              t(
-                                'An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.'
-                              )
+                              </span>
                             )}
                           </AlertDescription>
                         </Alert>

@@ -67,6 +67,18 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) hostty
 		groupRatioInfo.GroupRatio = ratio_setting.GetGroupRatio(relayInfo.UsingGroup)
 	}
 
+	// CUSTOM: 限时活动（fork 扩展）。活动是乘在最终价格上的一个系数，所以按倍率
+	// 计费和动态计费两条路都在这里一次性拿到——下游各处乘的都是同一个
+	// GroupRatioInfo。用 relayInfo.StartTime 而不是 time.Now()：预扣费和结算是
+	// 两个时刻，跨过活动边界的请求必须按发起时的事实结算。
+	if promotion, ok := billing_setting.ActivePromotionAt(
+		relayInfo.OriginModelName, relayInfo.UsingGroup, relayInfo.StartTime,
+	); ok {
+		groupRatioInfo.PromotionRatio = promotion.Ratio
+		groupRatioInfo.PromotionName = promotion.Name
+		groupRatioInfo.GroupRatio *= promotion.Ratio
+	}
+
 	return groupRatioInfo
 }
 

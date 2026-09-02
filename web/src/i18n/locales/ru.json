@@ -5572,6 +5572,22 @@
     "Zero retention": "Без хранения данных",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Limited-time Promotions": "Ограниченные по времени акции",
+    "A promotion multiplies the final price for the given dates. It works the same for ratio-priced and dynamically-priced models, and expires on its own — nothing has to be restored afterwards.": "Акция умножает итоговую цену в указанные даты. Работает одинаково для моделей с коэффициентом и с динамическим ценообразованием и истекает сама — ничего восстанавливать не нужно.",
+    "Save promotions": "Сохранить акции",
+    "Add promotion": "Добавить акцию",
+    "No promotion configured yet": "Акции ещё не настроены",
+    "Promotion name": "Название акции",
+    "Promotion name is required.": "Название акции обязательно.",
+    "Start date must be YYYY-MM-DD.": "Дата начала должна быть в формате ГГГГ-ММ-ДД.",
+    "End date must be YYYY-MM-DD.": "Дата окончания должна быть в формате ГГГГ-ММ-ДД.",
+    "The end date must not be earlier than the start date.": "Дата окончания не может быть раньше даты начала.",
+    "The promotion multiplier must be greater than 0 and at most 1.": "Множитель акции должен быть больше 0 и не более 1.",
+    "In progress": "Идёт",
+    "Not started": "Не начата",
+    "Ended": "Завершена",
+    "Participating groups (none selected means every group)": "Участвующие группы (ничего не выбрано — все группы)",
+    "Effective discount after stacking with the group ratio": "Итоговая скидка с учётом коэффициента группы"
   }
 }

@@ -5572,6 +5572,22 @@
     "Zero retention": "零數據保留",
     "Zhipu": "智譜",
     "Zhipu V4": "智譜 V4",
-    "Zoom": "縮放"
+    "Zoom": "縮放",
+    "Limited-time Promotions": "限時活動",
+    "A promotion multiplies the final price for the given dates. It works the same for ratio-priced and dynamically-priced models, and expires on its own — nothing has to be restored afterwards.": "活動會在指定日期內將最終價格乘上一個倍率。按倍率計費與動態計費的模型效果一致，活動到期自動失效，不需要任何還原操作。",
+    "Save promotions": "儲存限時活動",
+    "Add promotion": "新增活動",
+    "No promotion configured yet": "尚未設定任何活動",
+    "Promotion name": "活動名稱",
+    "Promotion name is required.": "活動名稱不能為空。",
+    "Start date must be YYYY-MM-DD.": "開始日期必須是 YYYY-MM-DD 格式。",
+    "End date must be YYYY-MM-DD.": "結束日期必須是 YYYY-MM-DD 格式。",
+    "The end date must not be earlier than the start date.": "結束日期不能早於開始日期。",
+    "The promotion multiplier must be greater than 0 and at most 1.": "活動倍率必須大於 0 且不超過 1。",
+    "In progress": "進行中",
+    "Not started": "未開始",
+    "Ended": "已結束",
+    "Participating groups (none selected means every group)": "參與分組（不選表示所有分組都參與）",
+    "Effective discount after stacking with the group ratio": "與分組倍率疊加後的實際折扣"
   }
 }

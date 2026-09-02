@@ -26,12 +26,15 @@ type BillingSetting struct {
 	// hour()/weekday() 等时间条件的固定价表达式即可，不必切换模式——切换
 	// 模式会让 auto 重试跨分组时在两套完全不同的计费结构之间跳，得不偿失。
 	GroupBillingExpr map[string]map[string]string `json:"group_billing_expr"`
+	// CUSTOM: 模型名 -> 限时活动列表。见 promotion.go。
+	ModelPromotions map[string][]ModelPromotion `json:"model_promotions"`
 }
 
 var billingSetting = BillingSetting{
 	BillingMode:      make(map[string]string),
 	BillingExpr:      make(map[string]string),
 	GroupBillingExpr: make(map[string]map[string]string),
+	ModelPromotions:  make(map[string][]ModelPromotion),
 }
 
 func init() {

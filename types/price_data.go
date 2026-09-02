@@ -8,9 +8,16 @@ import (
 )
 
 type GroupRatioInfo struct {
+	// GroupRatio 是实际参与计算的倍率。命中限时活动时它已经乘过活动倍率了，
+	// 下游不需要、也不应该再乘一次。
 	GroupRatio        float64
 	GroupSpecialRatio float64
 	HasSpecialRatio   bool
+	// CUSTOM: 限时活动（fork 扩展）。这两个字段只用于日志和展示——把活动折进
+	// GroupRatio 之后，日志里会出现一个对不上任何分组配置的倍率，没有这两个
+	// 字段就查不出它是怎么来的。
+	PromotionRatio float64
+	PromotionName  string
 }
 
 type PriceData struct {

@@ -27,6 +27,7 @@ import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { CommissionSettingsSection } from './commission-settings-section'
 import { GroupBillingExprSection } from './group-billing-expr-section'
+import { ModelPromotionSection } from './model-promotion-section'
 import { VideoPricingSection } from './video-pricing-section'
 
 const getModelDefaults = (settings: BillingSettings) => ({
@@ -127,6 +128,19 @@ const BILLING_SECTIONS = [
         defaultValue={settings['billing_setting.group_billing_expr']}
         billingMode={settings['billing_setting.billing_mode']}
         billingExpr={settings['billing_setting.billing_expr']}
+        groupRatio={settings.GroupRatio}
+      />
+    ),
+  },
+  // CUSTOM: 限时活动（fork 扩展）
+  {
+    id: 'model-promotions',
+    titleKey: 'Limited-time Promotions',
+    build: (settings: BillingSettings) => (
+      <ModelPromotionSection
+        defaultValue={settings['billing_setting.model_promotions']}
+        modelRatio={settings.ModelRatio}
+        modelPrice={settings.ModelPrice}
         groupRatio={settings.GroupRatio}
       />
     ),

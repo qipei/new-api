@@ -28,8 +28,9 @@ export function parseJsonRecord<V>(raw: string): Record<string, V> {
   if (!raw || !raw.trim()) return {}
   try {
     const parsed: unknown = JSON.parse(raw)
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
       return {}
+    }
     return parsed as Record<string, V>
   } catch {
     return {}

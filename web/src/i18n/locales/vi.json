@@ -5572,6 +5572,22 @@
     "Zero retention": "Không lưu dữ liệu",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Limited-time Promotions": "Khuyến mãi có thời hạn",
+    "A promotion multiplies the final price for the given dates. It works the same for ratio-priced and dynamically-priced models, and expires on its own — nothing has to be restored afterwards.": "Khuyến mãi nhân giá cuối cùng trong khoảng ngày đã chọn. Hoạt động giống nhau với mô hình tính theo tỷ lệ và tính giá động, và tự hết hạn — không cần khôi phục gì.",
+    "Save promotions": "Lưu khuyến mãi",
+    "Add promotion": "Thêm khuyến mãi",
+    "No promotion configured yet": "Chưa cấu hình khuyến mãi nào",
+    "Promotion name": "Tên khuyến mãi",
+    "Promotion name is required.": "Tên khuyến mãi là bắt buộc.",
+    "Start date must be YYYY-MM-DD.": "Ngày bắt đầu phải theo định dạng YYYY-MM-DD.",
+    "End date must be YYYY-MM-DD.": "Ngày kết thúc phải theo định dạng YYYY-MM-DD.",
+    "The end date must not be earlier than the start date.": "Ngày kết thúc không được sớm hơn ngày bắt đầu.",
+    "The promotion multiplier must be greater than 0 and at most 1.": "Hệ số khuyến mãi phải lớn hơn 0 và tối đa là 1.",
+    "In progress": "Đang diễn ra",
+    "Not started": "Chưa bắt đầu",
+    "Ended": "Đã kết thúc",
+    "Participating groups (none selected means every group)": "Nhóm tham gia (không chọn nghĩa là mọi nhóm)",
+    "Effective discount after stacking with the group ratio": "Chiết khấu thực tế sau khi nhân với hệ số nhóm"
   }
 }

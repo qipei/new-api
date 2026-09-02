@@ -5572,6 +5572,22 @@
     "Zero retention": "Aucune rétention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Limited-time Promotions": "Promotions à durée limitée",
+    "A promotion multiplies the final price for the given dates. It works the same for ratio-priced and dynamically-priced models, and expires on its own — nothing has to be restored afterwards.": "Une promotion multiplie le prix final pendant les dates indiquées. Elle fonctionne de la même façon pour les modèles à ratio et à tarification dynamique, et expire d’elle-même — rien n’a besoin d’être restauré.",
+    "Save promotions": "Enregistrer les promotions",
+    "Add promotion": "Ajouter une promotion",
+    "No promotion configured yet": "Aucune promotion configurée",
+    "Promotion name": "Nom de la promotion",
+    "Promotion name is required.": "Le nom de la promotion est obligatoire.",
+    "Start date must be YYYY-MM-DD.": "La date de début doit être au format AAAA-MM-JJ.",
+    "End date must be YYYY-MM-DD.": "La date de fin doit être au format AAAA-MM-JJ.",
+    "The end date must not be earlier than the start date.": "La date de fin ne doit pas précéder la date de début.",
+    "The promotion multiplier must be greater than 0 and at most 1.": "Le multiplicateur doit être supérieur à 0 et au plus égal à 1.",
+    "In progress": "En cours",
+    "Not started": "Pas commencé",
+    "Ended": "Terminé",
+    "Participating groups (none selected means every group)": "Groupes participants (aucun sélectionné = tous les groupes)",
+    "Effective discount after stacking with the group ratio": "Remise effective après cumul avec le ratio de groupe"
   }
 }

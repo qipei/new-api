@@ -5572,6 +5572,22 @@
     "Zero retention": "データ保持なし",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Limited-time Promotions": "期間限定キャンペーン",
+    "A promotion multiplies the final price for the given dates. It works the same for ratio-priced and dynamically-priced models, and expires on its own — nothing has to be restored afterwards.": "キャンペーンは指定した期間、最終価格に倍率を掛けます。倍率課金のモデルでも動的課金のモデルでも同じように機能し、期間が過ぎると自動的に失効するため、後から戻す作業は不要です。",
+    "Save promotions": "キャンペーンを保存",
+    "Add promotion": "キャンペーンを追加",
+    "No promotion configured yet": "キャンペーンはまだ設定されていません",
+    "Promotion name": "キャンペーン名",
+    "Promotion name is required.": "キャンペーン名は必須です。",
+    "Start date must be YYYY-MM-DD.": "開始日は YYYY-MM-DD 形式で指定してください。",
+    "End date must be YYYY-MM-DD.": "終了日は YYYY-MM-DD 形式で指定してください。",
+    "The end date must not be earlier than the start date.": "終了日は開始日より前にできません。",
+    "The promotion multiplier must be greater than 0 and at most 1.": "キャンペーン倍率は 0 より大きく 1 以下である必要があります。",
+    "In progress": "実施中",
+    "Not started": "未開始",
+    "Ended": "終了",
+    "Participating groups (none selected means every group)": "対象グループ（未選択の場合はすべてのグループ）",
+    "Effective discount after stacking with the group ratio": "グループ倍率と掛け合わせた実際の割引"
   }
 }

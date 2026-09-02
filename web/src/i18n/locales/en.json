@@ -5572,6 +5572,22 @@
     "Zero retention": "Zero retention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Limited-time Promotions": "Limited-time Promotions",
+    "A promotion multiplies the final price for the given dates. It works the same for ratio-priced and dynamically-priced models, and expires on its own — nothing has to be restored afterwards.": "A promotion multiplies the final price for the given dates. It works the same for ratio-priced and dynamically-priced models, and expires on its own — nothing has to be restored afterwards.",
+    "Save promotions": "Save promotions",
+    "Add promotion": "Add promotion",
+    "No promotion configured yet": "No promotion configured yet",
+    "Promotion name": "Promotion name",
+    "Promotion name is required.": "Promotion name is required.",
+    "Start date must be YYYY-MM-DD.": "Start date must be YYYY-MM-DD.",
+    "End date must be YYYY-MM-DD.": "End date must be YYYY-MM-DD.",
+    "The end date must not be earlier than the start date.": "The end date must not be earlier than the start date.",
+    "The promotion multiplier must be greater than 0 and at most 1.": "The promotion multiplier must be greater than 0 and at most 1.",
+    "In progress": "In progress",
+    "Not started": "Not started",
+    "Ended": "Ended",
+    "Participating groups (none selected means every group)": "Participating groups (none selected means every group)",
+    "Effective discount after stacking with the group ratio": "Effective discount after stacking with the group ratio"
   }
 }

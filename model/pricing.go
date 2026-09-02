@@ -37,7 +37,19 @@ type Pricing struct {
 	BillingExpr            string                  `json:"billing_expr,omitempty"`
 	// CUSTOM: 分组名 -> 表达式，覆盖该分组下的 BillingExpr。只包含本模型启用的分组。
 	GroupBillingExpr map[string]string `json:"group_billing_expr,omitempty"`
-	PricingVersion   string            `json:"pricing_version,omitempty"`
+	// CUSTOM: 正在进行中的限时活动。已结束的不下发；未开始的也不下发，避免提前
+	// 泄露活动安排。
+	Promotions     []PricingPromotion `json:"promotions,omitempty"`
+	PricingVersion string             `json:"pricing_version,omitempty"`
+}
+
+// PricingPromotion 是下发给前端的活动信息。Groups 为空表示该模型所有分组都参与。
+type PricingPromotion struct {
+	Name   string   `json:"name"`
+	Start  string   `json:"start"`
+	End    string   `json:"end"`
+	Ratio  float64  `json:"ratio"`
+	Groups []string `json:"groups,omitempty"`
 }
 
 type PricingVendor struct {
@@ -358,6 +370,8 @@ func updatePricing() {
 
 	// CUSTOM: 分组级表达式覆盖读一次即可，循环里按模型取。
 	groupBillingExprOverrides := billing_setting.GetGroupBillingExprCopy()
+	modelPromotions := billing_setting.GetModelPromotionsCopy()
+	now := time.Now()
 
 	pricingMap = make([]Pricing, 0)
 	for model, groups := range modelGroupsMap {
@@ -427,6 +441,32 @@ func updatePricing() {
 					pricing.BillingMode = billingMode
 					pricing.GroupBillingExpr = exposed
 				}
+			}
+		}
+		// CUSTOM: 限时活动（fork 扩展）。只下发进行中的，且分组范围裁剪到这个模型
+		// 真正启用的分组——配置里可能写了模型压根没上的分组。
+		if promotions, ok := modelPromotions[model]; ok {
+			active := make([]PricingPromotion, 0, len(promotions))
+			for _, promotion := range promotions {
+				if !promotion.IsLiveAt(now) {
+					continue
+				}
+				groups := make([]string, 0, len(promotion.Groups))
+				for _, group := range promotion.Groups {
+					if common.StringsContains(pricing.EnableGroup, group) {
+						groups = append(groups, group)
+					}
+				}
+				if len(promotion.Groups) > 0 && len(groups) == 0 {
+					continue
+				}
+				active = append(active, PricingPromotion{
+					Name: promotion.Name, Start: promotion.Start, End: promotion.End,
+					Ratio: promotion.Ratio, Groups: groups,
+				})
+			}
+			if len(active) > 0 {
+				pricing.Promotions = active
 			}
 		}
 		pricingMap = append(pricingMap, pricing)

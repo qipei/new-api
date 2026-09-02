@@ -5598,6 +5598,9 @@
     "Default group for new API keys": "Nhóm mặc định cho khóa API mới",
     "Applies to keys created from now on. Existing keys keep their group.": "Áp dụng cho các khóa tạo từ bây giờ. Khóa hiện có giữ nguyên nhóm.",
     "The user's own group": "Nhóm của chính người dùng",
-    "Auto (admin-ordered groups)": "Tự động (thứ tự nhóm do quản trị viên sắp xếp)"
+    "Auto (admin-ordered groups)": "Tự động (thứ tự nhóm do quản trị viên sắp xếp)",
+    "Auto (lowest price) · routes to the cheapest group available now": "Tự động (giá thấp nhất) · định tuyến tới nhóm rẻ nhất hiện có",
+    "An API key in the auto_price group can access all models, and always uses the cheapest group available at that moment.": "Khóa API thuộc nhóm auto_price có thể truy cập mọi mô hình và luôn dùng nhóm rẻ nhất hiện có.",
+    "Pricing is compared with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.": "Việc so giá có tính đến bậc giá theo khung giờ và các khuyến mãi đang chạy. Nếu một kênh lỗi, khóa sẽ thử lại rồi chuyển sang nhóm rẻ kế tiếp — client giữ một tên model và không cần danh sách kênh."
   }
 }

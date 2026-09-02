@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import type { TFunction } from 'i18next'
 import { describe, expect, test } from 'vitest'
 
+import { DEFAULT_GROUP } from '../../constants'
 import { apiKeySchema, type ApiKey } from '../../types'
 import {
   getApiKeyFormDefaultValues,
@@ -62,7 +63,7 @@ describe('API key Auto group form mapping', () => {
   })
 
   test('creates an Auto token that inherits the global order', () => {
-    const defaults = getApiKeyFormDefaultValues(true)
+    const defaults = getApiKeyFormDefaultValues('auto')
 
     expect(defaults.group).toBe('auto')
     expect(defaults.auto_groups_mode).toBe('inherit')
@@ -126,7 +127,7 @@ describe('API key Auto group form mapping', () => {
 
   test('submits a valid custom snapshot in its configured order', () => {
     const custom = {
-      ...getApiKeyFormDefaultValues(true),
+      ...getApiKeyFormDefaultValues('auto'),
       auto_groups_mode: 'custom' as const,
       auto_groups: ['vip', 'default'],
     }
@@ -138,7 +139,7 @@ describe('API key Auto group form mapping', () => {
   })
 
   test('submits an empty array for inheritance and for non-Auto groups', () => {
-    const inherited = getApiKeyFormDefaultValues(true)
+    const inherited = getApiKeyFormDefaultValues('auto')
     expect(transformFormDataToPayload(inherited).auto_groups).toEqual([])
 
     const nonAuto = {
@@ -153,7 +154,7 @@ describe('API key Auto group form mapping', () => {
 
   test('rejects snapshots over the configured limit', () => {
     const result = getApiKeyFormSchema(t, 1).safeParse({
-      ...getApiKeyFormDefaultValues(true),
+      ...getApiKeyFormDefaultValues('auto'),
       name: 'limited token',
       auto_groups_mode: 'custom',
       auto_groups: ['default', 'vip'],
@@ -167,7 +168,7 @@ describe('API key Auto group form mapping', () => {
 
   test('rejects duplicate custom groups', () => {
     const result = getApiKeyFormSchema(t).safeParse({
-      ...getApiKeyFormDefaultValues(true),
+      ...getApiKeyFormDefaultValues('auto'),
       name: 'duplicate token',
       auto_groups_mode: 'custom',
       auto_groups: ['vip', 'vip'],
@@ -179,4 +180,23 @@ describe('API key Auto group form mapping', () => {
       'Auto groups must not contain duplicates'
     )
   })
+})
+
+// CUSTOM: 默认分组是三选一（fork 扩展）。选中 auto_price 时旧的 DefaultUseAutoGroup
+// 会被同步成 false，如果这里还按布尔判断，默认分组会悄悄回落成普通分组。
+describe('default group for new keys', () => {
+  // 非自动路由的配置值一律回落到 DEFAULT_GROUP（空串，表示"用户自己的分组"）。
+  test.each([
+    ['auto', 'auto', true],
+    ['auto_price', 'auto_price', true],
+    ['', DEFAULT_GROUP, false],
+    ['8.8折', DEFAULT_GROUP, false],
+  ])(
+    'configured %s -> group %s',
+    (configured, expectedGroup, expectedRetry) => {
+      const values = getApiKeyFormDefaultValues(configured)
+      expect(values.group).toBe(expectedGroup)
+      expect(values.cross_group_retry).toBe(expectedRetry)
+    }
+  )
 })

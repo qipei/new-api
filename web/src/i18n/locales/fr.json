@@ -5598,6 +5598,9 @@
     "Default group for new API keys": "Groupe par défaut des nouvelles clés API",
     "Applies to keys created from now on. Existing keys keep their group.": "S’applique aux clés créées à partir de maintenant. Les clés existantes conservent leur groupe.",
     "The user's own group": "Le groupe propre de l’utilisateur",
-    "Auto (admin-ordered groups)": "Auto (ordre des groupes défini par l’admin)"
+    "Auto (admin-ordered groups)": "Auto (ordre des groupes défini par l’admin)",
+    "Auto (lowest price) · routes to the cheapest group available now": "Auto (prix le plus bas) · route vers le groupe le moins cher disponible",
+    "An API key in the auto_price group can access all models, and always uses the cheapest group available at that moment.": "Une clé API du groupe auto_price accède à tous les modèles et utilise toujours le groupe le moins cher disponible à cet instant.",
+    "Pricing is compared with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.": "La comparaison tient compte des paliers horaires et des promotions en cours. Si un canal échoue, la clé réessaie puis passe au groupe suivant le moins cher — le client garde un seul nom de modèle, sans liste de canaux."
   }
 }

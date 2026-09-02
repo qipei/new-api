@@ -112,7 +112,11 @@ export function ApiKeysMutateDrawer({
   const [initializedTarget, setInitializedTarget] = useState<string | null>(
     null
   )
-  const defaultUseAutoGroup = status?.default_use_auto_group === true
+  // CUSTOM: 默认分组是三选一（fork 扩展）。default_token_group 为空时回落到旧的
+  // 布尔开关，老部署升级后行为不变。
+  const defaultTokenGroup =
+    (status?.default_token_group as string | undefined) ||
+    (status?.default_use_auto_group === true ? 'auto' : '')
 
   // Fetch models
   const { data: modelsData } = useQuery({
@@ -167,8 +171,8 @@ export function ApiKeysMutateDrawer({
           desc: info.desc || key,
           ratio: info.ratio,
         })),
-        t('Auto (lowest price)'),
-        t('Automatically routes to the cheapest available group right now')
+        AUTO_PRICE_GROUP,
+        t('Auto (lowest price) · routes to the cheapest group available now')
       ),
     [groupsData, t]
   )
@@ -202,7 +206,7 @@ export function ApiKeysMutateDrawer({
 
   const form = useForm<ApiKeyFormValues>({
     resolver: zodResolver(schema),
-    defaultValues: getApiKeyFormDefaultValues(defaultUseAutoGroup),
+    defaultValues: getApiKeyFormDefaultValues(defaultTokenGroup),
   })
 
   // Load existing data when updating
@@ -237,7 +241,12 @@ export function ApiKeysMutateDrawer({
       }
     } else {
       form.reset(
-        getApiKeyFormDefaultValues(defaultUseAutoGroup && backendHasAuto)
+        getApiKeyFormDefaultValues(
+          // auto 要后端确实提供才用；auto_price 是前端合成的，始终可用
+          defaultTokenGroup === 'auto' && !backendHasAuto
+            ? ''
+            : defaultTokenGroup
+        )
       )
       setInitializedTarget(target)
     }
@@ -246,7 +255,7 @@ export function ApiKeysMutateDrawer({
     isUpdate,
     currentRow,
     form,
-    defaultUseAutoGroup,
+    defaultTokenGroup,
     statusLoading,
     backendHasAuto,
     groupsFetched,
@@ -431,16 +440,22 @@ export function ApiKeysMutateDrawer({
                       {!isUpdate ? (
                         <Alert className='border-primary/40 bg-primary/10 min-w-0 flex-1 px-3 py-1.5'>
                           <AlertDescription className='text-foreground text-xs leading-5 font-medium'>
-                            {t(
-                              'An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.'
-                            )}
-                            {/* CUSTOM: 比价路由的补充说明（fork 扩展） */}
-                            {selectedGroup === AUTO_PRICE_GROUP && (
-                              <span className='mt-1 block font-normal'>
+                            {/* CUSTOM: 比价路由有自己的说明（fork 扩展） */}
+                            {selectedGroup === AUTO_PRICE_GROUP ? (
+                              <>
                                 {t(
-                                  'This key always picks the cheapest group available at the moment, taking time-of-day tiers and running promotions into account. If a channel fails, it retries and then moves on to the next cheapest group, so you keep one model name and no channel list on the client side.'
+                                  'An API key in the auto_price group can access all models, and always uses the cheapest group available at that moment.'
                                 )}
-                              </span>
+                                <span className='mt-1 block font-normal'>
+                                  {t(
+                                    'Pricing is compared with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.'
+                                  )}
+                                </span>
+                              </>
+                            ) : (
+                              t(
+                                'An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.'
+                              )
                             )}
                           </AlertDescription>
                         </Alert>

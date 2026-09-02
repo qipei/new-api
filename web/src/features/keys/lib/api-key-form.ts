@@ -23,7 +23,7 @@ import { parseQuotaFromDollars, quotaUnitsToDollars } from '@/lib/format'
 
 import { DEFAULT_GROUP } from '../constants'
 import type { ApiKey, ApiKeyFormData } from '../types'
-import { AUTO_PRICE_GROUP } from './auto-price-group'
+import { AUTO_PRICE_GROUP, isAutoRoutingGroup } from './auto-price-group'
 
 // ============================================================================
 // Form Schema
@@ -118,15 +118,19 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
   tokenCount: 1,
 }
 
+// CUSTOM: 改为接收分组名而不是布尔值（fork 扩展）。加入比价路由之后默认分组是
+// 三选一，布尔值表达不了；而且选中 auto_price 时旧的 DefaultUseAutoGroup 会被同步
+// 成 false，继续按布尔判断会让默认分组悄悄回落成普通分组。
 export function getApiKeyFormDefaultValues(
-  defaultUseAutoGroup: boolean
+  defaultGroup: string
 ): ApiKeyFormValues {
+  const group = isAutoRoutingGroup(defaultGroup) ? defaultGroup : DEFAULT_GROUP
   return {
     ...API_KEY_FORM_DEFAULT_VALUES,
-    group: defaultUseAutoGroup ? 'auto' : DEFAULT_GROUP,
+    group,
     auto_groups_mode: 'inherit',
     auto_groups: [],
-    cross_group_retry: defaultUseAutoGroup,
+    cross_group_retry: isAutoRoutingGroup(group),
   }
 }
 

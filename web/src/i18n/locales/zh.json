@@ -5598,6 +5598,9 @@
     "Default group for new API keys": "新建 API 密钥的默认分组",
     "Applies to keys created from now on. Existing keys keep their group.": "仅对此后新建的密钥生效，已有密钥的分组不变。",
     "The user's own group": "用户自己的分组",
-    "Auto (admin-ordered groups)": "自动（按后台编排的分组顺序）"
+    "Auto (admin-ordered groups)": "自动（按后台编排的分组顺序）",
+    "Auto (lowest price) · routes to the cheapest group available now": "自动比价（优先低价）· 路由到当前最便宜的可用分组",
+    "An API key in the auto_price group can access all models, and always uses the cheapest group available at that moment.": "自动比价（auto_price）分组的 API 密钥可访问所有模型，并始终使用当时最便宜的可用分组。",
+    "Pricing is compared with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.": "比价时会把分时档位和进行中的限时活动一并计入。某个渠道失败时先按重试次数重试，仍失败则顺延到下一个价格区间的分组——客户端始终使用同一个模型名，无需维护渠道列表。"
   }
 }

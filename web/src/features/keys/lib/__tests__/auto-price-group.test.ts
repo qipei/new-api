@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 
-import { transformFormDataToPayload } from '../api-key-form'
-import type { ApiKeyFormValues } from '../api-key-form'
+import {
+  transformFormDataToPayload,
+  type ApiKeyFormValues,
+} from '../api-key-form'
 import {
   AUTO_PRICE_GROUP,
   isAutoRoutingGroup,

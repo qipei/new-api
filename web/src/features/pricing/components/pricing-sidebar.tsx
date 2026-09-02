@@ -275,12 +275,6 @@ export function PricingSidebar(props: PricingSidebarProps) {
 
       <div className='space-y-1'>
         <FilterSection
-          title={t('Groups')}
-          value={props.groupFilter}
-          options={groupOptions}
-          onChange={props.onGroupChange}
-        />
-        <FilterSection
           title={t('All Vendors')}
           value={props.vendorFilter}
           options={vendorOptions}
@@ -303,6 +297,12 @@ export function PricingSidebar(props: PricingSidebarProps) {
           value={props.endpointTypeFilter}
           options={endpointOptions}
           onChange={props.onEndpointTypeChange}
+        />
+        <FilterSection
+          title={t('Groups')}
+          value={props.groupFilter}
+          options={groupOptions}
+          onChange={props.onGroupChange}
         />
       </div>
     </aside>

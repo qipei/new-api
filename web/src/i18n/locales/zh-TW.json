@@ -5590,6 +5590,14 @@
     "Participating groups (none selected means every group)": "參與分組（不選表示所有分組都參與）",
     "Effective discount after stacking with the group ratio": "與分組倍率疊加後的實際折扣",
     "Promotion": "活動",
-    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "成本保護仍然生效：活動價一旦低於上游成本，差額會被補扣至打平。因此活動只在打折後的價格仍高於上游收費時才真正起作用。"
+    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "成本保護仍然生效：活動價一旦低於上游成本，差額會被補扣至打平。因此活動只在打折後的價格仍高於上游收費時才真正起作用。",
+    "Auto (lowest price)": "自動比價（優先低價）",
+    "Automatically routes to the cheapest available group right now": "自動路由到當前可用的最低價分組",
+    "Auto · lowest price": "自動 · 低價優先",
+    "This key always picks the cheapest group available at the moment, taking time-of-day tiers and running promotions into account. If a channel fails, it retries and then moves on to the next cheapest group, so you keep one model name and no channel list on the client side.": "該密鑰始終選擇當前最便宜的可用分組，會將分時檔位與進行中的限時活動一併計入。某個渠道失敗時先按重試次數重試，仍失敗則順延到下一個價格區間的分組——客戶端始終使用同一個模型名，無需維護渠道列表。",
+    "Default group for new API keys": "新建 API 金鑰的預設分組",
+    "Applies to keys created from now on. Existing keys keep their group.": "僅對此後新建的金鑰生效，已有金鑰的分組不變。",
+    "The user's own group": "使用者自己的分組",
+    "Auto (admin-ordered groups)": "自動（按後台編排的分組順序）"
   }
 }

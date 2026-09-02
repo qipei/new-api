@@ -5590,6 +5590,14 @@
     "Participating groups (none selected means every group)": "Участвующие группы (ничего не выбрано — все группы)",
     "Effective discount after stacking with the group ratio": "Итоговая скидка с учётом коэффициента группы",
     "Promotion": "Акция",
-    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "Защита от убытков продолжает действовать: если цена по акции опускается ниже стоимости у поставщика, разница доначисляется до безубыточности. Поэтому акция действует лишь пока цена со скидкой выше стоимости у поставщика."
+    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "Защита от убытков продолжает действовать: если цена по акции опускается ниже стоимости у поставщика, разница доначисляется до безубыточности. Поэтому акция действует лишь пока цена со скидкой выше стоимости у поставщика.",
+    "Auto (lowest price)": "Авто (самая низкая цена)",
+    "Automatically routes to the cheapest available group right now": "Автоматически направляет в самую дешёвую доступную группу",
+    "Auto · lowest price": "Авто · низкая цена",
+    "This key always picks the cheapest group available at the moment, taking time-of-day tiers and running promotions into account. If a channel fails, it retries and then moves on to the next cheapest group, so you keep one model name and no channel list on the client side.": "Этот ключ всегда выбирает самую дешёвую доступную группу на текущий момент, учитывая почасовые тарифы и действующие акции. При сбое канала выполняются повторы, затем переход к следующей по цене группе — на клиенте остаётся одно имя модели без списка каналов.",
+    "Default group for new API keys": "Группа по умолчанию для новых API-ключей",
+    "Applies to keys created from now on. Existing keys keep their group.": "Применяется к ключам, созданным с этого момента. Существующие ключи сохраняют свою группу.",
+    "The user's own group": "Собственная группа пользователя",
+    "Auto (admin-ordered groups)": "Авто (порядок групп задан администратором)"
   }
 }

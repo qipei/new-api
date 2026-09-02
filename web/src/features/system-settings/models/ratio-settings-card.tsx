@@ -133,6 +133,8 @@ const createGroupSchema = (t: Translate) =>
     }),
     MaxTokenAutoGroups: positiveIntegerSchema(t('Enter a positive integer')),
     DefaultUseAutoGroup: z.boolean(),
+    // CUSTOM: 默认分组三选一（fork 扩展）
+    DefaultTokenGroup: z.string(),
     GroupSpecialUsableGroup: createJsonStringField(t),
   })
 
@@ -208,6 +210,7 @@ export function RatioSettingsCard({
     AutoGroups: normalizeJsonString(groupDefaults.AutoGroups),
     MaxTokenAutoGroups: groupDefaults.MaxTokenAutoGroups,
     DefaultUseAutoGroup: groupDefaults.DefaultUseAutoGroup,
+    DefaultTokenGroup: groupDefaults.DefaultTokenGroup ?? '',
     GroupSpecialUsableGroup: normalizeJsonString(
       groupDefaults.GroupSpecialUsableGroup
     ),
@@ -295,6 +298,7 @@ export function RatioSettingsCard({
       AutoGroups: normalizeJsonString(groupDefaults.AutoGroups),
       MaxTokenAutoGroups: groupDefaults.MaxTokenAutoGroups,
       DefaultUseAutoGroup: groupDefaults.DefaultUseAutoGroup,
+      DefaultTokenGroup: groupDefaults.DefaultTokenGroup ?? '',
       GroupSpecialUsableGroup: normalizeJsonString(
         groupDefaults.GroupSpecialUsableGroup
       ),
@@ -365,7 +369,9 @@ export function RatioSettingsCard({
         GroupGroupRatio: normalizeJsonString(values.GroupGroupRatio),
         AutoGroups: normalizeJsonString(values.AutoGroups),
         MaxTokenAutoGroups: values.MaxTokenAutoGroups,
-        DefaultUseAutoGroup: values.DefaultUseAutoGroup,
+        DefaultTokenGroup: values.DefaultTokenGroup,
+        // 旧开关跟着同步，降级回旧版本或仍在读它的代码才不会看到相反的状态
+        DefaultUseAutoGroup: values.DefaultTokenGroup === 'auto',
         GroupSpecialUsableGroup: normalizeJsonString(
           values.GroupSpecialUsableGroup
         ),

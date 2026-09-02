@@ -18,6 +18,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -139,6 +140,11 @@ func GetRequestPriceRankedGroups(userGroup string, modelName string, at time.Tim
 			continue
 		}
 		if !ratio_setting.ContainsGroupRatio(group) {
+			continue
+		}
+		// 先筛掉没有这个模型的分组：站点分组可能有几十个，单个模型往往只在其中
+		// 几个里。不筛也能跑对（选渠道时会跳过），但每次请求都要白扫一遍。
+		if !model.GroupServesModel(group, modelName) {
 			continue
 		}
 		candidates = append(candidates, group)

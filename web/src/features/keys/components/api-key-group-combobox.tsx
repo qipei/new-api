@@ -20,6 +20,7 @@ import { Check, ChevronsUpDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Command,
@@ -37,11 +38,19 @@ import {
 import { useMediaQuery } from '@/hooks'
 import { cn } from '@/lib/utils'
 
+import { AUTO_PRICE_GROUP, isAutoRoutingGroup } from '../lib/auto-price-group'
 import {
   AUTO_GROUP_FRAME_CLASS_NAME,
   AutoGroupFlowBorder,
   GroupRatioBadge,
 } from './auto-group-visuals'
+
+// CUSTOM: 两种自动路由各自的角标文案（fork 扩展）。返回空串表示普通分组。
+function routingTagKey(group: string): string {
+  if (group === AUTO_PRICE_GROUP) return 'Auto · lowest price'
+  if (group === 'auto') return 'Auto'
+  return ''
+}
 
 export type ApiKeyGroupOption = {
   value: string
@@ -70,7 +79,7 @@ export function ApiKeyGroupCombobox({
   const [searchValue, setSearchValue] = useState('')
   const shouldReduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
   const selectedOption = options.find((option) => option.value === value)
-  const isAutoSelected = selectedOption?.value === 'auto'
+  const isAutoSelected = isAutoRoutingGroup(selectedOption?.value)
 
   const filteredOptions = useMemo(() => {
     const search = searchValue.trim().toLowerCase()
@@ -158,7 +167,9 @@ export function ApiKeyGroupCombobox({
             <CommandEmpty>{t('No group found.')}</CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => {
-                const isAutoOption = option.value === 'auto'
+                const isAutoOption = isAutoRoutingGroup(option.value)
+                // CUSTOM: 比价路由的角标（fork 扩展）
+                const routingTag = routingTagKey(option.value)
 
                 return (
                   <CommandItem
@@ -188,8 +199,18 @@ export function ApiKeyGroupCombobox({
                       )}
                     />
                     <span className='min-w-0 flex-1'>
-                      <span className='block truncate font-medium'>
-                        {option.label}
+                      <span className='flex min-w-0 items-center gap-1.5'>
+                        <span className='truncate font-medium'>
+                          {option.label}
+                        </span>
+                        {routingTag && (
+                          <Badge
+                            variant='outline'
+                            className='border-primary/40 text-primary shrink-0 px-1.5 py-0 text-[10px]'
+                          >
+                            {t(routingTag)}
+                          </Badge>
+                        )}
                       </span>
                       {option.desc && (
                         <span className='text-muted-foreground block truncate text-xs'>

@@ -82,6 +82,7 @@ import {
   transformFormDataToPayload,
   transformApiKeyToFormDefaults,
 } from '../lib'
+import { AUTO_PRICE_GROUP, withAutoPriceOption } from '../lib/auto-price-group'
 import type { ApiKey } from '../types'
 import {
   ApiKeyGroupCombobox,
@@ -158,13 +159,18 @@ export function ApiKeysMutateDrawer({
   const models = modelsData?.data || []
   const groups = useMemo<ApiKeyGroupOption[]>(
     () =>
-      Object.entries(groupsData?.data || {}).map(([key, info]) => ({
-        value: key,
-        label: key,
-        desc: info.desc || key,
-        ratio: info.ratio,
-      })),
-    [groupsData]
+      // CUSTOM: 比价路由是合成选项，后端不下发（fork 扩展）
+      withAutoPriceOption(
+        Object.entries(groupsData?.data || {}).map(([key, info]) => ({
+          value: key,
+          label: key,
+          desc: info.desc || key,
+          ratio: info.ratio,
+        })),
+        t('Auto (lowest price)'),
+        t('Automatically routes to the cheapest available group right now')
+      ),
+    [groupsData, t]
   )
   const backendHasAuto = groups.some((g) => g.value === 'auto')
   const availableAutoGroupNames = useMemo(
@@ -428,6 +434,14 @@ export function ApiKeysMutateDrawer({
                             {t(
                               'An API key in the automatic (auto) group can access all models. API keys in other groups can only access models in their selected group.'
                             )}
+                            {/* CUSTOM: 比价路由的补充说明（fork 扩展） */}
+                            {selectedGroup === AUTO_PRICE_GROUP && (
+                              <span className='mt-1 block font-normal'>
+                                {t(
+                                  'This key always picks the cheapest group available at the moment, taking time-of-day tiers and running promotions into account. If a channel fails, it retries and then moves on to the next cheapest group, so you keep one model name and no channel list on the client side.'
+                                )}
+                              </span>
+                            )}
                           </AlertDescription>
                         </Alert>
                       ) : null}
@@ -438,6 +452,19 @@ export function ApiKeysMutateDrawer({
                         value={field.value}
                         onValueChange={(group) => {
                           field.onChange(group)
+                          // CUSTOM: 比价路由恒为跨组，且不接受自定义编排（fork 扩展）
+                          if (group === AUTO_PRICE_GROUP) {
+                            form.setValue('cross_group_retry', true, {
+                              shouldDirty: true,
+                            })
+                            form.setValue('auto_groups_mode', 'inherit', {
+                              shouldDirty: true,
+                            })
+                            form.setValue('auto_groups', [], {
+                              shouldDirty: true,
+                            })
+                            return
+                          }
                           if (group === 'auto') {
                             form.setValue('cross_group_retry', true, {
                               shouldDirty: true,

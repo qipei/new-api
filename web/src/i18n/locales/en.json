@@ -5590,6 +5590,14 @@
     "Participating groups (none selected means every group)": "Participating groups (none selected means every group)",
     "Effective discount after stacking with the group ratio": "Effective discount after stacking with the group ratio",
     "Promotion": "Promotion",
-    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges."
+    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.",
+    "Auto (lowest price)": "Auto (lowest price)",
+    "Automatically routes to the cheapest available group right now": "Automatically routes to the cheapest available group right now",
+    "Auto · lowest price": "Auto · lowest price",
+    "This key always picks the cheapest group available at the moment, taking time-of-day tiers and running promotions into account. If a channel fails, it retries and then moves on to the next cheapest group, so you keep one model name and no channel list on the client side.": "This key always picks the cheapest group available at the moment, taking time-of-day tiers and running promotions into account. If a channel fails, it retries and then moves on to the next cheapest group, so you keep one model name and no channel list on the client side.",
+    "Default group for new API keys": "Default group for new API keys",
+    "Applies to keys created from now on. Existing keys keep their group.": "Applies to keys created from now on. Existing keys keep their group.",
+    "The user's own group": "The user's own group",
+    "Auto (admin-ordered groups)": "Auto (admin-ordered groups)"
   }
 }

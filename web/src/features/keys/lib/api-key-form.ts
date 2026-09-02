@@ -23,6 +23,7 @@ import { parseQuotaFromDollars, quotaUnitsToDollars } from '@/lib/format'
 
 import { DEFAULT_GROUP } from '../constants'
 import type { ApiKey, ApiKeyFormData } from '../types'
+import { AUTO_PRICE_GROUP } from './auto-price-group'
 
 // ============================================================================
 // Form Schema
@@ -136,6 +137,14 @@ export function getApiKeyFormDefaultValues(
 /**
  * Transform form data to API payload
  */
+// CUSTOM: 比价路由的跨分组顺延是功能本体，不给关掉的开关；auto 沿用用户的选择；
+// 固定分组没有"下一个分组"可跳，一律为 false。
+function resolveCrossGroupRetry(data: ApiKeyFormValues): boolean {
+  if (data.group === AUTO_PRICE_GROUP) return true
+  if (data.group === 'auto') return !!data.cross_group_retry
+  return false
+}
+
 export function transformFormDataToPayload(
   data: ApiKeyFormValues
 ): ApiKeyFormData {
@@ -156,7 +165,8 @@ export function transformFormDataToPayload(
       data.group === 'auto' && data.auto_groups_mode === 'custom'
         ? data.auto_groups
         : [],
-    cross_group_retry: data.group === 'auto' ? !!data.cross_group_retry : false,
+    // CUSTOM: 比价路由恒为跨组，且不接受自定义编排（fork 扩展）
+    cross_group_retry: resolveCrossGroupRetry(data),
   }
 }
 

@@ -5590,6 +5590,14 @@
     "Participating groups (none selected means every group)": "Nhóm tham gia (không chọn nghĩa là mọi nhóm)",
     "Effective discount after stacking with the group ratio": "Chiết khấu thực tế sau khi nhân với hệ số nhóm",
     "Promotion": "Khuyến mãi",
-    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "Bảo vệ chi phí vẫn áp dụng: nếu giá khuyến mãi thấp hơn chi phí đầu nguồn, phần chênh lệch sẽ bị thu thêm để hòa vốn. Vì vậy khuyến mãi chỉ có tác dụng khi giá sau giảm vẫn cao hơn mức đầu nguồn tính."
+    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "Bảo vệ chi phí vẫn áp dụng: nếu giá khuyến mãi thấp hơn chi phí đầu nguồn, phần chênh lệch sẽ bị thu thêm để hòa vốn. Vì vậy khuyến mãi chỉ có tác dụng khi giá sau giảm vẫn cao hơn mức đầu nguồn tính.",
+    "Auto (lowest price)": "Tự động (giá thấp nhất)",
+    "Automatically routes to the cheapest available group right now": "Tự động định tuyến tới nhóm rẻ nhất hiện có",
+    "Auto · lowest price": "Tự động · giá thấp",
+    "This key always picks the cheapest group available at the moment, taking time-of-day tiers and running promotions into account. If a channel fails, it retries and then moves on to the next cheapest group, so you keep one model name and no channel list on the client side.": "Khóa này luôn chọn nhóm rẻ nhất hiện có, có tính đến bậc giá theo khung giờ và các khuyến mãi đang chạy. Nếu một kênh lỗi, hệ thống thử lại rồi chuyển sang nhóm rẻ kế tiếp — phía client vẫn dùng một tên model và không cần danh sách kênh.",
+    "Default group for new API keys": "Nhóm mặc định cho khóa API mới",
+    "Applies to keys created from now on. Existing keys keep their group.": "Áp dụng cho các khóa tạo từ bây giờ. Khóa hiện có giữ nguyên nhóm.",
+    "The user's own group": "Nhóm của chính người dùng",
+    "Auto (admin-ordered groups)": "Tự động (thứ tự nhóm do quản trị viên sắp xếp)"
   }
 }

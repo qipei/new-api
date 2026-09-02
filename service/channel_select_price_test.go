@@ -3,6 +3,7 @@ package service
 import (
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -95,10 +96,9 @@ func TestAutoPriceRankingIsFrozenPerRequest(t *testing.T) {
 		RequestPath: "/v1/chat/completions", Retry: &retry,
 	}
 
-	// 用户自己的分组 default 也是可用分组，会一并参与比价；它和 g-pricey 同价
-	// （都是 1），按名字定序，这正是"同价时结果稳定"那条规则。
+	// default 虽然也是可用分组，但它下面没有这个模型的渠道，比价前就被筛掉了。
 	first := requestPriceRankedGroups(param, "default")
-	require.Equal(t, []string{"g-cheap", "default", "g-pricey"}, first)
+	require.Equal(t, []string{"g-cheap", "g-pricey"}, first)
 
 	// 请求进行到一半时管理员把价格改反了
 	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(
@@ -115,6 +115,33 @@ func TestAutoPriceRankingIsFrozenPerRequest(t *testing.T) {
 		Ctx: freshCtx, TokenGroup: AutoPriceGroup, ModelName: modelName,
 		RequestPath: "/v1/chat/completions", Retry: &freshRetry,
 	}
-	assert.Equal(t, []string{"g-pricey", "default", "g-cheap"},
+	assert.Equal(t, []string{"g-pricey", "g-cheap"},
 		requestPriceRankedGroups(freshParam, "default"))
+}
+
+// 候选分组要先按"该分组下有没有这个模型的渠道"筛一遍。站点可能配了几十个分组，
+// 而单个模型往往只在其中几个里——不筛也能跑对，但每次请求都白扫一遍。
+func TestAutoPriceCandidatesSkipGroupsWithoutTheModel(t *testing.T) {
+	db := setupChannelSelectAutoGroupsTest(t)
+	const modelName = "auto-price-scoped-model"
+	createChannelSelectAutoGroupsChannel(t, db, 5301, "has-model", modelName)
+	createChannelSelectAutoGroupsChannel(t, db, 5302, "other-group", "some-other-model")
+	model.InitChannelCache()
+
+	gin.SetMode(gin.TestMode)
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(
+		`{"has-model":"有","other-group":"无","default":"默认"}`))
+	// 故意把没有该模型的分组配成最便宜的，确认它是被筛掉而不是被排到后面
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(
+		`{"has-model":1,"other-group":0.01,"default":0.02}`))
+	prevMode := billing_setting.SwapBillingModeForTest(map[string]string{})
+	prevPromo := billing_setting.SwapPromotionsForTest(map[string][]billing_setting.ModelPromotion{})
+	t.Cleanup(func() {
+		billing_setting.SwapBillingModeForTest(prevMode)
+		billing_setting.SwapPromotionsForTest(prevPromo)
+	})
+
+	assert.Equal(t, []string{"has-model"},
+		GetRequestPriceRankedGroups("default", modelName, time.Now(), nil),
+		"没有该模型渠道的分组不该进入候选，哪怕它更便宜")
 }

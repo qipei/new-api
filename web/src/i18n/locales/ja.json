@@ -5590,6 +5590,14 @@
     "Participating groups (none selected means every group)": "対象グループ（未選択の場合はすべてのグループ）",
     "Effective discount after stacking with the group ratio": "グループ倍率と掛け合わせた実際の割引",
     "Promotion": "キャンペーン",
-    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "コスト保護は引き続き有効です。キャンペーン価格が上流のコストを下回ると、差額が損益分岐点まで追加請求されます。そのためキャンペーンは、割引後の価格が上流の課金額を上回っている間だけ効果があります。"
+    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "コスト保護は引き続き有効です。キャンペーン価格が上流のコストを下回ると、差額が損益分岐点まで追加請求されます。そのためキャンペーンは、割引後の価格が上流の課金額を上回っている間だけ効果があります。",
+    "Auto (lowest price)": "自動（最安値優先）",
+    "Automatically routes to the cheapest available group right now": "現時点で最も安い利用可能なグループへ自動的にルーティングします",
+    "Auto · lowest price": "自動 · 最安値",
+    "This key always picks the cheapest group available at the moment, taking time-of-day tiers and running promotions into account. If a channel fails, it retries and then moves on to the next cheapest group, so you keep one model name and no channel list on the client side.": "このキーは常に現時点で最も安いグループを選び、時間帯別の階層と実施中のキャンペーンも考慮します。チャネルが失敗した場合はリトライし、それでも失敗すれば次に安いグループへ移ります。クライアント側は同じモデル名のままで、チャネル一覧の管理は不要です。",
+    "Default group for new API keys": "新規 API キーの既定グループ",
+    "Applies to keys created from now on. Existing keys keep their group.": "これ以降に作成されるキーに適用されます。既存のキーのグループは変わりません。",
+    "The user's own group": "ユーザー自身のグループ",
+    "Auto (admin-ordered groups)": "自動（管理者が並べたグループ順）"
   }
 }

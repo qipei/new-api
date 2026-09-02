@@ -45,6 +45,13 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -72,6 +79,7 @@ type GroupFormValues = {
   AutoGroups: string
   MaxTokenAutoGroups: number
   DefaultUseAutoGroup: boolean
+  DefaultTokenGroup: string
   GroupSpecialUsableGroup: string
 }
 
@@ -214,26 +222,43 @@ export const GroupRatioForm = memo(function GroupRatioForm({
               }
             />
 
+            {/* CUSTOM: 默认分组改成三选一（fork 扩展）。两个布尔开关表达不了
+                "默认用哪种路由"，都打开时还要靠额外的优先级规则解释。 */}
             <FormField
               control={form.control}
-              name='DefaultUseAutoGroup'
+              name='DefaultTokenGroup'
               render={({ field }) => (
-                <SettingsSwitchItem>
-                  <SettingsSwitchContent>
-                    <FormLabel>{t('Default to auto groups')}</FormLabel>
-                    <FormDescription>
-                      {t(
-                        'When enabled, newly created tokens start in the first auto group.'
-                      )}
-                    </FormDescription>
-                  </SettingsSwitchContent>
+                <FormItem>
+                  <FormLabel>{t('Default group for new API keys')}</FormLabel>
+                  <FormDescription>
+                    {t(
+                      'Applies to keys created from now on. Existing keys keep their group.'
+                    )}
+                  </FormDescription>
                   <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                    <Select
+                      value={field.value || 'inherit'}
+                      onValueChange={(value) =>
+                        field.onChange(value === 'inherit' ? '' : value)
+                      }
+                    >
+                      <SelectTrigger className='w-full sm:w-96'>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='inherit'>
+                          {t("The user's own group")}
+                        </SelectItem>
+                        <SelectItem value='auto'>
+                          {t('Auto (admin-ordered groups)')}
+                        </SelectItem>
+                        <SelectItem value='auto_price'>
+                          {t('Auto (lowest price)')}
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
                   </FormControl>
-                </SettingsSwitchItem>
+                </FormItem>
               )}
             />
           </div>

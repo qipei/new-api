@@ -46,7 +46,8 @@ func GroupInUserUsableGroups(userGroup, groupName string) bool {
 }
 
 func IsUserSelectableGroup(userGroup, groupName string) bool {
-	if groupName == "" || groupName == "auto" {
+	// CUSTOM: auto_price 和 auto 一样是路由方式而不是真实分组（fork 扩展）。
+	if groupName == "" || IsAutoRoutingGroup(groupName) {
 		return false
 	}
 	return GroupInUserUsableGroups(userGroup, groupName) && ratio_setting.ContainsGroupRatio(groupName)

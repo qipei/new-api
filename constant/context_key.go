@@ -19,7 +19,9 @@ const (
 	ContextKeyTokenModelLimitEnabled ContextKey = "token_model_limit_enabled"
 	ContextKeyTokenModelLimit        ContextKey = "token_model_limit"
 	ContextKeyTokenCrossGroupRetry   ContextKey = "token_cross_group_retry"
-	ContextKeyTokenAutoGroups        ContextKey = "token_auto_groups"
+	// CUSTOM: 比价路由本次请求的分组排序（fork 扩展）。重试必须复用同一份顺序。
+	ContextKeyPriceRankedGroups ContextKey = "price_ranked_groups"
+	ContextKeyTokenAutoGroups   ContextKey = "token_auto_groups"
 
 	/* channel related keys */
 	ContextKeyChannelId                ContextKey = "channel_id"

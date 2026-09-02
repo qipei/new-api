@@ -307,9 +307,8 @@ func Register(c *gin.Context) {
 			UnlimitedQuota:     true,
 			ModelLimitsEnabled: false,
 		}
-		if setting.DefaultUseAutoGroup {
-			token.Group = "auto"
-		}
+		// CUSTOM: 默认分组改成三选一（fork 扩展）
+		token.Group = setting.GetDefaultTokenGroup()
 		if err := token.Insert(); err != nil {
 			common.ApiErrorI18n(c, i18n.MsgCreateDefaultTokenErr)
 			return

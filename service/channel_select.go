@@ -90,16 +90,32 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	selectGroup := param.TokenGroup
 	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
 
-	if param.TokenGroup == "auto" {
-		autoGroups := GetRequestAutoGroups(param.Ctx, userGroup)
-		if len(autoGroups) == 0 {
-			return nil, selectGroup, errors.New("auto groups is not enabled")
+	if IsAutoRoutingGroup(param.TokenGroup) {
+		// CUSTOM: 比价路由（fork 扩展）。两种自动路由只有候选列表的来法不同——
+		// auto 用管理员编排的顺序，auto_price 每次按当前价格排序——选中之后的
+		// 重试、优先级遍历、跨组顺延完全共用下面这套逻辑。
+		var autoGroups []string
+		if param.TokenGroup == AutoPriceGroup {
+			// 排序结果缓存在 context 上：一次请求内的多次重试必须看到同一个顺序，
+			// 否则跨组顺延的 AutoGroupIndex 会指向一个已经变了的列表。
+			autoGroups = requestPriceRankedGroups(param, userGroup)
+			if len(autoGroups) == 0 {
+				return nil, selectGroup, errors.New("no priced group is available for this token")
+			}
+		} else {
+			autoGroups = GetRequestAutoGroups(param.Ctx, userGroup)
+			if len(autoGroups) == 0 {
+				return nil, selectGroup, errors.New("auto groups is not enabled")
+			}
 		}
 
 		// startGroupIndex: the group index to start searching from
 		// startGroupIndex: 开始搜索的分组索引
 		startGroupIndex := 0
-		crossGroupRetry := common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)
+		// CUSTOM: 比价路由本质就是跨分组的——"当前最便宜的分组"失败之后不顺延到
+		// 次便宜的，这个功能就没有意义。所以它不看令牌上的开关，恒为跨组。
+		crossGroupRetry := param.TokenGroup == AutoPriceGroup ||
+			common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)
 
 		if lastGroupIndex, exists := common.GetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex); exists {
 			if idx, ok := lastGroupIndex.(int); ok {

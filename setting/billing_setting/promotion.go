@@ -10,6 +10,7 @@ package billing_setting
 import (
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -59,14 +60,27 @@ func (p ModelPromotion) IsLiveAt(at time.Time) bool {
 	return p.activeAt(at)
 }
 
-// activeAt 起止日期都含当天，按活动自己的时区把时刻折算成日期再比较。
-// 时区加载失败时退回 UTC，与计费表达式里的 timeInZone 保持一致。
-func (p ModelPromotion) activeAt(at time.Time) bool {
-	loc, err := time.LoadLocation(p.timezone())
+// promotionLocations 缓存已解析的时区。time.LoadLocation 不带缓存，每次调用都要
+// 读时区库；而这个判断在 HandleGroupRatio 里，每个中转请求都会走一遍。
+var promotionLocations sync.Map
+
+func promotionLocation(tz string) *time.Location {
+	if cached, ok := promotionLocations.Load(tz); ok {
+		return cached.(*time.Location)
+	}
+	loc, err := time.LoadLocation(tz)
 	if err != nil {
+		// 时区无法识别时退回 UTC，与计费表达式里的 timeInZone 保持一致。
+		// 一并缓存，免得一条坏配置每次请求都去读一次时区库。
 		loc = time.UTC
 	}
-	today := at.In(loc).Format(promotionDateLayout)
+	promotionLocations.Store(tz, loc)
+	return loc
+}
+
+// activeAt 起止日期都含当天，按活动自己的时区把时刻折算成日期再比较。
+func (p ModelPromotion) activeAt(at time.Time) bool {
+	today := at.In(promotionLocation(p.timezone())).Format(promotionDateLayout)
 	return today >= p.Start && today <= p.End
 }
 

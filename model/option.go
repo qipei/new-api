@@ -157,6 +157,7 @@ func InitOptionMap() {
 	//common.OptionMap["ChatLink2"] = common.ChatLink2
 	common.OptionMap["QuotaPerUnit"] = strconv.FormatFloat(common.QuotaPerUnit, 'f', -1, 64)
 	common.OptionMap["RetryTimes"] = strconv.Itoa(common.RetryTimes)
+	common.OptionMap["DefaultTokenGroup"] = setting.GetDefaultTokenGroup()
 	common.OptionMap["DataExportInterval"] = strconv.Itoa(common.DataExportInterval)
 	common.OptionMap["DataExportDefaultTime"] = common.DataExportDefaultTime
 	common.OptionMap["DefaultCollapseSidebar"] = strconv.FormatBool(common.DefaultCollapseSidebar)
@@ -215,6 +216,10 @@ func validateOptionValue(key string, value string) error {
 	}
 	if key == "MaxTokenAutoGroups" {
 		return setting.ValidateMaxTokenAutoGroups(value)
+	}
+	// CUSTOM: 新建令牌的默认分组（fork 扩展）
+	if key == "DefaultTokenGroup" {
+		return setting.ValidateDefaultTokenGroup(value)
 	}
 	// CUSTOM: 限时活动（fork 扩展）
 	if key == "billing_setting."+billing_setting.ModelPromotionsField {
@@ -394,6 +399,7 @@ func updateOptionMap(key string, value string) (err error) {
 		case "WorkerAllowHttpImageRequestEnabled":
 			system_setting.WorkerAllowHttpImageRequestEnabled = boolValue
 		case "DefaultUseAutoGroup":
+			// CUSTOM: 老开关仍然接受，作为 DefaultTokenGroup 的兼容输入（fork 扩展）
 			setting.DefaultUseAutoGroup = boolValue
 		case "ExposeRatioEnabled":
 			ratio_setting.SetExposeRatioEnabled(boolValue)
@@ -555,6 +561,9 @@ func updateOptionMap(key string, value string) (err error) {
 		err = setting.UpdateModelRequestRateLimitGroupByJSONString(value)
 	case "RetryTimes":
 		common.RetryTimes, _ = strconv.Atoi(value)
+	// CUSTOM: 新建令牌的默认分组（fork 扩展）
+	case "DefaultTokenGroup":
+		setting.SetDefaultTokenGroup(value)
 	case "DataExportInterval":
 		common.DataExportInterval, _ = strconv.Atoi(value)
 	case "DataExportDefaultTime":

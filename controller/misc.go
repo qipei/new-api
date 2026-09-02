@@ -93,6 +93,8 @@ func GetStatus(c *gin.Context) {
 		"password_login_enabled":        common.PasswordLoginEnabled,
 		"password_register_enabled":     common.PasswordRegisterEnabled,
 		"default_use_auto_group":        setting.DefaultUseAutoGroup,
+		// CUSTOM: 新建令牌的默认分组，三选一（fork 扩展）
+		"default_token_group": setting.GetDefaultTokenGroup(),
 
 		// 注册奖励为 0 时前端需要换一套推荐计划文案，只承诺充值返佣。
 		"quota_for_inviter": common.QuotaForInviter,

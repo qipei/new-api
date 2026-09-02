@@ -328,13 +328,19 @@ func AddToken(c *gin.Context) {
 		})
 		return
 	}
-	if token.Group == "auto" {
+	switch token.Group {
+	case service.AutoPriceGroup:
+		// CUSTOM: 比价路由（fork 扩展）。候选顺序由价格决定，不接受自定义编排；
+		// 跨分组顺延是这个功能的本体，也不给关掉的开关。
+		token.CrossGroupRetry = true
+		_ = token.SetAutoGroups(nil)
+	case "auto":
 		// 没传就默认开启；显式传了什么就是什么。
 		token.CrossGroupRetry = !request.CrossGroupRetry.Set || request.CrossGroupRetry.Value
 		if !setTokenAutoGroups(c, &token, request.AutoGroups.Groups) {
 			return
 		}
-	} else {
+	default:
 		token.CrossGroupRetry = false
 		_ = token.SetAutoGroups(nil)
 	}
@@ -442,7 +448,10 @@ func UpdateToken(c *gin.Context) {
 		if request.CrossGroupRetry.Set {
 			cleanToken.CrossGroupRetry = request.CrossGroupRetry.Value
 		}
-		if token.Group != "auto" {
+		if token.Group == service.AutoPriceGroup {
+			cleanToken.CrossGroupRetry = true
+			_ = cleanToken.SetAutoGroups(nil)
+		} else if token.Group != "auto" {
 			cleanToken.CrossGroupRetry = false
 			_ = cleanToken.SetAutoGroups(nil)
 		} else if request.AutoGroups.Set {

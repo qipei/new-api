@@ -5589,6 +5589,7 @@
     "Ended": "Đã kết thúc",
     "Participating groups (none selected means every group)": "Nhóm tham gia (không chọn nghĩa là mọi nhóm)",
     "Effective discount after stacking with the group ratio": "Chiết khấu thực tế sau khi nhân với hệ số nhóm",
-    "Promotion": "Khuyến mãi"
+    "Promotion": "Khuyến mãi",
+    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "Bảo vệ chi phí vẫn áp dụng: nếu giá khuyến mãi thấp hơn chi phí đầu nguồn, phần chênh lệch sẽ bị thu thêm để hòa vốn. Vì vậy khuyến mãi chỉ có tác dụng khi giá sau giảm vẫn cao hơn mức đầu nguồn tính."
   }
 }

@@ -5589,6 +5589,7 @@
     "Ended": "終了",
     "Participating groups (none selected means every group)": "対象グループ（未選択の場合はすべてのグループ）",
     "Effective discount after stacking with the group ratio": "グループ倍率と掛け合わせた実際の割引",
-    "Promotion": "キャンペーン"
+    "Promotion": "キャンペーン",
+    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "コスト保護は引き続き有効です。キャンペーン価格が上流のコストを下回ると、差額が損益分岐点まで追加請求されます。そのためキャンペーンは、割引後の価格が上流の課金額を上回っている間だけ効果があります。"
   }
 }

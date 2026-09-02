@@ -5589,6 +5589,7 @@
     "Ended": "Terminé",
     "Participating groups (none selected means every group)": "Groupes participants (aucun sélectionné = tous les groupes)",
     "Effective discount after stacking with the group ratio": "Remise effective après cumul avec le ratio de groupe",
-    "Promotion": "Promotion"
+    "Promotion": "Promotion",
+    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "La protection des coûts reste active : si le prix promotionnel passe sous le coût amont, la différence est refacturée pour atteindre l’équilibre. Une promotion n’a donc d’effet que tant que le prix remisé reste supérieur au coût amont."
   }
 }

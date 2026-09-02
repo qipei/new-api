@@ -69,6 +69,17 @@ func appendRequestPath(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other
 	}
 }
 
+// CUSTOM: 限时活动（fork 扩展）。活动倍率已经乘进了 group_ratio，日志里只会看到
+// 一个对不上任何分组配置的数字（8.8折 的 0.88 会变成 0.44）。把活动名和倍率一并
+// 记下来，查账时才能解释这个数从哪来。
+func appendPromotionInfo(priceData hosttypes.PriceData, other map[string]interface{}) {
+	if priceData.GroupRatioInfo.PromotionRatio <= 0 {
+		return
+	}
+	other["promotion_ratio"] = priceData.GroupRatioInfo.PromotionRatio
+	other["promotion_name"] = priceData.GroupRatioInfo.PromotionName
+}
+
 func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, modelRatio, groupRatio, completionRatio float64,
 	cacheTokens int, cacheRatio float64, modelPrice float64, userGroupRatio float64) map[string]interface{} {
 	other := make(map[string]interface{})
@@ -79,6 +90,7 @@ func GenerateTextOtherInfo(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, m
 	other["cache_ratio"] = cacheRatio
 	other["model_price"] = modelPrice
 	other["user_group_ratio"] = userGroupRatio
+	appendPromotionInfo(relayInfo.PriceData, other)
 	other["frt"] = float64(relayInfo.FirstResponseTime.UnixMilli() - relayInfo.StartTime.UnixMilli())
 	if relayInfo.ReasoningEffort != "" {
 		other["reasoning_effort"] = relayInfo.ReasoningEffort
@@ -297,6 +309,7 @@ func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData hosttypes.P
 	if priceData.GroupRatioInfo.HasSpecialRatio {
 		other["user_group_ratio"] = priceData.GroupRatioInfo.GroupSpecialRatio
 	}
+	appendPromotionInfo(priceData, other)
 	appendRequestPath(nil, relayInfo, other)
 	return other
 }

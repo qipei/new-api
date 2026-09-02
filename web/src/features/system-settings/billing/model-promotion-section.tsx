@@ -203,6 +203,11 @@ export function ModelPromotionSection(props: ModelPromotionSectionProps) {
           'A promotion multiplies the final price for the given dates. It works the same for ratio-priced and dynamically-priced models, and expires on its own — nothing has to be restored afterwards.'
         )}
       </p>
+      <p className='text-muted-foreground text-sm'>
+        {t(
+          'Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.'
+        )}
+      </p>
       <SettingsPageFormActions
         onSave={() => void onSave()}
         isSaving={updateOption.isPending}

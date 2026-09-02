@@ -5589,6 +5589,7 @@
     "Ended": "Ended",
     "Participating groups (none selected means every group)": "Participating groups (none selected means every group)",
     "Effective discount after stacking with the group ratio": "Effective discount after stacking with the group ratio",
-    "Promotion": "Promotion"
+    "Promotion": "Promotion",
+    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges."
   }
 }

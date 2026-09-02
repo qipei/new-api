@@ -5589,6 +5589,7 @@
     "Ended": "已結束",
     "Participating groups (none selected means every group)": "參與分組（不選表示所有分組都參與）",
     "Effective discount after stacking with the group ratio": "與分組倍率疊加後的實際折扣",
-    "Promotion": "活動"
+    "Promotion": "活動",
+    "Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.": "成本保護仍然生效：活動價一旦低於上游成本，差額會被補扣至打平。因此活動只在打折後的價格仍高於上游收費時才真正起作用。"
   }
 }

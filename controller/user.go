@@ -649,6 +649,10 @@ func GetUserModels(c *gin.Context) {
 		if _, ok := groups[group]; ok {
 			groupsToQuery = service.GetUserAutoGroup(user.Group)
 		}
+	// CUSTOM: 比价路由不是真实分组，不在可用分组表里，按 default 分支查会得到
+	// 空列表；它能触及用户的全部可用分组（fork 扩展）。
+	case group == service.AutoPriceGroup:
+		groupsToQuery = service.PriceRoutingCandidateGroups(user.Group)
 	default:
 		if _, ok := groups[group]; ok {
 			groupsToQuery = []string{group}

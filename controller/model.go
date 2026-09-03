@@ -179,7 +179,9 @@ type modelListGroups struct {
 func getModelListGroups(c *gin.Context) (modelListGroups, error) {
 	tokenGroup := common.GetContextKeyString(c, constant.ContextKeyTokenGroup)
 	userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
-	if userGroup == "" && (tokenGroup == "" || tokenGroup == "auto") {
+	// CUSTOM: 比价路由（fork 扩展）。auto_price 和 auto 一样不是真实分组，落到
+	// 下面那个"当成分组名用"的分支会查不到任何模型。
+	if userGroup == "" && (tokenGroup == "" || service.IsAutoRoutingGroup(tokenGroup)) {
 		var err error
 		userGroup, err = model.GetUserGroup(c.GetInt("id"), false)
 		if err != nil {
@@ -192,6 +194,15 @@ func getModelListGroups(c *gin.Context) (modelListGroups, error) {
 			userGroup:   userGroup,
 			tokenGroup:  tokenGroup,
 			ownerGroups: service.GetRequestAutoGroups(c, userGroup),
+		}, nil
+	}
+	// CUSTOM: 比价路由能触及用户全部可用分组，列表要的是这些分组的模型并集；
+	// 具体走哪个分组是每次请求按价格现算的，和列表无关（fork 扩展）。
+	if tokenGroup == service.AutoPriceGroup {
+		return modelListGroups{
+			userGroup:   userGroup,
+			tokenGroup:  tokenGroup,
+			ownerGroups: service.PriceRoutingCandidateGroups(userGroup),
 		}, nil
 	}
 
@@ -327,9 +338,53 @@ func EnabledListModels(c *gin.Context) {
 	})
 }
 
+// callerCanUseModel 报告当前密钥能不能真正调用这个模型：先按它的分组解析出可用
+// 模型，再套上令牌自己的模型白名单。判断口径必须和 /v1/models 一致，否则会出现
+// 列表里有、单独查却说不存在的矛盾。
+func callerCanUseModel(c *gin.Context, modelId string) (modelListGroups, bool) {
+	// 白名单是纯内存判断，放在查库之前：被它挡掉就不必再去翻分组的可用模型。
+	if !tokenModelLimitAllows(c, modelId) {
+		return modelListGroups{}, false
+	}
+	groups, err := getModelListGroups(c)
+	if err != nil {
+		return groups, false
+	}
+	for _, name := range service.GetGroupsEnabledModels(groups.ownerGroups) {
+		if name == modelId {
+			return groups, true
+		}
+	}
+	return groups, false
+}
+
+// tokenModelLimitAllows 未启用白名单时一律放行；启用了却拿不到白名单内容时拒绝
+// ——那种情况下放行等于白名单形同虚设。
+func tokenModelLimitAllows(c *gin.Context, modelId string) bool {
+	if !common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled) {
+		return true
+	}
+	raw, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
+	if !ok {
+		return false
+	}
+	limit, ok := raw.(map[string]bool)
+	if !ok {
+		return false
+	}
+	return limit[modelId] || limit[ratio_setting.FormatMatchingModelName(modelId)]
+}
+
 func RetrieveModel(c *gin.Context, modelType int) {
 	modelId := c.Param("model")
-	if aiModel, ok := openAIModelsMap[modelId]; ok {
+	// CUSTOM: 原来只查 openAIModelsMap —— 那是各渠道适配器内置模型名拼出来的静态
+	// 表，站点自定义的模型名压根不在里面，于是 /v1/models 列得出来、单独查却报
+	// 不存在。改为以"这个密钥实际能用的模型"为准（fork 扩展）。
+	if groups, ok := callerCanUseModel(c, modelId); ok {
+		aiModel := buildOpenAIModel(
+			modelId,
+			getPreferredModelOwners([]string{modelId}, groups.ownerGroups),
+		)
 		switch modelType {
 		case constant.ChannelTypeAnthropic:
 			c.JSON(200, dto.AnthropicModel{
@@ -341,15 +396,17 @@ func RetrieveModel(c *gin.Context, modelType int) {
 		default:
 			c.JSON(200, aiModel)
 		}
-	} else {
-		openAIError := types.OpenAIError{
-			Message: fmt.Sprintf("The model '%s' does not exist", modelId),
-			Type:    "invalid_request_error",
-			Param:   "model",
-			Code:    "model_not_found",
-		}
-		c.JSON(200, gin.H{
-			"error": openAIError,
-		})
+		return
 	}
+	// 不再回落到静态表：那会让站点没上架的模型（静态表里恰好有的那些）被报成
+	// "存在"，客户端照着调必然失败——和上面那个 bug 是同一个，只是方向相反。
+	openAIError := types.OpenAIError{
+		Message: fmt.Sprintf("The model '%s' does not exist", modelId),
+		Type:    "invalid_request_error",
+		Param:   "model",
+		Code:    "model_not_found",
+	}
+	c.JSON(200, gin.H{
+		"error": openAIError,
+	})
 }

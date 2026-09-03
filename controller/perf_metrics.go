@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/gin-gonic/gin"
@@ -77,6 +78,7 @@ func filterActiveGroups(groups []perfmetrics.GroupResult) []perfmetrics.GroupRes
 	activeRatios := ratio_setting.GetGroupRatioCopy()
 	return lo.Filter(groups, func(g perfmetrics.GroupResult, _ int) bool {
 		_, ok := activeRatios[g.Group]
-		return ok || g.Group == "auto"
+		// CUSTOM: 两种自动路由都不在倍率表里（fork 扩展）
+		return ok || service.IsAutoRoutingGroup(g.Group)
 	})
 }

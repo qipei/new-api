@@ -130,11 +130,12 @@ func RankGroupsByPrice(modelName string, userGroup string, groups []string, at t
 	return ranked
 }
 
-// GetRequestPriceRankedGroups 是比价路由的候选列表：用户能用的分组，按当前价格从
-// 低到高。和 auto 不同，这里不看管理员编排的 auto 列表——不需要编排正是它的卖点。
-func GetRequestPriceRankedGroups(userGroup string, modelName string, at time.Time, probe ExprProbe) []string {
+// PriceRoutingCandidateGroups 是比价路由能够触及的全部分组，与具体模型无关，
+// 顺序也不保证。模型列表接口用它：那里要的是"这个密钥能看到哪些模型"的并集，
+// 而不是某一次请求该走哪个分组。
+func PriceRoutingCandidateGroups(userGroup string) []string {
 	usable := GetUserUsableGroups(userGroup)
-	candidates := make([]string, 0, len(usable))
+	groups := make([]string, 0, len(usable))
 	for group := range usable {
 		if group == "" || IsAutoRoutingGroup(group) {
 			continue
@@ -142,6 +143,17 @@ func GetRequestPriceRankedGroups(userGroup string, modelName string, at time.Tim
 		if !ratio_setting.ContainsGroupRatio(group) {
 			continue
 		}
+		groups = append(groups, group)
+	}
+	sort.Strings(groups)
+	return groups
+}
+
+// GetRequestPriceRankedGroups 是比价路由的候选列表：用户能用的分组，按当前价格从
+// 低到高。和 auto 不同，这里不看管理员编排的 auto 列表——不需要编排正是它的卖点。
+func GetRequestPriceRankedGroups(userGroup string, modelName string, at time.Time, probe ExprProbe) []string {
+	candidates := make([]string, 0)
+	for _, group := range PriceRoutingCandidateGroups(userGroup) {
 		// 先筛掉没有这个模型的分组：站点分组可能有几十个，单个模型往往只在其中
 		// 几个里。不筛也能跑对（选渠道时会跳过），但每次请求都要白扫一遍。
 		if !model.GroupServesModel(group, modelName) {

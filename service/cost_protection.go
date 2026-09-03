@@ -282,7 +282,17 @@ func applyCostProtection(ctx context.Context, cost UpstreamCostInfo) {
 func findCostProtectionAlternative(log *model.Log, requestPath string) (*model.Channel, string, error) {
 	groups := []string{log.Group}
 	if log.TokenId > 0 {
-		if token, err := model.GetTokenById(log.TokenId); err == nil && token != nil && token.Group == "auto" {
+		token, tokenErr := model.GetTokenById(log.TokenId)
+		// CUSTOM: 比价路由能触及用户全部可用分组，换渠道时也该在这些分组里找，
+		// 否则只会盯着出问题的那一个分组（fork 扩展）。
+		if tokenErr == nil && token != nil && token.Group == AutoPriceGroup {
+			if userGroup, groupErr := model.GetUserGroup(token.UserId, false); groupErr == nil {
+				if candidates := PriceRoutingCandidateGroups(userGroup); len(candidates) > 0 {
+					groups = candidates
+				}
+			}
+		}
+		if tokenErr == nil && token != nil && token.Group == "auto" {
 			autoGroups, autoErr := token.GetAutoGroups()
 			if autoErr != nil {
 				return nil, "", autoErr

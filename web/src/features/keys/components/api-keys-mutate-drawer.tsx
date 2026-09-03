@@ -437,24 +437,24 @@ export function ApiKeysMutateDrawer({
                       <FormLabel className='shrink-0 sm:pt-2'>
                         {t('Group')}
                       </FormLabel>
-                      {!isUpdate ? (
-                        <Alert className='border-primary/40 bg-primary/10 min-w-0 flex-1 px-3 py-1.5'>
-                          <AlertDescription className='text-foreground text-xs leading-5 font-medium'>
-                            {/* CUSTOM: 两种自动路由共用同一句访问范围说明，比价
-                                路由再补一段自己的行为（fork 扩展）。 */}
-                            {t(
-                              'An API key in the auto or auto_price group can reach every model on the site with a single key. Keys in any other group can only reach the models in that group.'
-                            )}
-                            {selectedGroup === AUTO_PRICE_GROUP && (
-                              <span className='mt-1 block font-normal'>
-                                {t(
-                                  'auto_price always uses the cheapest group available at that moment, comparing prices with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.'
-                                )}
-                              </span>
-                            )}
-                          </AlertDescription>
-                        </Alert>
-                      ) : null}
+                      {/* CUSTOM: 编辑时同样要看到访问范围说明——改分组的场景
+                          恰恰最需要它（fork 扩展）。 */}
+                      <Alert className='border-primary/40 bg-primary/10 min-w-0 flex-1 px-3 py-1.5'>
+                        <AlertDescription className='text-foreground text-xs leading-5 font-medium'>
+                          {/* CUSTOM: 两种自动路由共用同一句访问范围说明，比价
+                              路由再补一段自己的行为（fork 扩展）。 */}
+                          {t(
+                            'An API key in the auto or auto_price group can reach every model on the site with a single key. Keys in any other group can only reach the models in that group.'
+                          )}
+                          {selectedGroup === AUTO_PRICE_GROUP && (
+                            <span className='mt-1 block font-normal'>
+                              {t(
+                                'auto_price always uses the cheapest group available at that moment, comparing prices with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.'
+                              )}
+                            </span>
+                          )}
+                        </AlertDescription>
+                      </Alert>
                     </div>
                     <FormControl>
                       <ApiKeyGroupCombobox

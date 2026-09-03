@@ -22,11 +22,7 @@ import { useTranslation } from 'react-i18next'
 
 import type { ModelPromotionInfo } from '../types'
 
-export function PromotionBadge(props: {
-  promotion: ModelPromotionInfo
-  /** 紧凑模式只显示活动名，用在空间有限的卡片上。 */
-  compact?: boolean
-}) {
+export function PromotionBadge(props: { promotion: ModelPromotionInfo }) {
   const { t } = useTranslation()
   return (
     <span
@@ -35,11 +31,9 @@ export function PromotionBadge(props: {
     >
       <Tag className='size-3 shrink-0' />
       <span className='truncate'>{props.promotion.name || t('Promotion')}</span>
-      {!props.compact && (
-        <span className='font-mono opacity-80'>
-          {props.promotion.start} ~ {props.promotion.end}
-        </span>
-      )}
+      <span className='font-mono opacity-80'>
+        {props.promotion.start} ~ {props.promotion.end}
+      </span>
     </span>
   )
 }

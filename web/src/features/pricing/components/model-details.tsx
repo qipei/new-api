@@ -1134,7 +1134,7 @@ function GroupPricingSection(props: {
                   <span className='text-foreground'>
                     {Number((effectiveRatios[group] || 1).toFixed(4))}x
                   </span>
-                  <PromotionBadge promotion={promotion} compact />
+                  <PromotionBadge promotion={promotion} />
                 </span>
               )
             },

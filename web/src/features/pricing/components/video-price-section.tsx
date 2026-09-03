@@ -25,7 +25,10 @@ import {
   getAvailableGroups,
   getConfiguredGroupRatio,
 } from '../lib/model-helpers'
+// CUSTOM: 限时活动（fork 扩展）
+import { activePromotionForGroup } from '../lib/model-promotion'
 import type { PricingModel, VideoPriceTier } from '../types'
+import { PromotionBadge } from './promotion-badge'
 
 // CUSTOM: 视频价格矩阵展示（fork 扩展）。
 // 按生成模式分组展示各档官方价，并按模型可用的每个分组展示折后价；
@@ -86,11 +89,19 @@ export function VideoPriceSection(props: {
 
   // 多分组时每个分组一列，按倍率从低到高（折扣从优到差）排序，同倍率按名称稳定排序
   const groups = getAvailableGroups(props.model, props.usableGroup || {})
-    .map((group) => ({
-      key: group,
-      label: props.usableGroup[group]?.desc || group,
-      ratio: getConfiguredGroupRatio(props.groupRatio, group),
-    }))
+    .map((group) => {
+      const baseRatio = getConfiguredGroupRatio(props.groupRatio, group)
+      // CUSTOM: 限时活动（fork 扩展）。后端把活动倍率乘进了实际计费的 GroupRatio，
+      // 这里也必须乘进展示用的倍率，否则页面显示原价、实际按活动价扣费。
+      const promotion = activePromotionForGroup(props.model, group)
+      return {
+        key: group,
+        label: props.usableGroup[group]?.desc || group,
+        baseRatio,
+        ratio: promotion ? baseRatio * promotion.ratio : baseRatio,
+        promotion,
+      }
+    })
     .filter((group) => Number.isFinite(group.ratio))
     .sort((a, b) => a.ratio - b.ratio || a.key.localeCompare(b.key))
 
@@ -283,12 +294,25 @@ export function VideoPriceSection(props: {
                     {groups.map((group) => (
                       <th
                         key={group.key}
-                        className='py-1 pl-3 text-right font-normal whitespace-nowrap'
+                        className='py-1 pl-3 text-right font-normal'
                       >
-                        {group.label}
-                        <span className='text-muted-foreground/60 ml-1'>
-                          ×{formatRatio(group.ratio)}
+                        <span className='whitespace-nowrap'>
+                          {group.label}
+                          {group.promotion && (
+                            <span className='text-muted-foreground/50 ml-1 line-through'>
+                              ×{formatRatio(group.baseRatio)}
+                            </span>
+                          )}
+                          <span className='text-muted-foreground/60 ml-1'>
+                            ×{formatRatio(group.ratio)}
+                          </span>
                         </span>
+                        {/* CUSTOM: 限时活动角标（fork 扩展） */}
+                        {group.promotion && (
+                          <span className='mt-1 flex justify-end'>
+                            <PromotionBadge promotion={group.promotion} />
+                          </span>
+                        )}
                       </th>
                     ))}
                   </tr>

@@ -31,8 +31,11 @@ import {
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
+// CUSTOM: 折扣角标（fork 扩展）
+import { bestDiscount } from '../lib/model-promotion'
 import { formatPrice, formatRequestPrice } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
+import { DiscountBadge } from './discount-badge'
 import { MatrixTokenPriceSummary } from './matrix-token-price-summary'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelPerfBadge, type ModelPerfBadgeData } from './model-perf-badge'
@@ -58,6 +61,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const isTokenBased = isTokenBasedModel(props.model)
   const tokenUnitLabel = tokenUnit === 'K' ? '1K' : '1M'
   const tags = parseTags(props.model.tags)
+  const discount = bestDiscount(props.model)
   const groups = props.model.enable_groups || []
   const endpoints = props.model.supported_endpoint_types || []
   const modelIconKey = props.model.icon || props.model.vendor_icon
@@ -254,6 +258,19 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           </button>
         </div>
       </div>
+
+      {/* CUSTOM: 当前最低折扣（fork 扩展）。折扣可能来自分组倍率，也可能来自
+          限时活动，这里只呈现"最低能到几折"这个结果。 */}
+      {discount && (
+        <div className='mt-2 flex items-center gap-1.5 sm:mt-3'>
+          <DiscountBadge discount={discount} />
+          <span className='text-muted-foreground/70 truncate text-xs'>
+            {discount.promotion
+              ? discount.promotion.name
+              : t('Lowest group price')}
+          </span>
+        </div>
+      )}
 
       {/* Description */}
       <p className='text-muted-foreground mt-2 line-clamp-1 flex-1 text-[13px] leading-relaxed sm:mt-4 sm:line-clamp-2 sm:min-h-[2.5rem]'>

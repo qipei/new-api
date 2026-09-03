@@ -5603,6 +5603,7 @@
     "An API key in the auto_price group can access all models, and always uses the cheapest group available at that moment.": "自動比價（auto_price）分組的 API 金鑰可存取所有模型，並始終使用當時最便宜的可用分組。",
     "Pricing is compared with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.": "比價時會將分時檔位與進行中的限時活動一併計入。某個渠道失敗時先按重試次數重試，仍失敗則順延到下一個價格區間的分組——客戶端始終使用同一個模型名，無需維護渠道列表。",
     "An API key in the auto or auto_price group can reach every model on the site with a single key. Keys in any other group can only reach the models in that group.": "自動（auto）與自動比價（auto_price）分組的 API 金鑰，一個 key 即可存取站點下的所有模型；其他分組的 API 金鑰只能存取對應分組下的模型。",
-    "auto_price always uses the cheapest group available at that moment, comparing prices with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.": "自動比價（auto_price）始終使用當時最便宜的可用分組，比價時會將分時檔位與進行中的限時活動一併計入。某個渠道失敗時先按重試次數重試，仍失敗則順延到下一個價格區間的分組——客戶端始終使用同一個模型名，無需維護渠道列表。"
+    "auto_price always uses the cheapest group available at that moment, comparing prices with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.": "自動比價（auto_price）始終使用當時最便宜的可用分組，比價時會將分時檔位與進行中的限時活動一併計入。某個渠道失敗時先按重試次數重試，仍失敗則順延到下一個價格區間的分組——客戶端始終使用同一個模型名，無需維護渠道列表。",
+    "Lowest group price": "最低分組價"
   }
 }

@@ -62,3 +62,46 @@ export function hasAnyActivePromotion(
 ): boolean {
   return (model.promotions?.length ?? 0) > 0
 }
+
+/** 当前生效的最低折扣。ratio 是有效倍率，小于 1 才算有折扣。 */
+export interface BestDiscount {
+  /** 有效倍率：分组倍率 × 活动倍率 */
+  ratio: number
+  group: string
+  promotion: ModelPromotionInfo | null
+}
+
+/**
+ * 该模型在所有可用分组里能拿到的最低折扣。
+ *
+ * 折扣有两个来源，必须一起看：分组倍率本身小于 1，或者 default 这类倍率为 1 的
+ * 分组上挂了限时活动。只看其中一个都会漏——列表和卡片上要展示的是"这个模型现在
+ * 最低能到几折"，用户不关心是靠哪种方式拿到的。
+ */
+export function bestDiscount(
+  model: Pick<PricingModel, 'promotions' | 'enable_groups' | 'group_ratio'>
+): BestDiscount | null {
+  const groups = Array.isArray(model.enable_groups) ? model.enable_groups : []
+  const ratios = model.group_ratio || {}
+
+  let best: BestDiscount | null = null
+  for (const group of groups) {
+    const base = ratios[group]
+    if (!Number.isFinite(base) || base <= 0) continue
+    const promotion = activePromotionForGroup(model, group)
+    const ratio = promotion ? base * promotion.ratio : base
+    if (!Number.isFinite(ratio) || ratio <= 0) continue
+    if (!best || ratio < best.ratio) best = { ratio, group, promotion }
+  }
+  if (!best || best.ratio >= 1) return null
+  return best
+}
+
+/**
+ * 把倍率写成中文习惯的"折"：0.83 → 8.3折，0.5 → 5折，0.25 → 2.5折。
+ * 保留一位小数，整数不带小数点。
+ */
+export function formatDiscountLabel(ratio: number): string {
+  const tenths = Math.round(ratio * 100) / 10
+  return `${Number(tenths.toFixed(1))}折`
+}

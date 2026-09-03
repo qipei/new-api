@@ -5603,6 +5603,7 @@
     "An API key in the auto_price group can access all models, and always uses the cheapest group available at that moment.": "auto_price グループの API キーはすべてのモデルにアクセスでき、常にその時点で最も安い利用可能なグループを使用します。",
     "Pricing is compared with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.": "比較には時間帯別の階層と実施中のキャンペーンが反映されます。チャネルが失敗した場合はリトライし、それでも失敗すれば次に安いグループへ移ります。クライアントは同じモデル名のままで、チャネル一覧は不要です。",
     "An API key in the auto or auto_price group can reach every model on the site with a single key. Keys in any other group can only reach the models in that group.": "auto および auto_price グループの API キーは、1 つのキーでサイト上のすべてのモデルにアクセスできます。その他のグループのキーは、そのグループのモデルにのみアクセスできます。",
-    "auto_price always uses the cheapest group available at that moment, comparing prices with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.": "auto_price は常にその時点で最も安い利用可能なグループを使用し、比較には時間帯別の階層と実施中のキャンペーンが反映されます。チャネルが失敗した場合はリトライし、それでも失敗すれば次に安いグループへ移ります。クライアントは同じモデル名のままで、チャネル一覧は不要です。"
+    "auto_price always uses the cheapest group available at that moment, comparing prices with time-of-day tiers and running promotions taken into account. If a channel fails it retries, then moves on to the next cheapest group — the client keeps one model name and needs no channel list.": "auto_price は常にその時点で最も安い利用可能なグループを使用し、比較には時間帯別の階層と実施中のキャンペーンが反映されます。チャネルが失敗した場合はリトライし、それでも失敗すれば次に安いグループへ移ります。クライアントは同じモデル名のままで、チャネル一覧は不要です。",
+    "Lowest group price": "最安グループ価格"
   }
 }

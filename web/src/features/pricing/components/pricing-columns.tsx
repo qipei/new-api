@@ -35,12 +35,15 @@ import {
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
+// CUSTOM: 折扣角标（fork 扩展）
+import { bestDiscount } from '../lib/model-promotion'
 import {
   formatPrice,
   formatRequestPrice,
   stripTrailingZeros,
 } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
+import { DiscountBadge } from './discount-badge'
 import { MatrixTokenPriceSummary } from './matrix-token-price-summary'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 
@@ -93,6 +96,31 @@ export function usePricingColumns(
         )
       },
       minSize: 200,
+    },
+
+    // CUSTOM: 优惠列（fork 扩展）。折扣可能来自分组倍率，也可能来自限时活动，
+    // 这里只呈现"当前最低能到几折"。
+    {
+      id: 'discount',
+      header: t('Discount'),
+      cell: ({ row }) => {
+        const discount = bestDiscount(row.original)
+        if (!discount) {
+          return <span className='text-muted-foreground/40 text-xs'>-</span>
+        }
+        return (
+          <div className='flex min-w-0 items-center gap-1.5'>
+            <DiscountBadge discount={discount} />
+            {discount.promotion && (
+              <span className='text-muted-foreground/70 truncate text-xs'>
+                {discount.promotion.name}
+              </span>
+            )}
+          </div>
+        )
+      },
+      size: 150,
+      enableSorting: false,
     },
 
     // Type column
@@ -361,6 +389,25 @@ export function usePricingColumns(
       enableSorting: false,
     },
 
+    // Enable Groups column
+    {
+      accessorKey: 'enable_groups',
+      header: t('Groups'),
+      cell: ({ row }) => {
+        const groups = row.original.enable_groups || []
+        return (
+          <BadgeListCell
+            items={groups.map((group) => (
+              <GroupBadge key={group} group={group} size='sm' />
+            ))}
+            tooltipClassName='max-w-[280px] p-2'
+          />
+        )
+      },
+      size: 130,
+      enableSorting: false,
+    },
+
     // Tags column
     {
       accessorKey: 'tags',
@@ -402,25 +449,6 @@ export function usePricingColumns(
                 copyable={false}
               />
             ))}
-          />
-        )
-      },
-      size: 130,
-      enableSorting: false,
-    },
-
-    // Enable Groups column
-    {
-      accessorKey: 'enable_groups',
-      header: t('Groups'),
-      cell: ({ row }) => {
-        const groups = row.original.enable_groups || []
-        return (
-          <BadgeListCell
-            items={groups.map((group) => (
-              <GroupBadge key={group} group={group} size='sm' />
-            ))}
-            tooltipClassName='max-w-[280px] p-2'
           />
         )
       },

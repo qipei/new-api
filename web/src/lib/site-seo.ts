@@ -17,4 +17,4 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 export const SITE_SEO_TITLE =
-  '豆比特｜全国大模型Token中转站 | 稳定LLM API聚合充值平台-token01.net|词元聚合平台 | New API'
+  '豆比特｜大模型词元token聚合分发平台 | 稳定LLM API聚合充值平台-token01.net|词元聚合平台 | New API'

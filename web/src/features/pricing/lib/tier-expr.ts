@@ -268,6 +268,63 @@ export type EvalResult = {
   error: string | null
 }
 
+const WEEKDAY_INDEX: Record<string, number> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+}
+
+/**
+ * 与后端 billingexpr 的 hour/minute/weekday/month/day 同义：按给定时区取此刻的
+ * 时间分量。时区为空或不认识时退回 UTC，和后端 timeInZone 的兜底一致。
+ */
+function timePartsInZone(tz: string): {
+  hour: number
+  minute: number
+  weekday: number
+  month: number
+  day: number
+} {
+  const zone = (tz || '').trim() || 'UTC'
+  let parts: Intl.DateTimeFormatPart[]
+  try {
+    parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: zone,
+      hour12: false,
+      weekday: 'short',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+    }).formatToParts(new Date())
+  } catch {
+    parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'UTC',
+      hour12: false,
+      weekday: 'short',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+    }).formatToParts(new Date())
+  }
+  const read = (type: string) =>
+    parts.find((part) => part.type === type)?.value ?? ''
+  // Intl 在 24 小时制下把午夜给成 "24"，Go 的 Hour() 是 0。
+  const hour = Number(read('hour')) % 24
+  return {
+    hour: Number.isFinite(hour) ? hour : 0,
+    minute: Number(read('minute')) || 0,
+    weekday: WEEKDAY_INDEX[read('weekday')] ?? 0,
+    month: Number(read('month')) || 0,
+    day: Number(read('day')) || 0,
+  }
+}
+
 export function evalExprLocally(
   exprStr: string,
   promptTokens: number,
@@ -298,6 +355,14 @@ export function evalExprLocally(
       abs: Math.abs,
       ceil: Math.ceil,
       floor: Math.floor,
+      // 分时表达式（闲时/忙时）离了这几个函数直接抛异常，估算器和模型广场的比价
+      // 都会拿不到价格。param()/header() 不给：页面上没有请求可读，与其编一个空
+      // 值让条件静默判假，不如让求值失败、由调用方明确退回。
+      hour: (tz: string) => timePartsInZone(tz).hour,
+      minute: (tz: string) => timePartsInZone(tz).minute,
+      weekday: (tz: string) => timePartsInZone(tz).weekday,
+      month: (tz: string) => timePartsInZone(tz).month,
+      day: (tz: string) => timePartsInZone(tz).day,
     }
     for (const field of ESTIMATOR_VARS) {
       env[field.var] = extraTokenValues[field.stateKey] || 0

@@ -28,7 +28,7 @@ import {
   type BillingVar,
   type ParsedTier,
 } from './billing-expr'
-import { getDisplayGroupRatio } from './model-helpers'
+import { displayGroupRatio } from './group-price-rank'
 
 type DynamicPriceOptions = {
   tokenUnit: TokenUnit
@@ -70,7 +70,7 @@ export function getDynamicDisplayGroupRatio(
   model: PricingModel,
   selectedGroup?: string
 ): number {
-  return getDisplayGroupRatio(model, selectedGroup)
+  return displayGroupRatio(model, selectedGroup)
 }
 
 function applyRechargeRate(

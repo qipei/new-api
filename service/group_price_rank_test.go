@@ -1,12 +1,15 @@
 package service
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -156,6 +159,51 @@ func groupScoreForTest(t *testing.T, modelName, group string) float64 {
 	return cost * ratio
 }
 
+// 用生产口径求值，别另造一个：测试断言的排序才和线上一致。
 func testProbe() (billingexpr.TokenParams, billingexpr.RequestInput) {
-	return billingexpr.TokenParams{P: 1_000_000, C: 1_000_000, Len: 1_000_000}, billingexpr.RequestInput{}
+	return unitPriceTokens, billingexpr.RequestInput{}
+}
+
+// 比价要能读到本次请求的头，否则 header() 条件在排序时一律判假，排出来的顺序
+// 和真正结算时的价格对不上。
+func TestUnitPriceProbeCarriesTheRequestHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	ctx.Request.Header.Set("Anthropic-Beta", "fast-mode")
+
+	params, input := unitPriceProbe(ctx)()
+	assert.Equal(t, unitPriceTokens, params)
+	assert.Equal(t, "fast-mode", input.Headers["Anthropic-Beta"])
+}
+
+// 输入、输出、缓存读各记 1，表达式算出来就该是这三项单价的和。这一条钉死口径：
+// 改了向量就会算成别的东西，而模型广场是按同一个口径展示的。
+func TestUnitPriceProbeSumsTheCurrentUnitPrices(t *testing.T) {
+	params, input := unitPriceProbe(nil)()
+	cost, ok := exprUnitCost(`tier("base", p * 2.4 + c * 4.5 + cr * 0.9)`, params, input)
+	require.True(t, ok)
+	assert.InDelta(t, 2.4+4.5+0.9, cost, 1e-9)
+}
+
+// 表达式算不出价的分组必须排最后。曾经这里退回只比倍率，而倍率是 1 附近的数、
+// 其它分组是"单价 × 倍率"，量纲差着几个数量级——坏配置反而稳稳排第一。
+func TestRankByPricePutsUnevaluableGroupsLast(t *testing.T) {
+	prevMode := billing_setting.SwapBillingModeForTest(map[string]string{
+		"m": billing_setting.BillingModeTieredExpr,
+	})
+	prevExpr, prevGroup := billing_setting.SwapExprConfigForTest(
+		map[string]string{"m": `tier("base", p * 4 + c * 18)`},
+		map[string]map[string]string{"m": {"broken": `tier("base", p * nope)`}},
+	)
+	prevPromo := billing_setting.SwapPromotionsForTest(map[string][]billing_setting.ModelPromotion{})
+	t.Cleanup(func() {
+		billing_setting.SwapBillingModeForTest(prevMode)
+		billing_setting.SwapExprConfigForTest(prevExpr, prevGroup)
+		billing_setting.SwapPromotionsForTest(prevPromo)
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"broken":0.1,"default":1}`))
+
+	assert.Equal(t, []string{"default", "broken"},
+		RankGroupsByPrice("m", "", []string{"broken", "default"}, time.Now(), testProbe))
 }

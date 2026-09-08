@@ -32,6 +32,7 @@ import {
 import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
 // CUSTOM: 折扣角标（fork 扩展）
+import { resolveDisplayGroup } from '../lib/group-price-rank'
 import { bestDiscount } from '../lib/model-promotion'
 import { formatPrice, formatRequestPrice } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
@@ -87,7 +88,10 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         })
       : null
 
-  const primaryGroup = groups[0]
+  // CUSTOM: 标出卡片上这个价格来自哪个分组（fork 扩展）。未选分组时展示的是当前
+  // 最便宜的那个，写成 enable_groups[0] 会指向一个跟价格无关的分组。
+  const primaryGroup =
+    resolveDisplayGroup(props.model, props.selectedGroup) ?? groups[0]
   const bottomTags = [...endpoints.slice(0, 2), ...tags.slice(0, 2)]
   const hiddenCount =
     Math.max(groups.length - 1, 0) +

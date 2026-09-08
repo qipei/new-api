@@ -13,6 +13,7 @@
 package service
 
 import (
+	"math"
 	"sort"
 	"time"
 
@@ -29,13 +30,47 @@ import (
 // 当作普通分组选中，也不该出现在分组倍率表里。
 const AutoPriceGroup = "auto_price"
 
-// ExprProbe 在需要对表达式求值时才被调用，返回和预扣费同一口径的 token 估算与
-// 请求状态。做成惰性的是因为绝大多数模型走不到求值那一步：各分组表达式一致时
-// 排序只看倍率，不该为此付出 token 计数的开销。
+// ExprProbe 在需要对表达式求值时才被调用，返回求值用的 token 向量与请求状态。
+// 做成惰性的是因为绝大多数模型走不到求值那一步：各分组表达式一致时排序只看倍率。
 //
-// 用真实请求数据而不是固定探针，是为了让排序永远跟着表达式走：无论表达式将来
-// 用 len、param()、header() 还是以后新增的函数，都不需要回头改这里的代码。
+// 请求状态传真实的请求体和请求头，排序才能跟着表达式走——无论表达式用 param()、
+// header() 还是分时函数，都不必回头改这里。
 type ExprProbe func() (billingexpr.TokenParams, billingexpr.RequestInput)
+
+// unitPriceTokens 是比价用的 token 向量：输入、输出、缓存读各记 1，其余记 0，
+// 表达式算出来就是这三项当前时段单价的和。
+//
+// 不数真实 token 是有意的：渠道选择发生在请求被解析之前，真要数就得把 relay 层
+// 分协议的 token 计数整个搬到这里重跑一遍，而分组之间比高低并不需要真实用量——
+// 同一个模型各分组的差别只在系数和倍率上。Len 记 1 会让长度分档的表达式一律落到
+// 低档，这一点和模型广场的展示口径一致：两边用同一个式子，页面显示哪个分组便宜，
+// 路由就先走哪个。
+var unitPriceTokens = billingexpr.TokenParams{P: 1, C: 1, CR: 1, Len: 1}
+
+// unitPriceProbe 按上面的口径求值。拿不到请求体时只是少了 param() 的依据，倍率、
+// 分时和 header() 部分照常，所以不当作错误。
+func unitPriceProbe(c *gin.Context) ExprProbe {
+	return func() (billingexpr.TokenParams, billingexpr.RequestInput) {
+		if c == nil || c.Request == nil {
+			return unitPriceTokens, billingexpr.RequestInput{}
+		}
+		input := billingexpr.RequestInput{
+			Headers: make(map[string]string, len(c.Request.Header)),
+		}
+		for key := range c.Request.Header {
+			input.Headers[key] = c.Request.Header.Get(key)
+		}
+		// GetBodyStorage 在没有请求体的场景会直接 panic，不能拿它当探测手段。
+		if c.Request.Body != nil {
+			if storage, err := common.GetBodyStorage(c); err == nil {
+				if body, err := storage.Bytes(); err == nil {
+					input.Body = body
+				}
+			}
+		}
+		return unitPriceTokens, input
+	}
+}
 
 // EffectiveGroupRatio 是分组倍率乘上限时活动倍率。userGroup 为空时不查特例倍率。
 func EffectiveGroupRatio(modelName string, userGroup string, group string, at time.Time) float64 {
@@ -93,7 +128,8 @@ func exprUnitCost(expr string, params billingexpr.TokenParams, input billingexpr
 // 结果稳定——否则 map 遍历顺序会让同价分组每次请求换一个，日志无从对账。
 //
 // probe 可以为 nil：那样各分组表达式不一致时会退回只比倍率，不会因为拿不到请求
-// 数据就整个失效。
+// 数据就整个失效。请求路径上一定会给（unitPriceProbe），nil 只留给不涉及请求的
+// 调用方，例如后台校验。
 func RankGroupsByPrice(modelName string, userGroup string, groups []string, at time.Time, probe ExprProbe) []string {
 	if len(groups) <= 1 {
 		return groups
@@ -109,14 +145,16 @@ func RankGroupsByPrice(modelName string, userGroup string, groups []string, at t
 	} else {
 		params, input := probe()
 		for _, group := range groups {
-			ratio := EffectiveGroupRatio(modelName, userGroup, group, at)
 			cost, ok := exprUnitCost(exprs[group], params, input)
 			if !ok {
-				// 这条表达式算不出来，退回只比倍率，别让它凭空排到最前面。
-				scores[group] = ratio
+				// 算不出价的分组排到最后。这里不能退回只比倍率：倍率是个 1 附近
+				// 的数，而其它分组的分数是"单价 × 倍率"，量纲差着几个数量级，一
+				// 混就等于让这条坏配置稳稳排第一。排最后仍然可达——重试会顺延到
+				// 它，只是不会被自动优先选中。
+				scores[group] = math.Inf(1)
 				continue
 			}
-			scores[group] = cost * ratio
+			scores[group] = cost * EffectiveGroupRatio(modelName, userGroup, group, at)
 		}
 	}
 
@@ -189,7 +227,7 @@ func RequestAutoRoutingGroups(c *gin.Context, tokenGroup string, userGroup strin
 			return groups
 		}
 	}
-	groups := GetRequestPriceRankedGroups(userGroup, modelName, time.Now(), nil)
+	groups := GetRequestPriceRankedGroups(userGroup, modelName, time.Now(), unitPriceProbe(c))
 	common.SetContextKey(c, constant.ContextKeyPriceRankedGroups, groups)
 	return groups
 }

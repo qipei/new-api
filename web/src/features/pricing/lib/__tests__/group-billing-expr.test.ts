@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { PricingModel } from '../../types'
-import {
-  resolveBillingExprForGroup,
-  withGroupBillingExpr,
-} from '../group-billing-expr'
+import { resolveBillingExprForGroup } from '../group-billing-expr'
 
 const MODEL_EXPR = 'tier("base", p * 3 + c * 9)'
 const NIGHT_EXPR =
@@ -41,54 +38,16 @@ describe('resolveBillingExprForGroup', () => {
     const blank = model({ group_billing_expr: { '8.8折': '   ' } })
     expect(resolveBillingExprForGroup(blank, '8.8折')).toBe(MODEL_EXPR)
   })
-})
 
-describe('withGroupBillingExpr', () => {
-  it('swaps in the group expression', () => {
-    const models = [model({ group_billing_expr: { '8.8折': NIGHT_EXPR } })]
-    expect(withGroupBillingExpr(models, '8.8折')[0].billing_expr).toBe(
-      NIGHT_EXPR
-    )
-  })
-
-  // 下游一堆 memo 以模型数组引用为依赖，没有替换时必须原样返回。
-  it('returns the same array when nothing needs swapping', () => {
-    const models = [model(), model({ model_name: 'other' })]
-    expect(withGroupBillingExpr(models, 'default')).toBe(models)
-    expect(withGroupBillingExpr(models, 'all')).toBe(models)
-    expect(withGroupBillingExpr(models, undefined)).toBe(models)
-  })
-
-  it('leaves models without an override untouched', () => {
-    const plain = model({ model_name: 'plain' })
-    const swapped = model({ group_billing_expr: { '8.8折': NIGHT_EXPR } })
-    const result = withGroupBillingExpr([plain, swapped], '8.8折')
-    expect(result[0]).toBe(plain)
-    expect(result[1]).not.toBe(swapped)
-  })
-})
-
-// 选中分组的覆盖会替换 billing_expr，其它分组回落时必须拿到模型级原件，
-// 否则详情里的"按分组定价"会把选中分组的价格当成所有分组的价格。
-describe('base expression preservation', () => {
-  it('keeps resolving other groups against the model expression after a swap', () => {
-    const original = model({
+  // billing_expr 会被换成当前展示分组的覆盖，其它分组回落时必须拿到模型级原件，
+  // 否则详情里的"按分组定价"会把展示分组的价格当成所有分组的价格。
+  it('falls back to the base expression once billing_expr has been swapped', () => {
+    const swapped = model({
       group_billing_expr: { '8.8折': NIGHT_EXPR },
+      billing_expr: NIGHT_EXPR,
+      base_billing_expr: MODEL_EXPR,
     })
-    const [swapped] = withGroupBillingExpr([original], '8.8折')
-
-    expect(swapped.billing_expr).toBe(NIGHT_EXPR)
     expect(resolveBillingExprForGroup(swapped, 'default')).toBe(MODEL_EXPR)
     expect(resolveBillingExprForGroup(swapped, '8.8折')).toBe(NIGHT_EXPR)
-  })
-
-  it('does not re-capture the base on a second swap', () => {
-    const original = model({
-      group_billing_expr: { '8.8折': NIGHT_EXPR, other: 'tier("x", p)' },
-    })
-    const once = withGroupBillingExpr([original], '8.8折')
-    const twice = withGroupBillingExpr(once, 'other')
-    expect(twice[0].base_billing_expr).toBe(MODEL_EXPR)
-    expect(resolveBillingExprForGroup(twice[0], 'default')).toBe(MODEL_EXPR)
   })
 })

@@ -20,7 +20,8 @@ import { formatCurrencyFromUSD } from '@/lib/currency'
 
 import { QUOTA_TYPE_VALUES, TOKEN_UNIT_DIVISORS } from '../constants'
 import type { PricingModel, TokenUnit, PriceType } from '../types'
-import { getConfiguredGroupRatio, getDisplayGroupRatio } from './model-helpers'
+import { displayGroupRatio } from './group-price-rank'
+import { getConfiguredGroupRatio } from './model-helpers'
 
 // ----------------------------------------------------------------------------
 // Price Calculation Utilities
@@ -163,7 +164,7 @@ export function getMatrixTokenPriceSummary(
     return null
   }
 
-  const groupRatio = getDisplayGroupRatio(model, selectedGroup)
+  const groupRatio = displayGroupRatio(model, selectedGroup)
   let minimum = Number.POSITIVE_INFINITY
   let maximum = Number.NEGATIVE_INFINITY
 
@@ -232,9 +233,9 @@ export function formatPrice(
     return '-'
   }
 
-  const displayGroupRatio = getDisplayGroupRatio(model, selectedGroup)
+  const groupRatioMultiplier = displayGroupRatio(model, selectedGroup)
 
-  let priceInUSD = calculateTokenPrice(model, type, displayGroupRatio)
+  let priceInUSD = calculateTokenPrice(model, type, groupRatioMultiplier)
   priceInUSD = applyRechargeRate(
     priceInUSD,
     showWithRecharge,
@@ -331,9 +332,9 @@ export function formatRequestPrice(
     return '-'
   }
 
-  const displayGroupRatio = getDisplayGroupRatio(model, selectedGroup)
+  const groupRatioMultiplier = displayGroupRatio(model, selectedGroup)
 
-  let priceInUSD = (model.model_price || 0) * displayGroupRatio
+  let priceInUSD = (model.model_price || 0) * groupRatioMultiplier
 
   priceInUSD = applyRechargeRate(
     priceInUSD,

@@ -21,7 +21,8 @@ For commercial licensing, please contact support@quantumnous.com
 // 同一个模型在不同分组下可以走不同的表达式（例如某个分组分时打折、另一个分组
 // 固定价）。价格页有十几处地方读 model.billing_expr，与其把 selectedGroup 一路
 // 传下去，不如在数据进入渲染之前就把 billing_expr 换成该分组实际生效的那条——
-// 下游一行都不用改，和上游的合并面也小。
+// 下游一行都不用改，和上游的合并面也小。替换动作在 group-price-rank.ts 里，那边
+// 才知道未选分组时该钉到哪个分组。
 import { FILTER_ALL } from '../constants'
 import type { PricingModel } from '../types'
 
@@ -40,30 +41,4 @@ export function resolveBillingExprForGroup(
     if (override && override.trim()) return override
   }
   return baseBillingExpr(model)
-}
-
-/**
- * 把列表里每个模型的 billing_expr 换成选中分组实际生效的那条。
- * 没有任何模型需要替换时原样返回入参，避免下游 memo 被无谓地击穿。
- */
-export function withGroupBillingExpr(
-  models: PricingModel[],
-  selectedGroup?: string
-): PricingModel[] {
-  if (!models.length || !selectedGroup || selectedGroup === FILTER_ALL) {
-    return models
-  }
-
-  let changed = false
-  const resolved = models.map((model) => {
-    const expr = resolveBillingExprForGroup(model, selectedGroup)
-    if (!expr || expr === model.billing_expr) return model
-    changed = true
-    return {
-      ...model,
-      base_billing_expr: baseBillingExpr(model),
-      billing_expr: expr,
-    }
-  })
-  return changed ? resolved : models
 }

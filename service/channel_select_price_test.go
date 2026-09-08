@@ -145,3 +145,49 @@ func TestAutoPriceCandidatesSkipGroupsWithoutTheModel(t *testing.T) {
 		GetRequestPriceRankedGroups("default", modelName, time.Now(), nil),
 		"没有该模型渠道的分组不该进入候选，哪怕它更便宜")
 }
+
+// 两个分组倍率相同、只有表达式不同时，比价必须求值——这曾经是个哑火：请求路径
+// 上 probe 传的是 nil，倍率打平后退回按分组名排序，于是稳定地先走贵的那个。
+// 分组名刻意让字母序和价格序相反。
+func TestAutoPriceRoutingComparesGroupExpressions(t *testing.T) {
+	db := setupChannelSelectAutoGroupsTest(t)
+	const modelName = "auto-price-expr-model"
+	createChannelSelectAutoGroupsChannel(t, db, 5201, "aaa-pricey", modelName)
+	createChannelSelectAutoGroupsChannel(t, db, 5202, "zzz-cheap", modelName)
+	model.InitChannelCache()
+
+	gin.SetMode(gin.TestMode)
+	originalRetry := common.RetryTimes
+	common.RetryTimes = 0
+	t.Cleanup(func() { common.RetryTimes = originalRetry })
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(
+		`{"aaa-pricey":"贵","zzz-cheap":"便宜","default":"默认"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(
+		`{"aaa-pricey":1,"zzz-cheap":1,"default":1}`))
+	prevMode := billing_setting.SwapBillingModeForTest(map[string]string{
+		modelName: billing_setting.BillingModeTieredExpr,
+	})
+	prevExpr, prevGroup := billing_setting.SwapExprConfigForTest(
+		map[string]string{modelName: `tier("base", p * 4 + c * 18)`},
+		map[string]map[string]string{
+			modelName: {"zzz-cheap": `tier("base", p * 2.4 + c * 4.5 + cr * 0.9)`},
+		},
+	)
+	prevPromo := billing_setting.SwapPromotionsForTest(map[string][]billing_setting.ModelPromotion{})
+	t.Cleanup(func() {
+		billing_setting.SwapBillingModeForTest(prevMode)
+		billing_setting.SwapExprConfigForTest(prevExpr, prevGroup)
+		billing_setting.SwapPromotionsForTest(prevPromo)
+	})
+
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	common.SetContextKey(ctx, constant.ContextKeyUserGroup, "default")
+
+	_, group, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx: ctx, TokenGroup: AutoPriceGroup, ModelName: modelName,
+		RequestPath: "/v1/chat/completions",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "zzz-cheap", group, "必须按表达式单价选分组，而不是分组名顺序")
+}

@@ -31,7 +31,7 @@ import {
   type ViewMode,
 } from '../constants'
 import { filterAndSortModels, extractAllTags } from '../lib/filters'
-import { withGroupBillingExpr } from '../lib/group-billing-expr'
+import { withDisplayGroupPricing } from '../lib/group-price-rank'
 import type { PricingModel, TokenUnit } from '../types'
 
 type FilterState = {
@@ -147,10 +147,11 @@ export function useFilters(models: PricingModel[]) {
     return extractAllTags(models)
   }, [models])
 
-  // CUSTOM: 先把 billing_expr 换成选中分组实际生效的那条，下游读 billing_expr
-  // 的十几处渲染代码就不必各自感知分组（fork 扩展）。
+  // CUSTOM: 先把每个模型钉到该展示的分组——选中了就是它，没选就是当前最便宜的
+  // 那个——并把 billing_expr 换成该分组生效的那条，下游读 billing_expr 的十几处
+  // 渲染代码就不必各自感知分组（fork 扩展）。
   const groupResolvedModels = useMemo(
-    () => withGroupBillingExpr(models || [], groupFilter),
+    () => withDisplayGroupPricing(models || [], groupFilter),
     [models, groupFilter]
   )
 

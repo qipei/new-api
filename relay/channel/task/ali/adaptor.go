@@ -360,6 +360,60 @@ func isWan27I2VModel(model string) bool {
 	return strings.HasPrefix(model, "wan2.7-i2v")
 }
 
+// isWan3VideoModel 覆盖 wan3.0-video 与 wan3.0-video-prime。两者协议完全一致，
+// 只有单价不同（prime 是标准版的 1.5 倍），所以请求侧不需要再区分。
+func isWan3VideoModel(model string) bool {
+	return strings.HasPrefix(model, "wan3.0-video")
+}
+
+// wan3ResolutionForSize 把「宽*高」推导成万相3.0 的分辨率档位。
+//
+// 万相3.0 没有 size 参数，只有 resolution + ratio。size 照发会被上游当未知字段
+// 忽略，于是 resolution 落空、上游按默认 1080P 出片，而我们按 size 取价——按
+// 720p 收 0.6 元/秒却被上游按 1.2 元/秒扣，一条 30 秒视频净亏 18 元。
+// 三档按长边分：480P 到 854、720P 到 1280、再往上都算 1080P。
+func wan3ResolutionForSize(size string) (string, bool) {
+	longEdge, ok := longEdgeOfSize(size)
+	if !ok {
+		return "", false
+	}
+	switch {
+	case longEdge <= 854:
+		return "480P", true
+	case longEdge <= 1280:
+		return "720P", true
+	default:
+		return "1080P", true
+	}
+}
+
+// wan3Resolutions / wan3Ratios 是万相3.0 文档给定的全部取值。
+var (
+	wan3Resolutions = []string{"480P", "720P", "1080P"}
+	wan3Ratios      = []string{"adaptive", "16:9", "4:3", "1:1", "3:4", "9:16"}
+)
+
+// applyWan3Size 把用户传的 size 归一成 resolution，并保证不会把 size 发给上游。
+func applyWan3Size(parameters *AliVideoParameters, size string) error {
+	normalized := strings.ToUpper(strings.TrimSpace(size))
+	if lo.Contains(wan3Resolutions, normalized) {
+		parameters.Resolution = lo.ToPtr(normalized)
+		return nil
+	}
+	// 「720」这种纯数字档位补 P 之后同样能命中。
+	if _, err := strconv.Atoi(normalized); err == nil {
+		if withSuffix := normalized + "P"; lo.Contains(wan3Resolutions, withSuffix) {
+			parameters.Resolution = lo.ToPtr(withSuffix)
+			return nil
+		}
+	}
+	if resolution, ok := wan3ResolutionForSize(size); ok {
+		parameters.Resolution = lo.ToPtr(resolution)
+		return nil
+	}
+	return fmt.Errorf("unsupported wan3.0 size %q; use 480P, 720P, 1080P, or WIDTH*HEIGHT", size)
+}
+
 func isWanVideoModel(model string) bool {
 	return strings.HasPrefix(model, "wan")
 }
@@ -578,6 +632,149 @@ func taskImages(req relaycommon.TaskSubmitReq) []string {
 	}
 	appendImage(req.InputReference)
 	return images
+}
+
+// 万相3.0 的素材类型与上限，见「万相3.0视频生成」文档的素材组合一节。
+const (
+	wan3MaxReferenceImages = 10
+	wan3MaxReferenceVideos = 5
+	wan3MaxReferenceAudios = 5
+	wan3MaxMediaItems      = 20
+	wan3MinDuration        = 2
+	wan3MaxDuration        = 30
+	// wan3SmartDuration 是智能时长：模型按 prompt 和素材自行决定输出长度。
+	wan3SmartDuration = -1
+)
+
+// normalizeWan3Input 把通用任务字段组装成万相3.0 的 input.media。
+//
+// 万相3.0 只认 media 数组，没有 img_url/first_frame_url 这些老字段。首帧/首尾帧
+// 与 reference_* 是互斥的两种模式，所以这里按素材形态二选一：带参考视频或音频、
+// 或者图多到放不下首尾帧时，整体按参考模式组装；否则按首尾帧。
+//
+// file 和 link 没有对应的通用请求字段，只能由调用方写在 metadata.input.media 里；
+// 这里不猜，交给校验兜底。
+func normalizeWan3Input(aliReq *AliVideoRequest, req relaycommon.TaskSubmitReq) error {
+	if !isWan3VideoModel(aliReq.Model) {
+		return nil
+	}
+
+	if len(aliReq.Input.Media) == 0 {
+		images := taskImages(req)
+		video := strings.TrimSpace(req.Video)
+		audios := make([]string, 0, len(req.Audios)+1)
+		for _, item := range append([]string{req.Audio}, req.Audios...) {
+			if item = strings.TrimSpace(item); item != "" {
+				audios = append(audios, item)
+			}
+		}
+
+		if video != "" || len(audios) > 0 || len(images) > 2 {
+			for _, image := range images {
+				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "reference_image", URL: image})
+			}
+			if video != "" {
+				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "reference_video", URL: video})
+			}
+			for _, audio := range audios {
+				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "reference_audio", URL: audio})
+			}
+		} else if len(images) > 0 {
+			aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "first_frame", URL: images[0]})
+			if len(images) > 1 {
+				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "last_frame", URL: images[1]})
+			}
+		}
+	}
+
+	// 万相2.6 及更早的图生视频字段在 3.0 上是未知字段，照发会被忽略，
+	// 而 media 为空时上游只会按文生视频出片。
+	aliReq.Input.ImgURL = ""
+	aliReq.Input.FirstFrameURL = ""
+	aliReq.Input.LastFrameURL = ""
+	aliReq.Input.AudioURL = ""
+
+	if strings.TrimSpace(aliReq.Input.Prompt) == "" && len(aliReq.Input.Media) == 0 {
+		return fmt.Errorf("%s requires prompt or input.media", aliReq.Model)
+	}
+	return nil
+}
+
+// validateWan3Request 校验万相3.0 的素材组合、数量与参数取值。
+func validateWan3Request(aliReq *AliVideoRequest) error {
+	counts := mediaTypeCounts(aliReq.Input.Media)
+	for mediaType := range counts {
+		switch mediaType {
+		case "first_frame", "last_frame", "reference_image", "reference_video", "reference_audio", "file", "link":
+		default:
+			return fmt.Errorf("%s does not support media type %q", aliReq.Model, mediaType)
+		}
+	}
+
+	frameCount := counts["first_frame"] + counts["last_frame"]
+	referenceCount := counts["reference_image"] + counts["reference_video"] +
+		counts["reference_audio"] + counts["file"] + counts["link"]
+	if frameCount > 0 && referenceCount > 0 {
+		return fmt.Errorf("%s cannot mix first_frame/last_frame with reference_image/reference_video/reference_audio/file/link", aliReq.Model)
+	}
+	if counts["last_frame"] > 0 && counts["first_frame"] == 0 {
+		return fmt.Errorf("%s requires first_frame when last_frame is provided", aliReq.Model)
+	}
+	if counts["file"] > 0 && counts["link"] > 0 {
+		return fmt.Errorf("%s accepts either file or link, not both", aliReq.Model)
+	}
+
+	limits := []struct {
+		mediaType string
+		max       int
+	}{
+		{"first_frame", 1},
+		{"last_frame", 1},
+		{"reference_image", wan3MaxReferenceImages},
+		{"reference_video", wan3MaxReferenceVideos},
+		{"reference_audio", wan3MaxReferenceAudios},
+		{"file", 1},
+		{"link", 1},
+	}
+	for _, limit := range limits {
+		if counts[limit.mediaType] > limit.max {
+			return fmt.Errorf("%s accepts at most %d %s item(s), got %d",
+				aliReq.Model, limit.max, limit.mediaType, counts[limit.mediaType])
+		}
+	}
+	// 单类上限加起来是 23，总数是独立的一道闸。
+	if len(aliReq.Input.Media) > wan3MaxMediaItems {
+		return fmt.Errorf("%s accepts at most %d media items, got %d",
+			aliReq.Model, wan3MaxMediaItems, len(aliReq.Input.Media))
+	}
+
+	parameters := aliReq.Parameters
+	if parameters == nil {
+		return nil
+	}
+	if resolution := pointerString(parameters.Resolution); resolution != "" {
+		if !lo.Contains(wan3Resolutions, strings.ToUpper(resolution)) {
+			return fmt.Errorf("%s does not support resolution %q; use 480P, 720P, or 1080P", aliReq.Model, resolution)
+		}
+	}
+	if ratio := pointerString(parameters.Ratio); ratio != "" {
+		if !lo.Contains(wan3Ratios, strings.ToLower(ratio)) {
+			return fmt.Errorf("%s does not support ratio %q; use adaptive, 16:9, 4:3, 1:1, 3:4, or 9:16", aliReq.Model, ratio)
+		}
+	}
+	if parameters.Duration != nil {
+		duration := *parameters.Duration
+		if duration != wan3SmartDuration && (duration < wan3MinDuration || duration > wan3MaxDuration) {
+			return fmt.Errorf("%s duration must be between %d and %d seconds, or -1 for smart duration",
+				aliReq.Model, wan3MinDuration, wan3MaxDuration)
+		}
+	}
+	// 万相3.0 没有 size 参数，留着只会让分辨率落空、上游按 1080P 出片而我们按
+	// 低档收钱。走到这里说明有人绕过 applyWan3Size 直接从 metadata 塞了 size。
+	if parameters.Size != nil {
+		return fmt.Errorf("%s does not accept size; use resolution (480P/720P/1080P) and ratio", aliReq.Model)
+	}
+	return nil
 }
 
 func normalizeAliThirdPartyMedia(aliReq *AliVideoRequest, req relaycommon.TaskSubmitReq) error {
@@ -822,6 +1019,9 @@ func mediaTypeCounts(media []AliVideoMedia) map[string]int {
 }
 
 func validateAliThirdPartyVideoRequest(aliReq *AliVideoRequest) error {
+	if isWan3VideoModel(aliReq.Model) {
+		return validateWan3Request(aliReq)
+	}
 	if isAliKlingVideoModel(aliReq.Model) {
 		return validateAliKlingRequest(aliReq)
 	}
@@ -1156,7 +1356,11 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 
 	// 处理分辨率映射
 	if req.Size != "" {
-		if isAliHappyHorseModel(upstreamModel) {
+		if isWan3VideoModel(upstreamModel) {
+			if err := applyWan3Size(parameters, req.Size); err != nil {
+				return nil, err
+			}
+		} else if isAliHappyHorseModel(upstreamModel) {
 			if err := applyHappyHorseSize(parameters, upstreamModel, req.Size); err != nil {
 				return nil, err
 			}
@@ -1201,7 +1405,11 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 		}
 	} else {
 		// 根据模型设置默认分辨率
-		if isAliHappyHorseModel(upstreamModel) {
+		if isWan3VideoModel(upstreamModel) {
+			// 万相3.0 的官方默认就是 1080P，不显式下发等于让上游按 1080P 出片，
+			// 而取价读的是这个字段，留空会落到低档从而少收。
+			parameters.Resolution = lo.ToPtr("1080P")
+		} else if isAliHappyHorseModel(upstreamModel) {
 			parameters.Resolution = lo.ToPtr("1080P")
 		} else if isAliMiniMaxVideoModel(upstreamModel) {
 			parameters.Resolution = lo.ToPtr("768P")
@@ -1235,7 +1443,8 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 	}
 
 	// 处理时长
-	if req.Duration > 0 {
+	if req.Duration > 0 || (isWan3VideoModel(upstreamModel) && req.Duration == wan3SmartDuration) {
+		// 万相3.0 用 -1 表达智能时长，按 >0 过滤会把它悄悄变成默认的 5 秒。
 		parameters.Duration = lo.ToPtr(req.Duration)
 	} else if req.Seconds != "" {
 		seconds, err := strconv.Atoi(req.Seconds)
@@ -1265,6 +1474,9 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 	}
 
 	if err := normalizeWan27I2VInput(aliReq, req); err != nil {
+		return nil, err
+	}
+	if err := normalizeWan3Input(aliReq, req); err != nil {
 		return nil, err
 	}
 	if err := normalizeAliHappyHorseRequest(aliReq, req); err != nil {

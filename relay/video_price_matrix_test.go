@@ -205,3 +205,59 @@ func TestTaskVideoDimsReadsTopLevelModeForTier(t *testing.T) {
 		assert.Equal(t, tc.want, resolution, "mode=%s", tc.mode)
 	}
 }
+
+// 万相3.0 的参考类型名和别家不同：漏掉 reference_video / reference_image 会把
+// 视频编辑、延长、参考生视频都判成文生视频，落到另一个价格档。
+func TestTaskVideoDimsReadsWan3ReferenceMediaTypes(t *testing.T) {
+	for _, tc := range []struct {
+		mediaType string
+		expected  string
+	}{
+		{"reference_video", video_billing.ModeVideoToVideo},
+		{"reference_image", video_billing.ModeImageToVideo},
+	} {
+		c := audioTestContext(t)
+		c.Set("task_request", relaycommon.TaskSubmitReq{
+			Model: "wan3.0-video",
+			Metadata: map[string]interface{}{
+				"input": map[string]interface{}{
+					"media": []interface{}{
+						map[string]interface{}{"type": tc.mediaType, "url": "https://example.com/x"},
+					},
+				},
+				"parameters": map[string]interface{}{"resolution": "480P", "duration": 12},
+			},
+		})
+
+		info := &relaycommon.RelayInfo{
+			ChannelMeta:   &relaycommon.ChannelMeta{UpstreamModelName: "wan3.0-video"},
+			TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+		}
+		mode, resolution, _, seconds := taskVideoDims(c, info)
+
+		assert.Equal(t, tc.expected, mode, tc.mediaType)
+		assert.Equal(t, "480P", resolution, tc.mediaType)
+		assert.Equal(t, 12, seconds, tc.mediaType)
+	}
+}
+
+// 不传分辨率时上游按 1080P 出片并按 1080P 扣我们，取价必须跟着走，
+// 否则每秒少收一档（720P 0.6 对 1080P 1.2）。
+func TestTaskVideoDimsDefaultsWan3ToOfficialResolution(t *testing.T) {
+	c := audioTestContext(t)
+	c.Set("task_request", relaycommon.TaskSubmitReq{
+		Model:    "wan3.0-video-prime",
+		Prompt:   "hi",
+		Duration: 5,
+	})
+
+	info := &relaycommon.RelayInfo{
+		ChannelMeta:   &relaycommon.ChannelMeta{UpstreamModelName: "wan3.0-video-prime"},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+	}
+	mode, resolution, _, seconds := taskVideoDims(c, info)
+
+	assert.Equal(t, video_billing.ModeTextToVideo, mode)
+	assert.Equal(t, "1080p", resolution)
+	assert.Equal(t, 5, seconds)
+}

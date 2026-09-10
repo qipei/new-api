@@ -122,10 +122,15 @@ func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string,
 		return video_billing.ModeTextToVideo, "", "", 0
 	}
 
+	// media 的 type 名在各家上游之间不通用，这里必须把用到的写全：漏一个就会
+	// 把图生/参考生的请求判成文生视频，落到另一个价格档。万相3.0 的参考类型是
+	// reference_video / reference_image。
 	mode := video_billing.ModeTextToVideo
-	if req.HasVideo() || metadataContentHasMedia(req.Metadata, "video_url") || metadataInputHasMedia(req.Metadata, "video", "base", "feature") {
+	if req.HasVideo() || metadataContentHasMedia(req.Metadata, "video_url") ||
+		metadataInputHasMedia(req.Metadata, "video", "base", "feature", "reference_video") {
 		mode = video_billing.ModeVideoToVideo
-	} else if req.HasImage() || strings.TrimSpace(req.Image) != "" || metadataContentHasMedia(req.Metadata, "image_url") || metadataInputHasMedia(req.Metadata, "image", "first_frame", "last_frame", "refer") {
+	} else if req.HasImage() || strings.TrimSpace(req.Image) != "" || metadataContentHasMedia(req.Metadata, "image_url") ||
+		metadataInputHasMedia(req.Metadata, "image", "first_frame", "last_frame", "refer", "reference_image") {
 		mode = video_billing.ModeImageToVideo
 	}
 
@@ -148,7 +153,9 @@ func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string,
 			}
 		}
 	}
-	if resolution == "" && strings.HasPrefix(info.UpstreamModelName, "happyhorse-") {
+	if resolution == "" && (strings.HasPrefix(info.UpstreamModelName, "happyhorse-") ||
+		strings.HasPrefix(info.UpstreamModelName, "wan3.0-video")) {
+		// 两者的上游默认档都是 1080P，留空会落到默认档从而与实际出片不符。
 		resolution = "1080p"
 	}
 

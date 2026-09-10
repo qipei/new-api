@@ -996,3 +996,253 @@ func TestParseTaskResultSurvivesUnparsableUsage(t *testing.T) {
 	// 拿不到用量时退回按请求参数计费，而不是卡住任务。
 	assert.Zero(t, result.BillingDuration)
 }
+
+// 万相3.0 只认 input.media，没有 img_url；图少时按首尾帧组装。
+func TestConvertToAliRequestWan3BuildsFrameMedia(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	req := relaycommon.TaskSubmitReq{
+		Model:    "wan3.0-video",
+		Prompt:   "animate it",
+		Images:   []string{"https://example.com/first.png", "https://example.com/last.png"},
+		Duration: 10,
+	}
+
+	aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), req)
+
+	require.NoError(t, err)
+	assert.Equal(t, []AliVideoMedia{
+		{Type: "first_frame", URL: "https://example.com/first.png"},
+		{Type: "last_frame", URL: "https://example.com/last.png"},
+	}, aliReq.Input.Media)
+	assert.Empty(t, aliReq.Input.ImgURL)
+
+	body, err := common.Marshal(aliReq)
+	require.NoError(t, err)
+	assert.NotContains(t, string(body), `"img_url"`)
+	assert.NotContains(t, string(body), `"size"`)
+}
+
+// 带参考视频或音频时整体按参考模式组装；首尾帧与 reference_* 互斥，混用会被上游拒。
+func TestConvertToAliRequestWan3BuildsReferenceMedia(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	req := relaycommon.TaskSubmitReq{
+		Model:  "wan3.0-video-prime",
+		Prompt: "视频1抱着图1",
+		Images: []string{"https://example.com/a.png"},
+		Video:  "https://example.com/ref.mp4",
+		Audios: []string{"https://example.com/ref.mp3"},
+	}
+
+	aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), req)
+
+	require.NoError(t, err)
+	assert.Equal(t, []AliVideoMedia{
+		{Type: "reference_image", URL: "https://example.com/a.png"},
+		{Type: "reference_video", URL: "https://example.com/ref.mp4"},
+		{Type: "reference_audio", URL: "https://example.com/ref.mp3"},
+	}, aliReq.Input.Media)
+}
+
+// 三张以上放不进首尾帧，只能是参考生视频。
+func TestConvertToAliRequestWan3TreatsExtraImagesAsReferences(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	req := relaycommon.TaskSubmitReq{
+		Model:  "wan3.0-video",
+		Prompt: "图1 图2 图3",
+		Images: []string{"https://example.com/1.png", "https://example.com/2.png", "https://example.com/3.png"},
+	}
+
+	aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), req)
+
+	require.NoError(t, err)
+	require.Len(t, aliReq.Input.Media, 3)
+	for _, item := range aliReq.Input.Media {
+		assert.Equal(t, "reference_image", item.Type)
+	}
+}
+
+// size 必须归一成 resolution 且不下发：万相3.0 没有 size 参数，照发会被忽略，
+// 上游按默认 1080P 出片而我们按低档收钱。
+func TestConvertToAliRequestWan3MapsSizeToResolutionAndDropsSize(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	for _, tc := range []struct {
+		size     string
+		expected string
+	}{
+		{"1280*720", "720P"},
+		{"720*1280", "720P"},
+		{"1920*1080", "1080P"},
+		{"832*480", "480P"},
+		{"3840*2160", "1080P"},
+		{"720p", "720P"},
+		{"480", "480P"},
+		{"1080P", "1080P"},
+	} {
+		aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), relaycommon.TaskSubmitReq{
+			Model:  "wan3.0-video",
+			Prompt: "hi",
+			Size:   tc.size,
+		})
+		require.NoError(t, err, tc.size)
+		assert.Equal(t, tc.expected, pointerString(aliReq.Parameters.Resolution), tc.size)
+		assert.Nil(t, aliReq.Parameters.Size, tc.size)
+	}
+}
+
+// 不传 size 时必须显式下发 1080P：这是上游的默认档，留空就会按 1080P 出片而
+// 取价落到低档。
+func TestConvertToAliRequestWan3DefaultsToOfficialResolution(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), relaycommon.TaskSubmitReq{
+		Model:  "wan3.0-video",
+		Prompt: "hi",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "1080P", pointerString(aliReq.Parameters.Resolution))
+	assert.Equal(t, 5, pointerInt(aliReq.Parameters.Duration))
+	assert.True(t, *aliReq.Parameters.PromptExtend)
+	assert.False(t, *aliReq.Parameters.Watermark)
+}
+
+// -1 是智能时长，按 >0 过滤会把它悄悄变成默认的 5 秒。
+func TestConvertToAliRequestWan3KeepsSmartDuration(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	aliReq, err := adaptor.convertToAliRequest(testRelayInfo(), relaycommon.TaskSubmitReq{
+		Model:    "wan3.0-video",
+		Prompt:   "将视频1向后延长",
+		Video:    "https://example.com/ref.mp4",
+		Duration: -1,
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, -1, pointerInt(aliReq.Parameters.Duration))
+}
+
+func TestConvertToAliRequestWan3RejectsInvalidCombinations(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	for name, tc := range map[string]struct {
+		metadata map[string]interface{}
+		contains string
+	}{
+		"首尾帧与参考类互斥": {
+			metadata: map[string]interface{}{"input": map[string]interface{}{"media": []interface{}{
+				map[string]interface{}{"type": "first_frame", "url": "https://example.com/1.png"},
+				map[string]interface{}{"type": "reference_audio", "url": "https://example.com/1.mp3"},
+			}}},
+			contains: "cannot mix",
+		},
+		"file 与 link 二选一": {
+			metadata: map[string]interface{}{"input": map[string]interface{}{"media": []interface{}{
+				map[string]interface{}{"type": "file", "url": "https://example.com/1.pdf"},
+				map[string]interface{}{"type": "link", "url": "https://example.com/a"},
+			}}},
+			contains: "either file or link",
+		},
+		"尾帧不能单独出现": {
+			metadata: map[string]interface{}{"input": map[string]interface{}{"media": []interface{}{
+				map[string]interface{}{"type": "last_frame", "url": "https://example.com/1.png"},
+			}}},
+			contains: "requires first_frame",
+		},
+		"未知媒体类型": {
+			metadata: map[string]interface{}{"input": map[string]interface{}{"media": []interface{}{
+				map[string]interface{}{"type": "driving_audio", "url": "https://example.com/1.mp3"},
+			}}},
+			contains: "does not support media type",
+		},
+		"分辨率越界": {
+			metadata: map[string]interface{}{"parameters": map[string]interface{}{"resolution": "2K"}},
+			contains: "does not support resolution",
+		},
+		"比例越界": {
+			metadata: map[string]interface{}{"parameters": map[string]interface{}{"ratio": "21:9"}},
+			contains: "does not support ratio",
+		},
+		"时长越界": {
+			metadata: map[string]interface{}{"parameters": map[string]interface{}{"duration": 31}},
+			contains: "duration must be between",
+		},
+		"时长过短": {
+			metadata: map[string]interface{}{"parameters": map[string]interface{}{"duration": 1}},
+			contains: "duration must be between",
+		},
+		"size 不被接受": {
+			metadata: map[string]interface{}{"parameters": map[string]interface{}{"size": "1280*720"}},
+			contains: "does not accept size",
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := adaptor.convertToAliRequest(testRelayInfo(), relaycommon.TaskSubmitReq{
+				Model:    "wan3.0-video",
+				Prompt:   "hi",
+				Metadata: tc.metadata,
+			})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.contains)
+		})
+	}
+}
+
+func TestConvertToAliRequestWan3EnforcesMediaCountLimits(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	media := make([]interface{}, 0, 11)
+	for range 11 {
+		media = append(media, map[string]interface{}{"type": "reference_image", "url": "https://example.com/x.png"})
+	}
+
+	_, err := adaptor.convertToAliRequest(testRelayInfo(), relaycommon.TaskSubmitReq{
+		Model:    "wan3.0-video",
+		Prompt:   "hi",
+		Metadata: map[string]interface{}{"input": map[string]interface{}{"media": media}},
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "at most 10 reference_image")
+}
+
+// 单类上限加起来是 23，总数 20 是独立的一道闸。
+func TestConvertToAliRequestWan3EnforcesTotalMediaLimit(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	media := make([]interface{}, 0, 21)
+	for range 10 {
+		media = append(media, map[string]interface{}{"type": "reference_image", "url": "https://example.com/x.png"})
+	}
+	for range 5 {
+		media = append(media, map[string]interface{}{"type": "reference_video", "url": "https://example.com/x.mp4"})
+	}
+	for range 5 {
+		media = append(media, map[string]interface{}{"type": "reference_audio", "url": "https://example.com/x.mp3"})
+	}
+	media = append(media, map[string]interface{}{"type": "file", "url": "https://example.com/x.pdf"})
+
+	_, err := adaptor.convertToAliRequest(testRelayInfo(), relaycommon.TaskSubmitReq{
+		Model:    "wan3.0-video",
+		Prompt:   "hi",
+		Metadata: map[string]interface{}{"input": map[string]interface{}{"media": media}},
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "at most 20 media items")
+}
+
+// 文档给定的全部合法取值都必须放行，别把 adaptive 或 4:3 这种漏掉。
+func TestConvertToAliRequestWan3AcceptsEveryDocumentedValue(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	for _, ratio := range []string{"adaptive", "16:9", "4:3", "1:1", "3:4", "9:16"} {
+		_, err := adaptor.convertToAliRequest(testRelayInfo(), relaycommon.TaskSubmitReq{
+			Model:    "wan3.0-video",
+			Prompt:   "hi",
+			Metadata: map[string]interface{}{"parameters": map[string]interface{}{"ratio": ratio}},
+		})
+		assert.NoError(t, err, ratio)
+	}
+	for _, duration := range []int{2, 30, -1} {
+		_, err := adaptor.convertToAliRequest(testRelayInfo(), relaycommon.TaskSubmitReq{
+			Model:    "wan3.0-video",
+			Prompt:   "hi",
+			Metadata: map[string]interface{}{"parameters": map[string]interface{}{"duration": duration}},
+		})
+		assert.NoError(t, err, duration)
+	}
+}

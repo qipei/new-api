@@ -840,6 +840,178 @@ const HAPPYHORSE_VIDEO: ModelApiSpec = {
   applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
 }
 
+// ---------------------------------------------------------------------------
+// 万相3.0 视频（百炼）
+// 依据：relay/channel/task/ali/adaptor.go normalizeWan3Input / validateWan3Request
+//
+// 一个模型覆盖全部用法，用哪种取决于传了什么素材：带参考视频/音频、或图超过两张
+// 时整体按参考模式，否则按首帧/首尾帧。首尾帧与参考类互斥，这是上游的硬规则。
+// ---------------------------------------------------------------------------
+
+const WAN3_VIDEO: ModelApiSpec = {
+  family: 'wan3-video',
+  match: /^wan3(\.0)?-video/i,
+  endpointPath: '/v1/video/generations',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'Model name. The prime variant is the fast version and is billed at 1.5x the standard rate.',
+    },
+    {
+      name: 'prompt',
+      location: 'body',
+      type: 'string',
+      range: '≤ 20000',
+      descriptionKey:
+        'Text prompt describing the video. Either prompt or an input medium is required. In reference mode you can point at inputs by index, where images, videos and audio are numbered separately in the order you send them.',
+    },
+    {
+      name: 'size',
+      location: 'body',
+      type: 'enum',
+      descriptionKey:
+        'Resolution tier. Accepts a tier name or WIDTH*HEIGHT, which is mapped to the nearest tier by the longer edge. Defaults to 1080P.',
+    },
+    {
+      name: 'duration',
+      location: 'body',
+      type: 'integer',
+      range: '2 ~ 30, or -1',
+      descriptionKey:
+        'Video length in seconds, 5 by default. Pass -1 for smart duration, which is the recommended setting when editing or extending a clip. With a video input, input plus output must stay within 30 seconds.',
+    },
+    {
+      name: 'image',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Input image URL. Sent as the first frame when it is the only image and no video or audio is present.',
+    },
+    {
+      name: 'images',
+      location: 'body',
+      type: 'array',
+      range: '≤ 10',
+      descriptionKey:
+        'Input image URLs. Two images become the first and last frame; three or more, or any image sent together with a video or audio, become reference images instead.',
+    },
+    {
+      name: 'video',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Reference video URL, up to 15 seconds. Sending one switches the request to reference mode, which also covers editing and extending a clip through the prompt.',
+    },
+    {
+      name: 'audios',
+      location: 'body',
+      type: 'array',
+      range: '≤ 5',
+      descriptionKey:
+        'Reference audio URLs, up to 15 seconds in total. Sending any switches the request to reference mode.',
+    },
+    {
+      name: 'metadata.parameters.ratio',
+      location: 'metadata.parameters',
+      type: 'enum',
+      enumValues: ['adaptive', '16:9', '4:3', '1:1', '3:4', '9:16'],
+      descriptionKey:
+        'Aspect ratio of the generated video, adaptive by default. Keep it adaptive when editing or extending a clip so the original framing is preserved.',
+    },
+    {
+      name: 'metadata.parameters.audio',
+      location: 'metadata.parameters',
+      type: 'boolean',
+      descriptionKey:
+        'Whether the output carries a soundtrack, on by default. Both settings cost the same. This is not the same field as the top-level audio input.',
+    },
+    {
+      name: 'metadata.parameters.prompt_extend',
+      location: 'metadata.parameters',
+      type: 'boolean',
+      descriptionKey:
+        'Whether to rewrite the prompt with a language model, on by default. It noticeably helps short prompts at the cost of extra latency.',
+    },
+    {
+      name: 'metadata.parameters.watermark',
+      location: 'metadata.parameters',
+      type: 'boolean',
+      descriptionKey:
+        'Whether to stamp a watermark on the output, off by default.',
+    },
+    {
+      name: 'metadata.parameters.seed',
+      location: 'metadata.parameters',
+      type: 'integer',
+      range: '0 ~ 2147483647',
+      descriptionKey:
+        'Random seed. Fixing it improves reproducibility but does not guarantee identical output.',
+    },
+    {
+      name: 'metadata.input.media',
+      location: 'metadata.input',
+      type: 'array',
+      range: '≤ 20',
+      descriptionKey:
+        'Raw media list, each entry carrying a type and a url. Use it when the plain fields cannot express what you need, such as documents and web pages. Types are first_frame and last_frame, or reference_image, reference_video, reference_audio, file and link. The two sets cannot be mixed, and file and link are mutually exclusive.',
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Text to video',
+      body: {
+        model: 'wan3.0-video',
+        prompt: '一只小猫在月光下的屋顶上奔跑，城市的霓虹灯在远处闪烁，电影级画质',
+        size: '1080P',
+        duration: 5,
+      },
+    },
+    {
+      titleKey: 'Image to video (first and last frame)',
+      body: {
+        model: 'wan3.0-video',
+        prompt: '南瓜裂开，金光中出现一只小兔子',
+        images: [
+          'https://example.com/first.png',
+          'https://example.com/last.png',
+        ],
+        size: '720P',
+        duration: 5,
+      },
+    },
+    {
+      titleKey: 'Reference to video',
+      body: {
+        model: 'wan3.0-video',
+        prompt: '视频1里的人抱着图1，在图2的椅子上弹奏一支舒缓的民谣',
+        images: [
+          'https://example.com/subject.png',
+          'https://example.com/chair.png',
+        ],
+        video: 'https://example.com/role.mp4',
+        size: '720P',
+        duration: 5,
+      },
+    },
+    {
+      titleKey: 'Edit or extend a clip',
+      body: {
+        model: 'wan3.0-video-prime',
+        prompt: '将视频1向后延长，面包师端上刷好的面包，镜头跟随他走向烤炉',
+        video: 'https://example.com/source.mp4',
+        size: '720P',
+        duration: -1,
+        metadata: { parameters: { ratio: 'adaptive' } },
+      },
+    },
+  ],
+  applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
+}
+
 const SPECS: ModelApiSpec[] = [
   MINIMAX_VIDEO,
   KLING_VIDEO,
@@ -847,6 +1019,7 @@ const SPECS: ModelApiSpec[] = [
   VIDU_IMG2VIDEO,
   SEEDANCE_VIDEO,
   HAPPYHORSE_VIDEO,
+  WAN3_VIDEO,
   IMAGE_GENERATION,
 ]
 

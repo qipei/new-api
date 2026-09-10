@@ -78,6 +78,34 @@ describe('model API specs', () => {
     assert.equal(findModelApiSpec('MiniMax-M2.5'), undefined)
   })
 
+  test('matches both wan3.0 video variants but not other wan models', () => {
+    assert.equal(findModelApiSpec('wan3.0-video')?.family, 'wan3-video')
+    assert.equal(findModelApiSpec('wan3.0-video-prime')?.family, 'wan3-video')
+    assert.equal(findModelApiSpec('WAN3.0-VIDEO')?.family, 'wan3-video')
+    // 图片模型必须归到图片族，绝不能落进视频族。
+    assert.equal(findModelApiSpec('wan2.7-image')?.family, 'image-generation')
+  })
+
+  // 万相3.0 的两套素材互斥，文档必须把这条规则写在 media 参数里，否则用户会
+  // 照着首尾帧的例子再塞一段参考音频，任务跑几分钟才失败。
+  test('documents the wan3.0 media exclusivity rule', () => {
+    const params = resolveModelApiParams(
+      pricingModel({ model_name: 'wan3.0-video' })
+    )
+    const media = params?.find((p) => p.name === 'metadata.input.media')
+    assert.ok(media?.descriptionKey.includes('cannot be mixed'))
+    assert.equal(media?.range, '≤ 20')
+  })
+
+  // -1 是编辑和延长的推荐用法，漏写用户就只会传正整数。
+  test('documents the wan3.0 smart duration', () => {
+    const params = resolveModelApiParams(
+      pricingModel({ model_name: 'wan3.0-video' })
+    )
+    const duration = params?.find((p) => p.name === 'duration')
+    assert.equal(duration?.range, '2 ~ 30, or -1')
+  })
+
   // 分辨率取值由部署自己的价格矩阵决定：矩阵里没有的档位会被后端以
   // model_price_error 拒绝，写死在文档里必然与实际不符。
   test('derives the resolution enum from the deployment price matrix', () => {

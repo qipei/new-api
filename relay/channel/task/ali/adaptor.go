@@ -230,7 +230,9 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 
 	aliReq, err := a.convertToAliRequest(info, taskReq)
 	if err != nil {
-		return nil, errors.Wrap(err, "convert_to_ali_request_failed")
+		// convertToAliRequest 只做参数转换与合法性校验，它失败一律是请求本身的
+		// 问题：换渠道、重试都不会成功，必须按 400 直接回给调用方。
+		return nil, relaycommon.NewInvalidRequest(errors.Wrap(err, "convert_to_ali_request_failed"))
 	}
 	logger.LogJson(c, "ali video request body", aliReq)
 

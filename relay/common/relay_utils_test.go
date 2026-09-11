@@ -140,3 +140,21 @@ func TestTaskDurationBounds(t *testing.T) {
 		})
 	}
 }
+
+// 万相3.0 用 duration=-1 表达智能时长，通用校验默认挡负数，会让这个语义在
+// 适配器里永远收不到——顶层字段传 -1 只会得到「seconds must be between…」。
+func TestValidateTaskDurationBoundsAllowsSmartDurationForWan3(t *testing.T) {
+	assert.Nil(t, validateTaskDurationBounds(TaskSubmitReq{Model: "wan3.0-video", Duration: -1}, false))
+	assert.Nil(t, validateTaskDurationBounds(TaskSubmitReq{Model: "wan3.0-video-prime", Seconds: "-1"}, false))
+}
+
+// 放开的只是 -1 这一个取值，别的负数和超上限仍要挡住：时长是计费乘数。
+func TestValidateTaskDurationBoundsStillRejectsOtherOutOfRangeValues(t *testing.T) {
+	for _, req := range []TaskSubmitReq{
+		{Model: "wan3.0-video", Duration: -2},
+		{Model: "wan3.0-video", Duration: MaxTaskDurationSeconds + 1},
+		{Model: "sora-2", Duration: -1},
+	} {
+		assert.NotNil(t, validateTaskDurationBounds(req, false), req.Model)
+	}
+}

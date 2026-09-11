@@ -1246,3 +1246,35 @@ func TestConvertToAliRequestWan3AcceptsEveryDocumentedValue(t *testing.T) {
 		assert.NoError(t, err, duration)
 	}
 }
+
+// 参数不合法必须按 400 直接回绝。曾经它被包成 500 渠道错误：同一条请求重试满
+// RetryTimes 次、逐个分组顺延，最后回给调用方一句「可用渠道不存在」，真正的
+// 原因只留在服务端日志里。
+func TestBuildRequestBodyMarksInvalidWan3RequestAsRequestError(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	c := aliTaskContext(t, relaycommon.TaskSubmitReq{
+		Model:    "wan3.0-video",
+		Prompt:   "hi",
+		Duration: 45,
+	})
+
+	_, err := adaptor.BuildRequestBody(c, testRelayInfo())
+
+	require.Error(t, err)
+	assert.True(t, relaycommon.IsInvalidRequest(err), "校验失败必须标成请求错误，否则会被当成渠道故障重试")
+	assert.Contains(t, err.Error(), "duration must be between")
+}
+
+// 反过来，正常请求不能被误标成请求错误，否则一次偶发故障就再也不会重试了。
+func TestBuildRequestBodyLeavesValidRequestUnmarked(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	c := aliTaskContext(t, relaycommon.TaskSubmitReq{
+		Model:    "wan3.0-video",
+		Prompt:   "hi",
+		Duration: 5,
+	})
+
+	_, err := adaptor.BuildRequestBody(c, testRelayInfo())
+
+	require.NoError(t, err)
+}

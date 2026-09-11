@@ -214,6 +214,11 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	// 8. 构建请求体
 	requestBody, err := adaptor.BuildRequestBody(c, info)
 	if err != nil {
+		if relaycommon.IsInvalidRequest(err) {
+			// 请求本身不合法，换渠道重试也不会成功。按 400 且不计入渠道错误返回，
+			// 否则调用方只会看到重试耗尽后的「可用渠道不存在」，真正的原因被埋掉。
+			return nil, service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
+		}
 		return nil, service.TaskErrorWrapper(err, "build_request_failed", http.StatusInternalServerError)
 	}
 

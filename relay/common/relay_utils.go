@@ -145,7 +145,18 @@ func validatePrompt(prompt string) *dto.TaskError {
 // overflow quota calculation into a negative charge.
 const MaxTaskDurationSeconds = 3600
 
+// smartDurationModels 是把 duration=-1 当作「智能时长」的模型。通用校验默认把
+// 负数挡在门外——时长是计费乘数，无上限的值可能把额度算成负数——所以支持这个语义
+// 的模型要在这里点名。
+//
+// 这里读的是请求里的模型名而不是映射后的上游名：模型映射在校验之后才发生，此处
+// 拿不到。渠道若把别名映射到这些模型，别名也要一并写进来。
+func modelAllowsSmartDuration(model string) bool {
+	return strings.HasPrefix(strings.TrimSpace(model), "wan3.0-video")
+}
+
 func validateTaskDurationBounds(req TaskSubmitReq, allowAutoDuration bool) *dto.TaskError {
+	allowAutoDuration = allowAutoDuration || modelAllowsSmartDuration(req.Model)
 	seconds := req.Duration
 	if seconds == 0 && req.Seconds != "" {
 		seconds, _ = strconv.Atoi(req.Seconds)

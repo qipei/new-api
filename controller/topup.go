@@ -96,8 +96,32 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
+	// 官方直连通道。方式标识与易支付的 alipay / wxpay 刻意区分，两者可以同时启用，
+	// 展示名加「官方」后缀便于用户分辨。
+	enableAlipayDirect := isAlipayTopUpEnabled()
+	if enableAlipayDirect {
+		payMethods = append(payMethods, map[string]string{
+			"name":  "支付宝（官方）",
+			"type":  model.PaymentMethodAlipayDirect,
+			"icon":  "SiAlipay",
+			"color": "#1677FF",
+		})
+	}
+
+	enableWechatDirect := isWechatPayTopUpEnabled()
+	if enableWechatDirect {
+		payMethods = append(payMethods, map[string]string{
+			"name":  "微信支付（官方）",
+			"type":  model.PaymentMethodWechatDirect,
+			"icon":  "SiWechat",
+			"color": "#07C160",
+		})
+	}
+
 	data := gin.H{
 		"enable_online_topup":              isEpayTopUpEnabled(),
+		"enable_alipay_direct_topup":       enableAlipayDirect,
+		"enable_wechat_direct_topup":       enableWechatDirect,
 		"enable_stripe_topup":              isStripeTopUpEnabled(),
 		"enable_creem_topup":               isCreemTopUpEnabled(),
 		"enable_waffo_topup":               enableWaffo,

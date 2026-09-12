@@ -30,6 +30,10 @@ const (
 	PaymentMethodWaffo        = "waffo"
 	PaymentMethodWaffoPancake = "waffo_pancake"
 	PaymentMethodBalance      = "balance"
+	// 官方直连的支付方式标识刻意区别于易支付的 "alipay" / "wxpay"：
+	// 两条通道可以同时启用，前端按 type 分发，复用同一字符串会串到易支付去。
+	PaymentMethodAlipayDirect = "alipay_direct"
+	PaymentMethodWechatDirect = "wxpay_direct"
 )
 
 const (
@@ -39,6 +43,8 @@ const (
 	PaymentProviderWaffo        = "waffo"
 	PaymentProviderWaffoPancake = "waffo_pancake"
 	PaymentProviderBalance      = "balance"
+	PaymentProviderAlipay       = "alipay"
+	PaymentProviderWechat       = "wechat"
 )
 
 var (
@@ -712,4 +718,100 @@ func RechargeWaffoPancake(tradeNo string) (err error) {
 	}
 
 	return nil
+}
+
+// directPayProviderLabel 返回直连支付网关在日志中的中文名。
+func directPayProviderLabel(paymentProvider string) string {
+	if paymentProvider == PaymentProviderAlipay {
+		return "支付宝"
+	}
+	return "微信支付"
+}
+
+// RechargeDirectPay 原子完成官方直连（支付宝 / 微信）订单的入账。
+//
+// 与 RechargeEpay 相同，正确性由事务内的行锁 + 状态校验保证：同一订单的并发或
+// 重复回调（含多实例部署）最多入账一次。alreadyDone=true 表示订单此前已完成，
+// 本次为幂等重复回调，调用方应当照常向上游应答成功。
+//
+// 回调报文中的验签、金额、收款方身份等校验由 controller 层在调用本函数前完成，
+// 本函数只负责「订单状态 -> 用户额度」这一步的原子性。
+func RechargeDirectPay(tradeNo string, paymentProvider string, callerIp string) (alreadyDone bool, err error) {
+	if tradeNo == "" {
+		return false, errors.New("未提供支付单号")
+	}
+	if paymentProvider != PaymentProviderAlipay && paymentProvider != PaymentProviderWechat {
+		return false, ErrPaymentMethodMismatch
+	}
+
+	refCol := "`trade_no`"
+	if common.UsingMainDatabase(common.DatabaseTypePostgreSQL) {
+		refCol = `"trade_no"`
+	}
+
+	var quotaToAdd int
+	topUp := &TopUp{}
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockForUpdate(tx).Where(refCol+" = ?", tradeNo).First(topUp).Error; err != nil {
+			return ErrTopUpNotFound
+		}
+		if topUp.PaymentProvider != paymentProvider {
+			return ErrPaymentMethodMismatch
+		}
+		if topUp.Status == common.TopUpStatusSuccess {
+			alreadyDone = true
+			return nil
+		}
+		if topUp.Status != common.TopUpStatusPending {
+			return ErrTopUpStatusInvalid
+		}
+		var quotaErr error
+		quotaToAdd, quotaErr = common.WalletQuotaFromDecimalStrict(
+			decimal.NewFromInt(topUp.Amount).Mul(decimal.NewFromFloat(common.QuotaPerUnit)),
+		)
+		if quotaErr != nil || quotaToAdd <= 0 {
+			return ErrInvalidTopUpQuota
+		}
+		topUp.CompleteTime = common.GetTimestamp()
+		topUp.Status = common.TopUpStatusSuccess
+		if err := tx.Save(topUp).Error; err != nil {
+			return err
+		}
+		return creditTopUpQuota(tx, topUp.UserId, quotaToAdd, nil)
+	})
+	label := directPayProviderLabel(paymentProvider)
+	if err != nil {
+		if !errors.Is(err, ErrTopUpNotFound) && !errors.Is(err, ErrPaymentMethodMismatch) && !errors.Is(err, ErrTopUpStatusInvalid) {
+			common.SysError(label + " 直连充值失败: " + err.Error())
+		}
+		return false, err
+	}
+	if alreadyDone {
+		return true, nil
+	}
+	syncCreditUserQuotaCache(topUp.UserId, quotaToAdd, paymentProvider+" direct topup")
+
+	common.SysLog(fmt.Sprintf("%s 直连充值成功 trade_no=%s user_id=%d quota_to_add=%d money=%.2f", label, topUp.TradeNo, topUp.UserId, quotaToAdd, topUp.Money))
+	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用%s充值成功，充值额度: %v，支付金额：%.2f", label, logger.LogQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, paymentProvider)
+	return false, nil
+}
+
+// FindPendingDirectPayTopUp 查找用户在指定直连网关下、金额一致且仍未支付的订单。
+//
+// 支付宝侧同一商户的 out_trade_no 唯一对应一笔单据，每次点击都新建订单会在支付宝
+// 留下多笔各自可付的待付款单，用户重复支付的风险是真实存在的。下单前复用未过期的
+// 同额订单可以从源头避免这个问题。createdAfter 为订单创建时间下限（秒级时间戳）。
+func FindPendingDirectPayTopUp(userId int, paymentProvider string, amount int64, createdAfter int64) (*TopUp, error) {
+	topUp := &TopUp{}
+	err := DB.Where(
+		"user_id = ? AND payment_provider = ? AND amount = ? AND status = ? AND create_time >= ?",
+		userId, paymentProvider, amount, common.TopUpStatusPending, createdAfter,
+	).Order("id desc").First(topUp).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return topUp, nil
 }

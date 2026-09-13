@@ -1069,7 +1069,6 @@
     "Configure your account behavior preferences": "Настроить предпочтения поведения вашей учетной записи",
     "Configure your account preferences and integrations": "Настроить параметры и интеграции вашей учетной записи",
     "Configured": "Настроено",
-    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, and other values are sent to Epay as the type parameter.": "Сохраняется как JSON PayMethods. Значение type определяет платежный сценарий: stripe для Stripe, waffo_pancake для Waffo Pancake, остальные значения отправляются в Epay как параметр type.",
     "Configured routes and latency checks": "Настроенные маршруты и проверки задержки",
     "Confirm": "Подтверждение",
     "Confirm Action": "Подтвердить действие",
@@ -5284,7 +5283,6 @@
     "Used reset credits cannot be restored.": "Использованные сбросы нельзя восстановить.",
     "Used to authenticate with io.net deployment API": "Используется для аутентификации в API развертывания io.net",
     "Used to authenticate with the worker. Leave blank to keep the existing secret.": "Используется для аутентификации с воркером. Оставьте пустым, чтобы сохранить существующий секрет.",
-    "Used to decide the payment flow. Built-in keys include stripe for Stripe and waffo_pancake for Waffo Pancake; other values are sent to Epay as the type parameter.": "Определяет платежный сценарий после нажатия. Встроенные ключи: stripe для Stripe и waffo_pancake для Waffo Pancake; остальные значения отправляются в Epay как параметр type.",
     "Used:": "Использовано:",
     "User": "Пользователь",
     "User {{id}}": "Пользователь {{id}}",
@@ -5661,6 +5659,10 @@
     "WeChat notification URL": "URL уведомлений WeChat",
     "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "Передаётся с каждым запросом заказа, поэтому в кабинете продавца настраивать ничего не нужно. Если впереди есть межсетевой экран, разрешите диапазоны IP обратных вызовов WeChat Pay.",
     "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.": "Полное содержимое pub_key.pem, включая строки BEGIN и END. Это сам ключ, а не ID публичного ключа.",
-    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "Короткий идентификатор, показанный рядом со ссылкой на скачивание ключа, а не содержимое ключа. Сохраните префикс PUB_KEY_ID_, его удаление ломает проверку подписи."
+    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "Короткий идентификатор, показанный рядом со ссылкой на скачивание ключа, а не содержимое ключа. Сохраните префикс PUB_KEY_ID_, его удаление ломает проверку подписи.",
+    "Official Alipay": "Alipay (прямое подключение)",
+    "Official WeChat Pay": "WeChat Pay (прямое подключение)",
+    "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.": "Определяет, какой платёжный поток используется. Встроенные ключи: stripe для Stripe, waffo_pancake для Waffo Pancake и alipay_direct / wxpay_direct для официальных прямых шлюзов; остальные значения передаются в Epay как параметр type.",
+    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "Настраивается через JSON PayMethods. Значение type определяет платёжный поток: stripe для Stripe, waffo_pancake для Waffo Pancake, alipay_direct и wxpay_direct для официальных прямых шлюзов, остальные значения передаются в Epay как параметр type."
   }
 }

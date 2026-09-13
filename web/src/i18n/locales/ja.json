@@ -1069,7 +1069,6 @@
     "Configure your account behavior preferences": "アカウントの動作設定を設定します。",
     "Configure your account preferences and integrations": "アカウントの設定と統合を設定します。",
     "Configured": "設定済み",
-    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, and other values are sent to Epay as the type parameter.": "PayMethods JSON として保存されます。type 値で使用する決済フローを決定します。stripe は Stripe、waffo_pancake は Waffo Pancake、それ以外の値は Epay の type パラメーターとして送信されます。",
     "Configured routes and latency checks": "設定済みルートとレイテンシ確認",
     "Confirm": "確認",
     "Confirm Action": "アクションの確認",
@@ -5284,7 +5283,6 @@
     "Used reset credits cannot be restored.": "使用済みのリセット回数は復元できません。",
     "Used to authenticate with io.net deployment API": "io.net デプロイ API の認証に使用します",
     "Used to authenticate with the worker. Leave blank to keep the existing secret.": "ワーカーの認証に使用されます。既存のシークレットを保持するには、空欄のままにしてください。",
-    "Used to decide the payment flow. Built-in keys include stripe for Stripe and waffo_pancake for Waffo Pancake; other values are sent to Epay as the type parameter.": "クリック後に使用する決済フローを決定します。組み込みキーは Stripe 用の stripe、Waffo Pancake 用の waffo_pancake です。それ以外の値は Epay の type パラメーターとして送信されます。",
     "Used:": "使用済み:",
     "User": "ユーザー",
     "User {{id}}": "ユーザー {{id}}",
@@ -5661,6 +5659,10 @@
     "WeChat notification URL": "WeChat 通知URL",
     "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "注文リクエストごとに送信されるため、加盟店プラットフォームでの設定は不要です。前段にファイアウォールがある場合は WeChat Pay のコールバック IP 範囲を許可してください。",
     "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.": "pub_key.pem の全内容を、BEGIN 行と END 行を含めて貼り付けてください。ここに入れるのは鍵そのものであり、公開鍵 ID ではありません。",
-    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "鍵のダウンロード欄に表示される短い識別子であり、鍵の内容ではありません。PUB_KEY_ID_ プレフィックスは残してください。削除すると署名検証が失敗します。"
+    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "鍵のダウンロード欄に表示される短い識別子であり、鍵の内容ではありません。PUB_KEY_ID_ プレフィックスは残してください。削除すると署名検証が失敗します。",
+    "Official Alipay": "Alipay（公式直接接続）",
+    "Official WeChat Pay": "WeChat Pay（公式直接接続）",
+    "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.": "どの決済フローを使うかを決めるキーです。組み込みキーは Stripe の stripe、Waffo Pancake の waffo_pancake、公式直接接続の alipay_direct と wxpay_direct です。それ以外の値は type パラメータとして Epay に送られます。",
+    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "PayMethods の JSON で設定します。type が決済フローを決めます。stripe は Stripe、waffo_pancake は Waffo Pancake、alipay_direct と wxpay_direct は公式直接接続、それ以外の値は type パラメータとして Epay に送られます。"
   }
 }

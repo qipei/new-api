@@ -1069,7 +1069,6 @@
     "Configure your account behavior preferences": "Configure your account behavior preferences",
     "Configure your account preferences and integrations": "Configure your account preferences and integrations",
     "Configured": "Configured",
-    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, and other values are sent to Epay as the type parameter.": "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, and other values are sent to Epay as the type parameter.",
     "Configured routes and latency checks": "Configured routes and latency checks",
     "Confirm": "Confirm",
     "Confirm Action": "Confirm Action",
@@ -5284,7 +5283,6 @@
     "Used reset credits cannot be restored.": "Used reset credits cannot be restored.",
     "Used to authenticate with io.net deployment API": "Used to authenticate with io.net deployment API",
     "Used to authenticate with the worker. Leave blank to keep the existing secret.": "Used to authenticate with the worker. Leave blank to keep the existing secret.",
-    "Used to decide the payment flow. Built-in keys include stripe for Stripe and waffo_pancake for Waffo Pancake; other values are sent to Epay as the type parameter.": "Used to decide the payment flow. Built-in keys include stripe for Stripe and waffo_pancake for Waffo Pancake; other values are sent to Epay as the type parameter.",
     "Used:": "Used:",
     "User": "User",
     "User {{id}}": "User {{id}}",
@@ -5661,6 +5659,10 @@
     "WeChat notification URL": "WeChat notification URL",
     "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.",
     "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.": "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.",
-    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification."
+    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.",
+    "Official Alipay": "Official Alipay",
+    "Official WeChat Pay": "Official WeChat Pay",
+    "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.": "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.",
+    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter."
   }
 }

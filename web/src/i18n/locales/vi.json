@@ -1069,7 +1069,6 @@
     "Configure your account behavior preferences": "Cấu hình tùy chọn hành vi tài khoản của bạn",
     "Configure your account preferences and integrations": "Cấu hình các tùy chọn và tích hợp tài khoản của bạn",
     "Configured": "Đã cấu hình",
-    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, and other values are sent to Epay as the type parameter.": "Được lưu dưới dạng JSON PayMethods. Giá trị type quyết định luồng thanh toán sẽ dùng: stripe cho Stripe, waffo_pancake cho Waffo Pancake, các giá trị khác được gửi tới Epay dưới dạng tham số type.",
     "Configured routes and latency checks": "Tuyến đã cấu hình và kiểm tra độ trễ",
     "Confirm": "Xác nhận",
     "Confirm Action": "Xác nhận hành động",
@@ -5284,7 +5283,6 @@
     "Used reset credits cannot be restored.": "Các lượt đặt lại đã dùng không thể khôi phục.",
     "Used to authenticate with io.net deployment API": "Dùng để xác thực với API triển khai io.net",
     "Used to authenticate with the worker. Leave blank to keep the existing secret.": "Dùng để xác thực với worker. Để trống để giữ nguyên secret hiện có.",
-    "Used to decide the payment flow. Built-in keys include stripe for Stripe and waffo_pancake for Waffo Pancake; other values are sent to Epay as the type parameter.": "Dùng để quyết định luồng thanh toán khi người dùng nhấp. Các khóa có sẵn gồm stripe cho Stripe và waffo_pancake cho Waffo Pancake; các giá trị khác được gửi tới Epay dưới dạng tham số type.",
     "Used:": "Đã dùng:",
     "User": "Người dùng",
     "User {{id}}": "Người dùng {{id}}",
@@ -5661,6 +5659,10 @@
     "WeChat notification URL": "URL thông báo WeChat",
     "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "Được gửi kèm mỗi yêu cầu tạo đơn nên không cần cấu hình trong cổng merchant. Nếu phía trước có tường lửa, hãy mở dải IP callback của WeChat Pay.",
     "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.": "Toàn bộ nội dung của pub_key.pem, bao gồm cả dòng BEGIN và END. Đây là chính khóa, không phải ID khóa công khai.",
-    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "Một mã định danh ngắn hiển thị cạnh chỗ tải khóa, không phải nội dung khóa. Giữ nguyên tiền tố PUB_KEY_ID_, xóa đi sẽ làm hỏng việc xác minh."
+    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "Một mã định danh ngắn hiển thị cạnh chỗ tải khóa, không phải nội dung khóa. Giữ nguyên tiền tố PUB_KEY_ID_, xóa đi sẽ làm hỏng việc xác minh.",
+    "Official Alipay": "Alipay (kết nối trực tiếp chính thức)",
+    "Official WeChat Pay": "WeChat Pay (kết nối trực tiếp chính thức)",
+    "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.": "Dùng để quyết định luồng thanh toán. Các khóa dựng sẵn gồm stripe cho Stripe, waffo_pancake cho Waffo Pancake, và alipay_direct / wxpay_direct cho các cổng trực tiếp chính thức; các giá trị khác được gửi tới Epay làm tham số type.",
+    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "Cấu hình bằng JSON PayMethods. Giá trị type quyết định luồng thanh toán: stripe cho Stripe, waffo_pancake cho Waffo Pancake, alipay_direct và wxpay_direct cho các cổng trực tiếp chính thức, các giá trị khác được gửi tới Epay làm tham số type."
   }
 }

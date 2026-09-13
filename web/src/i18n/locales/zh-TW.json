@@ -1069,7 +1069,6 @@
     "Configure your account behavior preferences": "設定您的用戶行為偏好",
     "Configure your account preferences and integrations": "設定您的用戶偏好和整合",
     "Configured": "已設定",
-    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, and other values are sent to Epay as the type parameter.": "儲存為 PayMethods JSON。type 值決定點擊後使用哪個支付流程：stripe 走 Stripe，waffo_pancake 走 Waffo Pancake，其他值作為 Epay 的 type 參數提交。",
     "Configured routes and latency checks": "已設定路由和延遲檢測",
     "Confirm": "確認",
     "Confirm Action": "確認操作",
@@ -5284,7 +5283,6 @@
     "Used reset credits cannot be restored.": "已使用的重置次數無法恢復。",
     "Used to authenticate with io.net deployment API": "用於 io.net 部署 API 鑒權",
     "Used to authenticate with the worker. Leave blank to keep the existing secret.": "用於與 Worker 進行身份驗證。留空以保留現有金鑰。",
-    "Used to decide the payment flow. Built-in keys include stripe for Stripe and waffo_pancake for Waffo Pancake; other values are sent to Epay as the type parameter.": "用於決定點擊後走哪個支付流程。stripe 走 Stripe，waffo_pancake 走 Waffo Pancake；其他值會作為 Epay 的 type 參數提交。",
     "Used:": "已使用：",
     "User": "用戶",
     "User {{id}}": "用戶 {{id}}",
@@ -5661,6 +5659,10 @@
     "WeChat notification URL": "微信非同步通知位址",
     "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "每次下單時隨請求傳給微信，商戶平台無需設定。若前方有防火牆，需放行微信支付的回呼 IP 範圍。",
     "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.": "pub_key.pem 的完整內容，包含 BEGIN 與 END 兩行。此處填的是公鑰本身，不是公鑰 ID。",
-    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "公鑰下載處顯示的一串短識別碼，不是公鑰內容。請保留 PUB_KEY_ID_ 前綴，刪除會導致驗簽失敗。"
+    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "公鑰下載處顯示的一串短識別碼，不是公鑰內容。請保留 PUB_KEY_ID_ 前綴，刪除會導致驗簽失敗。",
+    "Official Alipay": "支付寶（官方直連）",
+    "Official WeChat Pay": "微信支付（官方直連）",
+    "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.": "用於決定走哪條支付流程。內建鍵包括 Stripe 的 stripe、Waffo Pancake 的 waffo_pancake，以及官方直連的 alipay_direct 與 wxpay_direct；其餘值作為 type 參數傳給易支付。",
+    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "以 PayMethods JSON 設定。type 決定走哪條支付流程：stripe 走 Stripe，waffo_pancake 走 Waffo Pancake，alipay_direct 與 wxpay_direct 走官方直連，其餘值作為 type 參數傳給易支付。"
   }
 }

@@ -1069,7 +1069,6 @@
     "Configure your account behavior preferences": "Configurer les préférences de comportement de votre compte",
     "Configure your account preferences and integrations": "Configurer les préférences et les intégrations de votre compte",
     "Configured": "Configuré",
-    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, and other values are sent to Epay as the type parameter.": "Enregistré comme JSON PayMethods. La valeur type décide du flux de paiement utilisé : stripe pour Stripe, waffo_pancake pour Waffo Pancake, et les autres valeurs sont envoyées à Epay comme paramètre type.",
     "Configured routes and latency checks": "Routes configurées et contrôles de latence",
     "Confirm": "Confirmer",
     "Confirm Action": "Confirmer l'action",
@@ -5284,7 +5283,6 @@
     "Used reset credits cannot be restored.": "Les crédits de réinitialisation utilisés ne peuvent pas être restaurés.",
     "Used to authenticate with io.net deployment API": "Utilisée pour l'authentification auprès de l'API de déploiement io.net",
     "Used to authenticate with the worker. Leave blank to keep the existing secret.": "Utilisé pour l'authentification auprès du worker. Laissez vide pour conserver le secret existant.",
-    "Used to decide the payment flow. Built-in keys include stripe for Stripe and waffo_pancake for Waffo Pancake; other values are sent to Epay as the type parameter.": "Détermine le flux de paiement utilisé au clic. Les clés intégrées incluent stripe pour Stripe et waffo_pancake pour Waffo Pancake ; les autres valeurs sont envoyées à Epay comme paramètre type.",
     "Used:": "Utilisé :",
     "User": "Utilisateurs",
     "User {{id}}": "Utilisateur {{id}}",
@@ -5661,6 +5659,10 @@
     "WeChat notification URL": "URL de notification WeChat",
     "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "Transmise à chaque requête de commande, il n'y a donc rien à configurer sur la plateforme marchand. Autorisez les plages d'IP de rappel WeChat Pay si un pare-feu est en amont.",
     "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.": "Contenu intégral de pub_key.pem, lignes BEGIN et END comprises. Il s'agit de la clé elle-même, pas de l'ID de clé publique.",
-    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "Court identifiant affiché à côté du téléchargement de la clé, et non le contenu de la clé. Conservez le préfixe PUB_KEY_ID_ ; le supprimer casse la vérification."
+    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "Court identifiant affiché à côté du téléchargement de la clé, et non le contenu de la clé. Conservez le préfixe PUB_KEY_ID_ ; le supprimer casse la vérification.",
+    "Official Alipay": "Alipay (connexion directe officielle)",
+    "Official WeChat Pay": "WeChat Pay (connexion directe officielle)",
+    "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.": "Détermine le flux de paiement utilisé. Les clés intégrées sont stripe pour Stripe, waffo_pancake pour Waffo Pancake, et alipay_direct / wxpay_direct pour les passerelles directes officielles ; les autres valeurs sont envoyées à Epay comme paramètre type.",
+    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "Configuré via le JSON PayMethods. La valeur type détermine le flux de paiement : stripe pour Stripe, waffo_pancake pour Waffo Pancake, alipay_direct et wxpay_direct pour les passerelles directes officielles, les autres valeurs étant envoyées à Epay comme paramètre type."
   }
 }

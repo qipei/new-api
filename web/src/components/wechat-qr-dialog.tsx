@@ -20,6 +20,7 @@ import { CheckCircle2, Loader2, TimerOff } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
+import { SiWechat } from 'react-icons/si'
 
 import { Dialog } from '@/components/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -30,6 +31,9 @@ import { Button } from '@/components/ui/button'
  * normally lands first; this is the user-visible confirmation path.
  */
 const POLL_INTERVAL_MS = 3000
+
+/** 与钱包页支付方式列表里的微信图标同色，保持同一笔交易里的视觉一致。 */
+const WECHAT_BRAND_COLOR = '#07C160'
 
 /** Pending WeChat Native order rendered by the dialog. */
 export interface WechatQrOrder {
@@ -132,7 +136,12 @@ export function WechatQrDialog(props: WechatQrDialogProps) {
       onOpenChange={(open) => {
         if (!open) props.onClose()
       }}
-      title={t('WeChat Pay')}
+      title={
+        <span className='flex items-center gap-2'>
+          <SiWechat className='h-5 w-5' style={{ color: WECHAT_BRAND_COLOR }} />
+          {t('WeChat Pay')}
+        </span>
+      }
       description={t('Scan the QR code with WeChat to complete the payment.')}
       contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-[400px]'
       contentHeight='auto'

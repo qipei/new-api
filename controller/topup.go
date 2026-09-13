@@ -115,7 +115,6 @@ func GetTopUpInfo(c *gin.Context) {
 			payMethods = append(payMethods, map[string]string{
 				"name":      "支付宝（官方）",
 				"type":      model.PaymentMethodAlipayDirect,
-				"icon":      "SiAlipay",
 				"color":     "#1677FF",
 				"min_topup": strconv.Itoa(operation_setting.MinTopUp),
 			})
@@ -136,7 +135,6 @@ func GetTopUpInfo(c *gin.Context) {
 			payMethods = append(payMethods, map[string]string{
 				"name":      "微信支付（官方）",
 				"type":      model.PaymentMethodWechatDirect,
-				"icon":      "SiWechat",
 				"color":     "#07C160",
 				"min_topup": strconv.Itoa(operation_setting.MinTopUp),
 			})

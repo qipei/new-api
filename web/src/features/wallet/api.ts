@@ -40,6 +40,9 @@ import type {
   WaffoPaymentResponse,
   WaffoPancakePaymentRequest,
   WaffoPancakePaymentResponse,
+  AlipayDirectPaymentResponse,
+  WechatDirectPaymentResponse,
+  TopupOrderStatusResponse,
 } from './types'
 
 // ============================================================================
@@ -177,6 +180,49 @@ export async function requestWaffoPancakePayment(
   request: WaffoPancakePaymentRequest
 ): Promise<WaffoPancakePaymentResponse> {
   const res = await api.post('/api/user/waffo-pancake/pay', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Request Alipay PC website payment.
+ *
+ * Direct-connect gateways share /api/user/amount for quoting: they bill in CNY
+ * on the same unit price as Epay, so no dedicated quote endpoint is needed.
+ */
+export async function requestAlipayDirectPayment(
+  request: AmountRequest
+): Promise<AlipayDirectPaymentResponse> {
+  const res = await api.post('/api/user/alipay/pay', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Request WeChat Native payment, returning a code_url to render as a QR code.
+ */
+export async function requestWechatDirectPayment(
+  request: AmountRequest
+): Promise<WechatDirectPaymentResponse> {
+  const res = await api.post('/api/user/wechat/pay', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+/**
+ * Poll a direct-connect order's status while the QR dialog is open.
+ *
+ * The backend queries the gateway when the local record is still pending, so a
+ * dropped callback does not leave the user staring at an unpaid order.
+ */
+export async function getTopupOrderStatus(
+  tradeNo: string
+): Promise<TopupOrderStatusResponse> {
+  const res = await api.get('/api/user/topup/status', {
+    params: { trade_no: tradeNo },
     skipBusinessError: true,
   } as Record<string, unknown>)
   return res.data

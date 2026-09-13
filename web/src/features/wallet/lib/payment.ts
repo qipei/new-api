@@ -93,10 +93,29 @@ export function isWaffoPancakePayment(paymentType: string): boolean {
   return paymentType === PAYMENT_TYPES.WAFFO_PANCAKE
 }
 
+/**
+ * Check if payment method is the official Alipay direct-connect gateway
+ *
+ * Distinct from PAYMENT_TYPES.ALIPAY, which belongs to the Epay aggregator.
+ * Both can be enabled at the same time and must route to different endpoints.
+ */
+export function isAlipayDirectPayment(paymentType: string): boolean {
+  return paymentType === PAYMENT_TYPES.ALIPAY_DIRECT
+}
+
+/**
+ * Check if payment method is the official WeChat Pay direct-connect gateway
+ */
+export function isWechatDirectPayment(paymentType: string): boolean {
+  return paymentType === PAYMENT_TYPES.WECHAT_DIRECT
+}
+
 export interface PaymentProcessors {
   regular: (topupAmount: number, paymentType: string) => Promise<boolean>
   waffo: (topupAmount: number, payMethodIndex: number) => Promise<boolean>
   waffoPancake: (topupAmount: number) => Promise<boolean>
+  alipayDirect: (topupAmount: number) => Promise<boolean>
+  wechatDirect: (topupAmount: number) => Promise<boolean>
 }
 
 export async function dispatchSelectedPayment(
@@ -114,6 +133,14 @@ export async function dispatchSelectedPayment(
 
   if (isWaffoPancakePayment(paymentMethod.type)) {
     return processors.waffoPancake(topupAmount)
+  }
+
+  if (isAlipayDirectPayment(paymentMethod.type)) {
+    return processors.alipayDirect(topupAmount)
+  }
+
+  if (isWechatDirectPayment(paymentMethod.type)) {
+    return processors.wechatDirect(topupAmount)
   }
 
   return processors.regular(topupAmount, paymentMethod.type)
@@ -144,6 +171,14 @@ export function getDefaultPaymentType(topupInfo: TopupInfo | null): string {
     return PAYMENT_TYPES.WAFFO_PANCAKE
   }
 
+  if (topupInfo.enable_alipay_direct_topup) {
+    return PAYMENT_TYPES.ALIPAY_DIRECT
+  }
+
+  if (topupInfo.enable_wechat_direct_topup) {
+    return PAYMENT_TYPES.WECHAT_DIRECT
+  }
+
   return DEFAULT_PAYMENT_TYPE
 }
 
@@ -155,7 +190,12 @@ export function getMinTopupAmount(topupInfo: TopupInfo | null): number {
     return DEFAULT_MIN_TOPUP
   }
 
-  if (topupInfo.enable_online_topup) {
+  // 直连通道与易支付同为人民币收款，共用 min_topup，没有各自的下限。
+  if (
+    topupInfo.enable_online_topup ||
+    topupInfo.enable_alipay_direct_topup ||
+    topupInfo.enable_wechat_direct_topup
+  ) {
     return topupInfo.min_topup
   }
 

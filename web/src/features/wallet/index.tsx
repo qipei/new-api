@@ -20,6 +20,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { WechatQrDialog } from '@/components/wechat-qr-dialog'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { getSelf } from '@/lib/api'
@@ -42,6 +43,7 @@ import {
   useCreemPayment,
   useWaffoPayment,
   useWaffoPancakePayment,
+  useDirectPay,
 } from './hooks'
 import {
   getDefaultPaymentType,
@@ -112,6 +114,13 @@ export function Wallet(props: WalletProps) {
   const { processing: waffoProcessing, processWaffoPayment } = useWaffoPayment()
   const { processing: pancakeProcessing, processWaffoPancakePayment } =
     useWaffoPancakePayment()
+  const {
+    wechatOrder,
+    processAlipayDirectPayment,
+    processWechatDirectPayment,
+    closeWechatOrder,
+    pollTopupOrderStatus,
+  } = useDirectPay()
 
   // Fetch and refresh user data
   const fetchUser = useCallback(async () => {
@@ -206,6 +215,8 @@ export function Wallet(props: WalletProps) {
         regular: processPayment,
         waffo: processWaffoPayment,
         waffoPancake: processWaffoPancakePayment,
+        alipayDirect: processAlipayDirectPayment,
+        wechatDirect: processWechatDirectPayment,
       }
     )
 
@@ -214,6 +225,12 @@ export function Wallet(props: WalletProps) {
       await fetchUser()
     }
   }
+
+  // WeChat Native settles out of band, so the balance is refreshed when the
+  // QR dialog reports success rather than when the request returns.
+  const handleWechatQrPaid = useCallback(async () => {
+    await fetchUser()
+  }, [fetchUser])
 
   // Handle redemption
   const handleRedeem = async () => {
@@ -395,6 +412,14 @@ export function Wallet(props: WalletProps) {
         onConfirm={handleCreemConfirm}
         product={selectedCreemProduct}
         processing={creemProcessing}
+      />
+
+      <WechatQrDialog
+        order={wechatOrder}
+        amount={paymentAmount}
+        onClose={closeWechatOrder}
+        onPaid={handleWechatQrPaid}
+        pollStatus={pollTopupOrderStatus}
       />
     </>
   )

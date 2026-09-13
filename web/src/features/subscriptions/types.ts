@@ -109,8 +109,23 @@ export interface SubscriptionPayResponse {
     order_id?: string
     token?: string
     token_expires_at?: number | string
+    // Alipay direct: checkout link to redirect to.
+    pay_url?: string
+    // WeChat Native: QR payload the page renders itself.
+    code_url?: string
+    trade_no?: string
   }
   url?: string
+}
+
+/** Polled while the WeChat QR dialog for a subscription order is open. */
+export interface SubscriptionOrderStatusResponse {
+  message?: string
+  data?: {
+    trade_no?: string
+    status?: string
+    expires_at?: number
+  }
 }
 
 export interface CreateUserSubscriptionRequest {

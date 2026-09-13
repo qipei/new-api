@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import i18next from 'i18next'
 import { CreditCard, Landmark } from 'lucide-react'
-import { type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { SiAlipay, SiWechat, SiStripe } from 'react-icons/si'
 
 import { ReactIconByName } from '@/components/react-icon-by-name'
@@ -55,6 +55,14 @@ function normalizeHttpIconUrl(raw: string | undefined | null): string | null {
   return url.toString()
 }
 
+/** 支付方式的品牌色，未登记的类型返回 undefined 以沿用正文色。 */
+function getPaymentBrandColor(paymentType: string | undefined) {
+  if (!paymentType) return undefined
+  return (PAYMENT_ICON_COLORS as Record<string, string | undefined>)[
+    paymentType
+  ]
+}
+
 /**
  * Get payment method icon component
  *
@@ -84,11 +92,16 @@ export function getPaymentIcon(
     )
   }
   if (iconValue) {
+    // 配置了图标名时同样套用品牌色。缺了这一步，凡是带 icon 字段的方式
+    // （易支付默认的支付宝与微信、以及自动追加的直连方式）都会渲染成正文色，
+    // 只有未配 icon、走下面 switch 的方式才有颜色。
+    const brandColor = getPaymentBrandColor(paymentType)
     return (
       <ReactIconByName
         name={iconValue}
         className={className}
         title={altName || paymentType || iconValue}
+        style={brandColor ? { color: brandColor } : undefined}
       />
     )
   }
@@ -110,6 +123,20 @@ export function getPaymentIcon(
         <SiWechat
           className={className}
           style={{ color: PAYMENT_ICON_COLORS[PAYMENT_TYPES.WECHAT] }}
+        />
+      )
+    case PAYMENT_TYPES.ALIPAY_DIRECT:
+      return (
+        <SiAlipay
+          className={className}
+          style={{ color: PAYMENT_ICON_COLORS[PAYMENT_TYPES.ALIPAY_DIRECT] }}
+        />
+      )
+    case PAYMENT_TYPES.WECHAT_DIRECT:
+      return (
+        <SiWechat
+          className={className}
+          style={{ color: PAYMENT_ICON_COLORS[PAYMENT_TYPES.WECHAT_DIRECT] }}
         />
       )
     case PAYMENT_TYPES.STRIPE:

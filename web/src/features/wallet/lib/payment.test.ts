@@ -19,12 +19,29 @@ For commercial licensing, please contact support@quantumnous.com
 import { describe, expect, test } from 'vitest'
 
 import { PAYMENT_TYPES } from '../constants'
+import type { TopupInfo } from '../types'
 import {
   dispatchSelectedPayment,
+  getMinTopupAmount,
+  isAlipayDirectPayment,
   isStripePayment,
   isWaffoPayment,
   isWaffoPancakePayment,
+  isWechatDirectPayment,
 } from './payment'
+
+function topupInfo(overrides: Partial<TopupInfo>): TopupInfo {
+  return {
+    enable_online_topup: false,
+    enable_stripe_topup: false,
+    pay_methods: [],
+    min_topup: 10,
+    stripe_min_topup: 5,
+    amount_options: [],
+    discount: {},
+    ...overrides,
+  }
+}
 
 describe('payment type classification', () => {
   test('keeps Waffo and Waffo Pancake on their dedicated flows', () => {
@@ -33,6 +50,13 @@ describe('payment type classification', () => {
     expect(isWaffoPancakePayment(PAYMENT_TYPES.WAFFO_PANCAKE)).toBe(true)
     expect(isWaffoPancakePayment(PAYMENT_TYPES.WAFFO)).toBe(false)
     expect(isStripePayment(PAYMENT_TYPES.STRIPE)).toBe(true)
+  })
+
+  test('separates the official gateways from the Epay aggregator', () => {
+    expect(isAlipayDirectPayment(PAYMENT_TYPES.ALIPAY_DIRECT)).toBe(true)
+    expect(isAlipayDirectPayment(PAYMENT_TYPES.ALIPAY)).toBe(false)
+    expect(isWechatDirectPayment(PAYMENT_TYPES.WECHAT_DIRECT)).toBe(true)
+    expect(isWechatDirectPayment(PAYMENT_TYPES.WECHAT)).toBe(false)
   })
 })
 
@@ -56,6 +80,14 @@ describe('payment dispatch', () => {
           calls.push('pancake')
           return false
         },
+        alipayDirect: async () => {
+          calls.push('alipay-direct')
+          return false
+        },
+        wechatDirect: async () => {
+          calls.push('wechat-direct')
+          return false
+        },
       }
     )
 
@@ -76,10 +108,77 @@ describe('payment dispatch', () => {
           return true
         },
         waffoPancake: async () => false,
+        alipayDirect: async () => false,
+        wechatDirect: async () => false,
       }
     )
 
     expect(success).toBe(false)
     expect(called).toBe(false)
+  })
+
+  // Epay and the official gateways can be enabled at the same time. Routing a
+  // direct payment through `regular` would post it to the Epay endpoint, where
+  // it fails the payment-method check and no order is ever created upstream.
+  test('routes the official gateways away from the Epay processor', async () => {
+    const calls: string[] = []
+    const processors = {
+      regular: async (_amount: number, type: string) => {
+        calls.push(`regular:${type}`)
+        return false
+      },
+      waffo: async () => false,
+      waffoPancake: async () => false,
+      alipayDirect: async (amount: number) => {
+        calls.push(`alipay-direct:${amount}`)
+        return true
+      },
+      wechatDirect: async (amount: number) => {
+        calls.push(`wechat-direct:${amount}`)
+        return true
+      },
+    }
+
+    await dispatchSelectedPayment(
+      { name: '支付宝（官方）', type: PAYMENT_TYPES.ALIPAY_DIRECT },
+      50,
+      null,
+      processors
+    )
+    await dispatchSelectedPayment(
+      { name: '微信支付（官方）', type: PAYMENT_TYPES.WECHAT_DIRECT },
+      80,
+      null,
+      processors
+    )
+    await dispatchSelectedPayment(
+      { name: '支付宝', type: PAYMENT_TYPES.ALIPAY },
+      20,
+      null,
+      processors
+    )
+
+    expect(calls).toEqual([
+      'alipay-direct:50',
+      'wechat-direct:80',
+      `regular:${PAYMENT_TYPES.ALIPAY}`,
+    ])
+  })
+})
+
+// 直连通道复用全局 min_topup，没有各自的下限。少了这条分支，只开直连时前端会
+// 退回硬编码的 1，而后端仍按配置值拒绝，用户看到的下限与实际不符。
+describe('minimum topup amount', () => {
+  test('uses the shared minimum when only a direct gateway is enabled', () => {
+    expect(
+      getMinTopupAmount(topupInfo({ enable_alipay_direct_topup: true }))
+    ).toBe(10)
+    expect(
+      getMinTopupAmount(topupInfo({ enable_wechat_direct_topup: true }))
+    ).toBe(10)
+  })
+
+  test('still prefers the Stripe minimum when only Stripe is enabled', () => {
+    expect(getMinTopupAmount(topupInfo({ enable_stripe_topup: true }))).toBe(5)
   })
 })

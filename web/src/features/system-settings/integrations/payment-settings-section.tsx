@@ -61,6 +61,10 @@ import { safeNumberFieldProps } from '../utils/numeric-field'
 import { AmountDiscountVisualEditor } from './amount-discount-visual-editor'
 import { AmountOptionsVisualEditor } from './amount-options-visual-editor'
 import { CreemProductsVisualEditor } from './creem-products-visual-editor'
+import {
+  DirectPaySettingsSection,
+  type DirectPaySettingsValues,
+} from './direct-pay-settings-section'
 import { PaymentMethodsVisualEditor } from './payment-methods-visual-editor'
 import {
   formatJsonForEditor,
@@ -176,13 +180,29 @@ const paymentSchema = z.object({
   WaffoPancakeMerchantID: z.string(),
   WaffoPancakePrivateKey: z.string(),
   WaffoPancakeReturnURL: z.string(),
+  AlipayEnabled: z.boolean(),
+  AlipayAppID: z.string(),
+  AlipayPrivateKey: z.string(),
+  AlipayPublicKey: z.string(),
+  AlipaySellerID: z.string(),
+  AlipaySandbox: z.boolean(),
+  WechatPayEnabled: z.boolean(),
+  WechatPayAppID: z.string(),
+  WechatPayMchID: z.string(),
+  WechatPayCertSerialNo: z.string(),
+  WechatPayPrivateKey: z.string(),
+  WechatPayAPIv3Key: z.string(),
+  WechatPayPublicKey: z.string(),
+  WechatPayPublicKeyID: z.string(),
 })
 
 type PaymentFormValues = z.infer<typeof paymentSchema>
 type WaffoFormFieldValues = Omit<WaffoSettingsValues, 'WaffoPayMethods'>
 type PaymentBaseFormValues = Omit<
   PaymentFormValues,
-  keyof WaffoFormFieldValues | keyof WaffoPancakeSettingsValues
+  | keyof WaffoFormFieldValues
+  | keyof WaffoPancakeSettingsValues
+  | keyof DirectPaySettingsValues
 >
 
 const CURRENT_COMPLIANCE_TERMS_VERSION = 'v1'
@@ -199,6 +219,7 @@ type PaymentSettingsSectionProps = {
   defaultValues: PaymentBaseFormValues
   waffoDefaultValues: WaffoSettingsValues
   waffoPancakeDefaultValues: WaffoPancakeSettingsValues
+  directPayDefaultValues: DirectPaySettingsValues
   waffoPancakeProvisionedStoreID?: string
   waffoPancakeProvisionedProductID?: string
   complianceDefaults: PaymentComplianceDefaults
@@ -217,6 +238,7 @@ export function PaymentSettingsSection({
   defaultValues,
   waffoDefaultValues,
   waffoPancakeDefaultValues,
+  directPayDefaultValues,
   waffoPancakeProvisionedStoreID,
   waffoPancakeProvisionedProductID,
   complianceDefaults,
@@ -229,8 +251,14 @@ export function PaymentSettingsSection({
       ...defaultValues,
       ...waffoDefaultValues,
       ...waffoPancakeDefaultValues,
+      ...directPayDefaultValues,
     }),
-    [defaultValues, waffoDefaultValues, waffoPancakeDefaultValues]
+    [
+      defaultValues,
+      waffoDefaultValues,
+      waffoPancakeDefaultValues,
+      directPayDefaultValues,
+    ]
   )
   const initialRef = React.useRef(initialFormValues)
   const defaultsSignature = React.useMemo(
@@ -391,6 +419,19 @@ export function PaymentSettingsSection({
     [setPaymentValue]
   )
 
+  const handleDirectPayValueChange = React.useCallback(
+    <K extends keyof DirectPaySettingsValues>(
+      key: K,
+      value: DirectPaySettingsValues[K]
+    ) => {
+      setPaymentValue(
+        key as keyof PaymentFormValues,
+        value as PaymentFormValues[keyof PaymentFormValues]
+      )
+    },
+    [setPaymentValue]
+  )
+
   const setWaffoPancakeValue = React.useCallback(
     <K extends keyof WaffoPancakeSettingsValues>(
       key: K,
@@ -457,6 +498,20 @@ export function PaymentSettingsSection({
       WaffoPancakeReturnURL: removeTrailingSlash(
         values.WaffoPancakeReturnURL.trim()
       ),
+      AlipayEnabled: values.AlipayEnabled,
+      AlipayAppID: values.AlipayAppID.trim(),
+      AlipayPrivateKey: values.AlipayPrivateKey.trim(),
+      AlipayPublicKey: values.AlipayPublicKey.trim(),
+      AlipaySellerID: values.AlipaySellerID.trim(),
+      AlipaySandbox: values.AlipaySandbox,
+      WechatPayEnabled: values.WechatPayEnabled,
+      WechatPayAppID: values.WechatPayAppID.trim(),
+      WechatPayMchID: values.WechatPayMchID.trim(),
+      WechatPayCertSerialNo: values.WechatPayCertSerialNo.trim(),
+      WechatPayPrivateKey: values.WechatPayPrivateKey.trim(),
+      WechatPayAPIv3Key: values.WechatPayAPIv3Key.trim(),
+      WechatPayPublicKey: values.WechatPayPublicKey.trim(),
+      WechatPayPublicKeyID: values.WechatPayPublicKeyID.trim(),
     }
 
     const initial = {
@@ -504,6 +559,20 @@ export function PaymentSettingsSection({
       WaffoPancakeReturnURL: removeTrailingSlash(
         initialRef.current.WaffoPancakeReturnURL.trim()
       ),
+      AlipayEnabled: initialRef.current.AlipayEnabled,
+      AlipayAppID: initialRef.current.AlipayAppID.trim(),
+      AlipayPrivateKey: initialRef.current.AlipayPrivateKey.trim(),
+      AlipayPublicKey: initialRef.current.AlipayPublicKey.trim(),
+      AlipaySellerID: initialRef.current.AlipaySellerID.trim(),
+      AlipaySandbox: initialRef.current.AlipaySandbox,
+      WechatPayEnabled: initialRef.current.WechatPayEnabled,
+      WechatPayAppID: initialRef.current.WechatPayAppID.trim(),
+      WechatPayMchID: initialRef.current.WechatPayMchID.trim(),
+      WechatPayCertSerialNo: initialRef.current.WechatPayCertSerialNo.trim(),
+      WechatPayPrivateKey: initialRef.current.WechatPayPrivateKey.trim(),
+      WechatPayAPIv3Key: initialRef.current.WechatPayAPIv3Key.trim(),
+      WechatPayPublicKey: initialRef.current.WechatPayPublicKey.trim(),
+      WechatPayPublicKeyID: initialRef.current.WechatPayPublicKeyID.trim(),
     }
 
     const updates: Array<{ key: string; value: string | number | boolean }> = []
@@ -701,6 +770,40 @@ export function PaymentSettingsSection({
       updates.push({ key: 'WaffoPayMethods', value: sanitized.WaffoPayMethods })
     }
 
+    // 直连通道：普通字段按「有变化才提交」，密钥类字段按「非空才提交」，
+    // 因为 GET /api/option/ 会剥离它们，留空代表不修改而非清空。
+    const directPayPlainKeys = [
+      'AlipayEnabled',
+      'AlipayAppID',
+      'AlipaySellerID',
+      'AlipaySandbox',
+      'WechatPayEnabled',
+      'WechatPayAppID',
+      'WechatPayMchID',
+      'WechatPayCertSerialNo',
+      'WechatPayPublicKeyID',
+    ] as const
+
+    for (const key of directPayPlainKeys) {
+      if (sanitized[key] !== initial[key]) {
+        updates.push({ key, value: sanitized[key] })
+      }
+    }
+
+    const directPaySecretKeys = [
+      'AlipayPrivateKey',
+      'AlipayPublicKey',
+      'WechatPayPrivateKey',
+      'WechatPayAPIv3Key',
+      'WechatPayPublicKey',
+    ] as const
+
+    for (const key of directPaySecretKeys) {
+      if (sanitized[key] && sanitized[key] !== initial[key]) {
+        updates.push({ key, value: sanitized[key] })
+      }
+    }
+
     const hasWaffoPancakeChanges =
       sanitized.WaffoPancakeMerchantID !== initial.WaffoPancakeMerchantID ||
       sanitized.WaffoPancakePrivateKey.length > 0 ||
@@ -795,6 +898,22 @@ export function PaymentSettingsSection({
     WaffoPancakePrivateKey: currentFormValues.WaffoPancakePrivateKey,
     WaffoPancakeReturnURL: currentFormValues.WaffoPancakeReturnURL,
   }
+  const directPayValues: DirectPaySettingsValues = {
+    AlipayEnabled: currentFormValues.AlipayEnabled,
+    AlipayAppID: currentFormValues.AlipayAppID,
+    AlipayPrivateKey: currentFormValues.AlipayPrivateKey,
+    AlipayPublicKey: currentFormValues.AlipayPublicKey,
+    AlipaySellerID: currentFormValues.AlipaySellerID,
+    AlipaySandbox: currentFormValues.AlipaySandbox,
+    WechatPayEnabled: currentFormValues.WechatPayEnabled,
+    WechatPayAppID: currentFormValues.WechatPayAppID,
+    WechatPayMchID: currentFormValues.WechatPayMchID,
+    WechatPayCertSerialNo: currentFormValues.WechatPayCertSerialNo,
+    WechatPayPrivateKey: currentFormValues.WechatPayPrivateKey,
+    WechatPayAPIv3Key: currentFormValues.WechatPayAPIv3Key,
+    WechatPayPublicKey: currentFormValues.WechatPayPublicKey,
+    WechatPayPublicKeyID: currentFormValues.WechatPayPublicKeyID,
+  }
 
   return (
     <SettingsSection title={t('Payment Gateway')}>
@@ -877,8 +996,11 @@ export function PaymentSettingsSection({
           />
           <Tabs defaultValue='general' className='min-w-0'>
             <div className='overflow-x-auto pb-1'>
-              <TabsList className='grid min-w-[44rem] grid-cols-6'>
+              <TabsList className='grid min-w-[52rem] grid-cols-7'>
                 <TabsTrigger value='general'>{t('General')}</TabsTrigger>
+                <TabsTrigger value='direct-pay'>
+                  {t('Official Direct')}
+                </TabsTrigger>
                 <TabsTrigger value='epay'>Epay</TabsTrigger>
                 <TabsTrigger value='stripe'>{t('Stripe')}</TabsTrigger>
                 <TabsTrigger value='creem'>Creem</TabsTrigger>
@@ -1002,7 +1124,7 @@ export function PaymentSettingsSection({
                       </FormControl>
                       <FormDescription>
                         {t(
-                          'Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, and other values are sent to Epay as the type parameter.'
+                          'Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.'
                         )}
                       </FormDescription>
                       <FormMessage />
@@ -1132,6 +1254,20 @@ export function PaymentSettingsSection({
                   />
                 </div>
               </div>
+            </TabsContent>
+
+            <TabsContent
+              value='direct-pay'
+              className={paymentTabContentClassName}
+            >
+              <DirectPaySettingsSection
+                values={directPayValues}
+                onValueChange={handleDirectPayValueChange}
+                callbackOrigin={
+                  currentFormValues.CustomCallbackAddress ||
+                  window.location.origin
+                }
+              />
             </TabsContent>
 
             <TabsContent value='epay' className={paymentTabContentClassName}>

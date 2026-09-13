@@ -28,6 +28,7 @@ import type {
   ResetPlanSubscriptionsRequest,
   SubscriptionResetResult,
   SubscriptionPayResponse,
+  SubscriptionOrderStatusResponse,
   SubscriptionPayRequest,
   SelfSubscriptionData,
 } from './types'
@@ -152,6 +153,37 @@ export async function paySubscriptionWaffoPancake(
   data: SubscriptionPayRequest
 ): Promise<SubscriptionPayResponse> {
   const res = await api.post('/api/subscription/waffo-pancake/pay', data)
+  return res.data
+}
+
+/** Buy a plan through the official Alipay direct-connect gateway. */
+export async function paySubscriptionAlipay(
+  data: SubscriptionPayRequest
+): Promise<SubscriptionPayResponse> {
+  const res = await api.post('/api/subscription/alipay/pay', data)
+  return res.data
+}
+
+/** Buy a plan through the official WeChat Pay direct-connect gateway. */
+export async function paySubscriptionWechat(
+  data: SubscriptionPayRequest
+): Promise<SubscriptionPayResponse> {
+  const res = await api.post('/api/subscription/wechat/pay', data)
+  return res.data
+}
+
+/**
+ * Poll a subscription order while its QR dialog is open.
+ *
+ * The backend queries the gateway when the local record is still pending, so a
+ * dropped callback does not leave the plan unactivated.
+ */
+export async function getSubscriptionOrderStatus(
+  tradeNo: string
+): Promise<SubscriptionOrderStatusResponse> {
+  const res = await api.get('/api/subscription/direct/status', {
+    params: { trade_no: tradeNo },
+  })
   return res.data
 }
 

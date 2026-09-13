@@ -336,6 +336,22 @@ export type BillingSettings = {
   // section (saved via /api/option/waffo-pancake/save).
   WaffoPancakeStoreID: string
   WaffoPancakeProductID: string
+  // Official direct-connect gateways. Secrets are stripped from
+  // GET /api/option/, so they arrive empty and a blank field means unchanged.
+  AlipayEnabled: boolean
+  AlipayAppID: string
+  AlipayPrivateKey: string
+  AlipayPublicKey: string
+  AlipaySellerID: string
+  AlipaySandbox: boolean
+  WechatPayEnabled: boolean
+  WechatPayAppID: string
+  WechatPayMchID: string
+  WechatPayCertSerialNo: string
+  WechatPayPrivateKey: string
+  WechatPayAPIv3Key: string
+  WechatPayPublicKey: string
+  WechatPayPublicKeyID: string
   'checkin_setting.enabled': boolean
   'checkin_setting.min_quota': number
   'checkin_setting.max_quota': number

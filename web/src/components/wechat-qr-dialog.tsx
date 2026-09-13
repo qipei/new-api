@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { CheckCircle2, Loader2, TimerOff } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import * as React from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { SiWechat } from 'react-icons/si'
 
 import { Dialog } from '@/components/dialog'
@@ -171,10 +171,13 @@ export function WechatQrDialog(props: WechatQrDialogProps) {
               )}
             </div>
             <Alert>
-              <AlertDescription>
-                {t(
-                  'Open WeChat and use Scan. Long-press and album recognition are not supported for payment codes.'
-                )}
+              {/*
+                两个要强调的词在各语言里位置不同，标记必须跟着译文走，所以用
+                Trans 而不是拆成多个 key 再拼。<strong> 在 react-i18next 的
+                默认白名单里，无需额外传 components。
+              */}
+              <AlertDescription className='[&_strong]:font-semibold'>
+                <Trans i18nKey='Open <strong>WeChat</strong> and use <strong>Scan</strong>. Long-press and album recognition are not supported for payment codes.' />
               </AlertDescription>
             </Alert>
           </>

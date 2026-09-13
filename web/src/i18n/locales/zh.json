@@ -5620,7 +5620,6 @@
     "Lowest group price": "最低分组价",
     "Scan the QR code with WeChat to complete the payment.": "使用微信扫描二维码完成支付。",
     "Waiting for payment": "等待支付",
-    "Open WeChat and use Scan. Long-press and album recognition are not supported for payment codes.": "请打开微信使用「扫一扫」。支付码不支持长按识别和从相册识别。",
     "Payment received": "支付成功",
     "This QR code has expired": "二维码已过期",
     "Close this window and start a new top-up. Unpaid orders are not shown in WeChat, so they cannot be resumed there.": "请关闭此窗口后重新发起充值。未支付的订单不会显示在微信里，无法在微信中继续支付。",
@@ -5663,6 +5662,7 @@
     "Official Alipay": "支付宝（官方直连）",
     "Official WeChat Pay": "微信支付（官方直连）",
     "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.": "用于决定走哪条支付流程。内置键包括 Stripe 的 stripe、Waffo Pancake 的 waffo_pancake，以及官方直连的 alipay_direct 与 wxpay_direct；其余值作为 type 参数发给易支付。",
-    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "以 PayMethods JSON 配置。type 决定走哪条支付流程：stripe 走 Stripe，waffo_pancake 走 Waffo Pancake，alipay_direct 与 wxpay_direct 走官方直连，其余值作为 type 参数发给易支付。"
+    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "以 PayMethods JSON 配置。type 决定走哪条支付流程：stripe 走 Stripe，waffo_pancake 走 Waffo Pancake，alipay_direct 与 wxpay_direct 走官方直连，其余值作为 type 参数发给易支付。",
+    "Open <strong>WeChat</strong> and use <strong>Scan</strong>. Long-press and album recognition are not supported for payment codes.": "请打开<strong>微信</strong>使用「<strong>扫一扫</strong>」。支付码不支持长按识别和从相册识别。"
   }
 }

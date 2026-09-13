@@ -5620,7 +5620,6 @@
     "Lowest group price": "Prix de groupe le plus bas",
     "Scan the QR code with WeChat to complete the payment.": "Scannez le QR code avec WeChat pour finaliser le paiement.",
     "Waiting for payment": "En attente du paiement",
-    "Open WeChat and use Scan. Long-press and album recognition are not supported for payment codes.": "Ouvrez WeChat et utilisez « Scanner ». L'appui long et la reconnaissance depuis la galerie ne sont pas pris en charge pour les codes de paiement.",
     "Payment received": "Paiement reçu",
     "This QR code has expired": "Ce QR code a expiré",
     "Close this window and start a new top-up. Unpaid orders are not shown in WeChat, so they cannot be resumed there.": "Fermez cette fenêtre et relancez une recharge. Les commandes impayées n'apparaissent pas dans WeChat et ne peuvent donc pas y être reprises.",
@@ -5663,6 +5662,7 @@
     "Official Alipay": "Alipay (connexion directe officielle)",
     "Official WeChat Pay": "WeChat Pay (connexion directe officielle)",
     "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.": "Détermine le flux de paiement utilisé. Les clés intégrées sont stripe pour Stripe, waffo_pancake pour Waffo Pancake, et alipay_direct / wxpay_direct pour les passerelles directes officielles ; les autres valeurs sont envoyées à Epay comme paramètre type.",
-    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "Configuré via le JSON PayMethods. La valeur type détermine le flux de paiement : stripe pour Stripe, waffo_pancake pour Waffo Pancake, alipay_direct et wxpay_direct pour les passerelles directes officielles, les autres valeurs étant envoyées à Epay comme paramètre type."
+    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "Configuré via le JSON PayMethods. La valeur type détermine le flux de paiement : stripe pour Stripe, waffo_pancake pour Waffo Pancake, alipay_direct et wxpay_direct pour les passerelles directes officielles, les autres valeurs étant envoyées à Epay comme paramètre type.",
+    "Open <strong>WeChat</strong> and use <strong>Scan</strong>. Long-press and album recognition are not supported for payment codes.": "Ouvrez <strong>WeChat</strong> et utilisez « <strong>Scanner</strong> ». L'appui long et la reconnaissance depuis la galerie ne sont pas pris en charge pour les codes de paiement."
   }
 }

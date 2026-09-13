@@ -5620,7 +5620,6 @@
     "Lowest group price": "Giá nhóm thấp nhất",
     "Scan the QR code with WeChat to complete the payment.": "Quét mã QR bằng WeChat để hoàn tất thanh toán.",
     "Waiting for payment": "Đang chờ thanh toán",
-    "Open WeChat and use Scan. Long-press and album recognition are not supported for payment codes.": "Mở WeChat và dùng chức năng Quét. Mã thanh toán không hỗ trợ nhận diện bằng cách nhấn giữ hoặc từ thư viện ảnh.",
     "Payment received": "Đã nhận thanh toán",
     "This QR code has expired": "Mã QR này đã hết hạn",
     "Close this window and start a new top-up. Unpaid orders are not shown in WeChat, so they cannot be resumed there.": "Hãy đóng cửa sổ này và tạo lại giao dịch nạp tiền. Đơn chưa thanh toán không hiển thị trong WeChat nên không thể tiếp tục tại đó.",
@@ -5663,6 +5662,7 @@
     "Official Alipay": "Alipay (kết nối trực tiếp chính thức)",
     "Official WeChat Pay": "WeChat Pay (kết nối trực tiếp chính thức)",
     "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.": "Dùng để quyết định luồng thanh toán. Các khóa dựng sẵn gồm stripe cho Stripe, waffo_pancake cho Waffo Pancake, và alipay_direct / wxpay_direct cho các cổng trực tiếp chính thức; các giá trị khác được gửi tới Epay làm tham số type.",
-    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "Cấu hình bằng JSON PayMethods. Giá trị type quyết định luồng thanh toán: stripe cho Stripe, waffo_pancake cho Waffo Pancake, alipay_direct và wxpay_direct cho các cổng trực tiếp chính thức, các giá trị khác được gửi tới Epay làm tham số type."
+    "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "Cấu hình bằng JSON PayMethods. Giá trị type quyết định luồng thanh toán: stripe cho Stripe, waffo_pancake cho Waffo Pancake, alipay_direct và wxpay_direct cho các cổng trực tiếp chính thức, các giá trị khác được gửi tới Epay làm tham số type.",
+    "Open <strong>WeChat</strong> and use <strong>Scan</strong>. Long-press and album recognition are not supported for payment codes.": "Mở <strong>WeChat</strong> và dùng chức năng <strong>Quét</strong>. Mã thanh toán không hỗ trợ nhận diện bằng cách nhấn giữ hoặc từ thư viện ảnh."
   }
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"unicode"
 
 	"github.com/QuantumNous/new-api/setting"
 
@@ -24,11 +25,60 @@ const (
 // 支付成功回调的事件类型。
 const wechatTransactionSuccessEvent = "TRANSACTION.SUCCESS"
 
+// normalizePEM 把 PEM 文本重排成 pem.Decode 能接受的形式。
+//
+// 从后台文本框粘贴证书时，换行经常被压成空格或只剩 \r，而 pem.Decode 要求
+// BEGIN 行后紧跟换行，遇到空格会直接返回 nil，报错信息又看不出是格式问题。
+// 这里剥掉首尾标记、去掉正文里的全部空白再按 64 列重排，对本就规范的内容是
+// 无副作用的恒等变换。无法识别出 PEM 标记时原样返回，交给上游报错。
+func normalizePEM(content string) string {
+	trimmed := strings.TrimSpace(content)
+	begin := strings.Index(trimmed, "-----BEGIN ")
+	if begin == -1 {
+		return trimmed
+	}
+	headerEnd := strings.Index(trimmed[begin+len("-----BEGIN "):], "-----")
+	if headerEnd == -1 {
+		return trimmed
+	}
+	label := trimmed[begin+len("-----BEGIN ") : begin+len("-----BEGIN ")+headerEnd]
+	bodyStart := begin + len("-----BEGIN ") + headerEnd + len("-----")
+
+	end := strings.Index(trimmed, "-----END ")
+	if end == -1 || end < bodyStart {
+		return trimmed
+	}
+
+	var body strings.Builder
+	for _, r := range trimmed[bodyStart:end] {
+		if !unicode.IsSpace(r) {
+			body.WriteRune(r)
+		}
+	}
+	encoded := body.String()
+	if encoded == "" {
+		return trimmed
+	}
+
+	var out strings.Builder
+	out.WriteString("-----BEGIN " + label + "-----\n")
+	for i := 0; i < len(encoded); i += 64 {
+		end := i + 64
+		if end > len(encoded) {
+			end = len(encoded)
+		}
+		out.WriteString(encoded[i:end])
+		out.WriteString("\n")
+	}
+	out.WriteString("-----END " + label + "-----\n")
+	return out.String()
+}
+
 func newWechatPayClient() (*wechat.ClientV3, error) {
 	mchID := strings.TrimSpace(setting.WechatPayMchID)
 	serialNo := strings.TrimSpace(setting.WechatPayCertSerialNo)
 	apiV3Key := strings.TrimSpace(setting.WechatPayAPIv3Key)
-	privateKey := strings.TrimSpace(setting.WechatPayPrivateKey)
+	privateKey := normalizePEM(setting.WechatPayPrivateKey)
 	if mchID == "" || serialNo == "" || apiV3Key == "" || privateKey == "" {
 		return nil, errors.New("微信支付直连凭证未配置")
 	}
@@ -37,7 +87,7 @@ func newWechatPayClient() (*wechat.ClientV3, error) {
 		return nil, fmt.Errorf("初始化微信支付客户端失败: %w", err)
 	}
 
-	publicKey := strings.TrimSpace(setting.WechatPayPublicKey)
+	publicKey := normalizePEM(setting.WechatPayPublicKey)
 	publicKeyID := strings.TrimSpace(setting.WechatPayPublicKeyID)
 	if publicKey == "" || publicKeyID == "" {
 		return nil, errors.New("微信支付公钥或公钥 ID 未配置")

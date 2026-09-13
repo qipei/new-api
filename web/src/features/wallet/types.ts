@@ -45,6 +45,40 @@ export type CreemPaymentResponse = ApiResponse<{ checkout_url: string }>
 export type WaffoPaymentResponse = ApiResponse<
   { payment_url?: string } | string
 >
+/** Alipay PC website payment returns a checkout link to redirect to. */
+export type AlipayDirectPaymentResponse = ApiResponse<
+  | {
+      pay_url?: string
+      trade_no?: string
+      expires_at?: number
+    }
+  | string
+>
+
+/**
+ * WeChat Native returns a code_url that the page renders as a QR image.
+ * WeChat no longer supports long-press or album recognition, so scanning
+ * with the in-app scanner is the only way to use it.
+ */
+export type WechatDirectPaymentResponse = ApiResponse<
+  | {
+      code_url?: string
+      trade_no?: string
+      expires_at?: number
+    }
+  | string
+>
+
+/** Polled while the QR dialog is open. */
+export type TopupOrderStatusResponse = ApiResponse<
+  | {
+      trade_no?: string
+      status?: string
+      expires_at?: number
+    }
+  | string
+>
+
 export type WaffoPancakePaymentResponse = ApiResponse<
   | {
       checkout_url?: string
@@ -150,6 +184,10 @@ export interface TopupInfo {
   enable_waffo_pancake_topup?: boolean
   /** Minimum topup amount for Waffo Pancake */
   waffo_pancake_min_topup?: number
+  /** Whether the official Alipay direct-connect gateway is enabled */
+  enable_alipay_direct_topup?: boolean
+  /** Whether the official WeChat Pay direct-connect gateway is enabled */
+  enable_wechat_direct_topup?: boolean
   /** Whether redemption code usage is enabled */
   enable_redemption?: boolean
   /** Whether compliance confirmation has been completed */

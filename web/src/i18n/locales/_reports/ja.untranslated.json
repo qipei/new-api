@@ -85,5 +85,7 @@
   "Video length in seconds. The accepted range differs per model: 3-15 for the ad model and 2-15 for the drama model.": "Video length in seconds. The accepted range differs per model: 3-15 for the ad model and 2-15 for the drama model.",
   "Video length in seconds. Up to 16 for the q3 family and up to 10 for the q2 family.": "Video length in seconds. Up to 16 for the q3 family and up to 10 for the q2 family.",
   "When commission type is percentage, the value must be between 0 and 100": "When commission type is percentage, the value must be between 0 and 100",
-  "When enabled, inviters automatically earn commission when invited users make paid top-ups": "When enabled, inviters automatically earn commission when invited users make paid top-ups"
+  "When enabled, inviters automatically earn commission when invited users make paid top-ups": "When enabled, inviters automatically earn commission when invited users make paid top-ups",
+  "Alipay AppID": "Alipay AppID",
+  "WeChat AppID": "WeChat AppID"
 }

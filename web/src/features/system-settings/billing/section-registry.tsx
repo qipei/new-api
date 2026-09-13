@@ -217,6 +217,22 @@ const BILLING_SECTIONS = [
           WaffoPancakePrivateKey: settings.WaffoPancakePrivateKey ?? '',
           WaffoPancakeReturnURL: settings.WaffoPancakeReturnURL ?? '',
         }}
+        directPayDefaultValues={{
+          AlipayEnabled: settings.AlipayEnabled ?? false,
+          AlipayAppID: settings.AlipayAppID ?? '',
+          AlipayPrivateKey: settings.AlipayPrivateKey ?? '',
+          AlipayPublicKey: settings.AlipayPublicKey ?? '',
+          AlipaySellerID: settings.AlipaySellerID ?? '',
+          AlipaySandbox: settings.AlipaySandbox ?? false,
+          WechatPayEnabled: settings.WechatPayEnabled ?? false,
+          WechatPayAppID: settings.WechatPayAppID ?? '',
+          WechatPayMchID: settings.WechatPayMchID ?? '',
+          WechatPayCertSerialNo: settings.WechatPayCertSerialNo ?? '',
+          WechatPayPrivateKey: settings.WechatPayPrivateKey ?? '',
+          WechatPayAPIv3Key: settings.WechatPayAPIv3Key ?? '',
+          WechatPayPublicKey: settings.WechatPayPublicKey ?? '',
+          WechatPayPublicKeyID: settings.WechatPayPublicKeyID ?? '',
+        }}
         waffoPancakeProvisionedStoreID={settings.WaffoPancakeStoreID ?? ''}
         waffoPancakeProvisionedProductID={settings.WaffoPancakeProductID ?? ''}
         complianceDefaults={{

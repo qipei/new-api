@@ -30,6 +30,7 @@ import { CommissionRecordsDialog } from './components/dialogs/commission-records
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
 import { TransferDialog } from './components/dialogs/transfer-dialog'
+import { WechatQrDialog } from './components/dialogs/wechat-qr-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
 import { SubscriptionPlansCard } from './components/subscription-plans-card'
 import { WalletStatsCard } from './components/wallet-stats-card'
@@ -42,6 +43,7 @@ import {
   useCreemPayment,
   useWaffoPayment,
   useWaffoPancakePayment,
+  useDirectPay,
 } from './hooks'
 import {
   getDefaultPaymentType,
@@ -112,6 +114,12 @@ export function Wallet(props: WalletProps) {
   const { processing: waffoProcessing, processWaffoPayment } = useWaffoPayment()
   const { processing: pancakeProcessing, processWaffoPancakePayment } =
     useWaffoPancakePayment()
+  const {
+    wechatOrder,
+    processAlipayDirectPayment,
+    processWechatDirectPayment,
+    closeWechatOrder,
+  } = useDirectPay()
 
   // Fetch and refresh user data
   const fetchUser = useCallback(async () => {
@@ -206,6 +214,8 @@ export function Wallet(props: WalletProps) {
         regular: processPayment,
         waffo: processWaffoPayment,
         waffoPancake: processWaffoPancakePayment,
+        alipayDirect: processAlipayDirectPayment,
+        wechatDirect: processWechatDirectPayment,
       }
     )
 
@@ -214,6 +224,12 @@ export function Wallet(props: WalletProps) {
       await fetchUser()
     }
   }
+
+  // WeChat Native settles out of band, so the balance is refreshed when the
+  // QR dialog reports success rather than when the request returns.
+  const handleWechatQrPaid = useCallback(async () => {
+    await fetchUser()
+  }, [fetchUser])
 
   // Handle redemption
   const handleRedeem = async () => {
@@ -395,6 +411,13 @@ export function Wallet(props: WalletProps) {
         onConfirm={handleCreemConfirm}
         product={selectedCreemProduct}
         processing={creemProcessing}
+      />
+
+      <WechatQrDialog
+        order={wechatOrder}
+        amount={paymentAmount}
+        onClose={closeWechatOrder}
+        onPaid={handleWechatQrPaid}
       />
     </>
   )

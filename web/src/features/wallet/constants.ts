@@ -36,6 +36,15 @@ export const PAYMENT_TYPES = {
   CREEM: 'creem',
   WAFFO: 'waffo',
   WAFFO_PANCAKE: 'waffo_pancake',
+  /**
+   * Official direct-connect gateways.
+   *
+   * Deliberately distinct from ALIPAY / WECHAT, which belong to the Epay
+   * aggregator. Both can be enabled at once, and payment dispatch routes on
+   * this string, so sharing it would send direct payments to the Epay endpoint.
+   */
+  ALIPAY_DIRECT: 'alipay_direct',
+  WECHAT_DIRECT: 'wxpay_direct',
 } as const
 
 /**
@@ -53,6 +62,8 @@ export const PAYMENT_ICON_COLORS = {
   [PAYMENT_TYPES.CREEM]: '#6366F1',
   [PAYMENT_TYPES.WAFFO]: '#2563EB',
   [PAYMENT_TYPES.WAFFO_PANCAKE]: '#F97316',
+  [PAYMENT_TYPES.ALIPAY_DIRECT]: '#1677FF',
+  [PAYMENT_TYPES.WECHAT_DIRECT]: '#07C160',
 } as const
 
 /**

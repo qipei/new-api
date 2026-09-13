@@ -93,10 +93,29 @@ export function isWaffoPancakePayment(paymentType: string): boolean {
   return paymentType === PAYMENT_TYPES.WAFFO_PANCAKE
 }
 
+/**
+ * Check if payment method is the official Alipay direct-connect gateway
+ *
+ * Distinct from PAYMENT_TYPES.ALIPAY, which belongs to the Epay aggregator.
+ * Both can be enabled at the same time and must route to different endpoints.
+ */
+export function isAlipayDirectPayment(paymentType: string): boolean {
+  return paymentType === PAYMENT_TYPES.ALIPAY_DIRECT
+}
+
+/**
+ * Check if payment method is the official WeChat Pay direct-connect gateway
+ */
+export function isWechatDirectPayment(paymentType: string): boolean {
+  return paymentType === PAYMENT_TYPES.WECHAT_DIRECT
+}
+
 export interface PaymentProcessors {
   regular: (topupAmount: number, paymentType: string) => Promise<boolean>
   waffo: (topupAmount: number, payMethodIndex: number) => Promise<boolean>
   waffoPancake: (topupAmount: number) => Promise<boolean>
+  alipayDirect: (topupAmount: number) => Promise<boolean>
+  wechatDirect: (topupAmount: number) => Promise<boolean>
 }
 
 export async function dispatchSelectedPayment(
@@ -114,6 +133,14 @@ export async function dispatchSelectedPayment(
 
   if (isWaffoPancakePayment(paymentMethod.type)) {
     return processors.waffoPancake(topupAmount)
+  }
+
+  if (isAlipayDirectPayment(paymentMethod.type)) {
+    return processors.alipayDirect(topupAmount)
+  }
+
+  if (isWechatDirectPayment(paymentMethod.type)) {
+    return processors.wechatDirect(topupAmount)
   }
 
   return processors.regular(topupAmount, paymentMethod.type)
@@ -142,6 +169,14 @@ export function getDefaultPaymentType(topupInfo: TopupInfo | null): string {
 
   if (topupInfo.enable_waffo_pancake_topup) {
     return PAYMENT_TYPES.WAFFO_PANCAKE
+  }
+
+  if (topupInfo.enable_alipay_direct_topup) {
+    return PAYMENT_TYPES.ALIPAY_DIRECT
+  }
+
+  if (topupInfo.enable_wechat_direct_topup) {
+    return PAYMENT_TYPES.WECHAT_DIRECT
   }
 
   return DEFAULT_PAYMENT_TYPE

@@ -25,14 +25,19 @@ import { Dialog } from '@/components/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 
-import { getTopupOrderStatus, isApiSuccess } from '../../api'
-import type { WechatQrOrder } from '../../hooks/use-direct-pay'
-
 /**
  * How often to ask our own backend whether the order settled. The callback
  * normally lands first; this is the user-visible confirmation path.
  */
 const POLL_INTERVAL_MS = 3000
+
+/** Pending WeChat Native order rendered by the dialog. */
+export interface WechatQrOrder {
+  codeUrl: string
+  tradeNo: string
+  /** Unix seconds. */
+  expiresAt: number
+}
 
 type QrPhase = 'waiting' | 'paid' | 'expired'
 
@@ -48,6 +53,11 @@ interface WechatQrDialogProps {
   amount: number
   onClose: () => void
   onPaid: () => void
+  /**
+   * Resolves to true once the order has settled. Top-ups and subscription
+   * orders live in different tables, so each caller supplies its own poller.
+   */
+  pollStatus: (tradeNo: string) => Promise<boolean>
 }
 
 /**
@@ -67,6 +77,7 @@ export function WechatQrDialog(props: WechatQrDialogProps) {
   const tradeNo = order?.tradeNo
   const expiresAt = order?.expiresAt ?? 0
   const onPaid = props.onPaid
+  const pollStatus = props.pollStatus
 
   // A new order resets the dialog; without this a second attempt would open
   // straight into the previous order's paid or expired state.
@@ -95,16 +106,8 @@ export function WechatQrDialog(props: WechatQrDialogProps) {
 
     const poll = window.setInterval(async () => {
       try {
-        const response = await getTopupOrderStatus(tradeNo)
-        if (cancelled || !isApiSuccess(response)) {
-          return
-        }
-        const data = response.data
-        const status =
-          data && typeof data === 'object'
-            ? (data as Record<string, unknown>).status
-            : undefined
-        if (status === 'success') {
+        const settled = await pollStatus(tradeNo)
+        if (!cancelled && settled) {
           setPhase('paid')
           onPaid()
         }
@@ -119,7 +122,7 @@ export function WechatQrDialog(props: WechatQrDialogProps) {
       window.clearInterval(countdown)
       window.clearInterval(poll)
     }
-  }, [tradeNo, expiresAt, phase, onPaid])
+  }, [tradeNo, expiresAt, phase, onPaid, pollStatus])
 
   if (!order) return null
 

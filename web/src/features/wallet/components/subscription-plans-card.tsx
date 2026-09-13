@@ -119,6 +119,8 @@ export function SubscriptionPlansCard({
   const enableCreem = !!topupInfo?.enable_creem_topup
   const enableWaffoPancake = !!topupInfo?.enable_waffo_pancake_topup
   const enableOnlineTopUp = !!topupInfo?.enable_online_topup
+  const enableAlipayDirect = !!topupInfo?.enable_alipay_direct_topup
+  const enableWechatDirect = !!topupInfo?.enable_wechat_direct_topup
   const epayMethods = useMemo(
     () => getEpayMethods(topupInfo?.pay_methods),
     [topupInfo?.pay_methods]
@@ -645,6 +647,8 @@ export function SubscriptionPlansCard({
         enableStripe={enableStripe}
         enableCreem={enableCreem}
         enableWaffoPancake={enableWaffoPancake}
+        enableAlipayDirect={enableAlipayDirect}
+        enableWechatDirect={enableWechatDirect}
         enableOnlineTopUp={enableOnlineTopUp}
         epayMethods={epayMethods}
         userQuota={userQuota}

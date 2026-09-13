@@ -20,6 +20,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
+import { WechatQrDialog } from '@/components/wechat-qr-dialog'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { getSelf } from '@/lib/api'
@@ -30,7 +31,6 @@ import { CommissionRecordsDialog } from './components/dialogs/commission-records
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
 import { TransferDialog } from './components/dialogs/transfer-dialog'
-import { WechatQrDialog } from './components/dialogs/wechat-qr-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
 import { SubscriptionPlansCard } from './components/subscription-plans-card'
 import { WalletStatsCard } from './components/wallet-stats-card'
@@ -119,6 +119,7 @@ export function Wallet(props: WalletProps) {
     processAlipayDirectPayment,
     processWechatDirectPayment,
     closeWechatOrder,
+    pollTopupOrderStatus,
   } = useDirectPay()
 
   // Fetch and refresh user data
@@ -418,6 +419,7 @@ export function Wallet(props: WalletProps) {
         amount={paymentAmount}
         onClose={closeWechatOrder}
         onPaid={handleWechatQrPaid}
+        pollStatus={pollTopupOrderStatus}
       />
     </>
   )

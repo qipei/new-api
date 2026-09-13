@@ -20,21 +20,14 @@ import i18next from 'i18next'
 import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
 
+import type { WechatQrOrder } from '@/components/wechat-qr-dialog'
+
 import {
+  getTopupOrderStatus,
   isApiSuccess,
   requestAlipayDirectPayment,
   requestWechatDirectPayment,
 } from '../api'
-
-/**
- * Pending WeChat Native order handed to the QR dialog.
- */
-export interface WechatQrOrder {
-  codeUrl: string
-  tradeNo: string
-  /** Unix seconds. */
-  expiresAt: number
-}
 
 function readStringField(data: unknown, field: string): string | null {
   if (!data || typeof data !== 'object') {
@@ -154,11 +147,20 @@ export function useDirectPay() {
 
   const closeWechatOrder = useCallback(() => setWechatOrder(null), [])
 
+  const pollTopupOrderStatus = useCallback(async (tradeNo: string) => {
+    const response = await getTopupOrderStatus(tradeNo)
+    if (!isApiSuccess(response)) {
+      return false
+    }
+    return readStringField(response.data, 'status') === 'success'
+  }, [])
+
   return {
     processing,
     wechatOrder,
     processAlipayDirectPayment,
     processWechatDirectPayment,
     closeWechatOrder,
+    pollTopupOrderStatus,
   }
 }

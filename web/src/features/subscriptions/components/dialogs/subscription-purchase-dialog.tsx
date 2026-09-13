@@ -34,6 +34,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
+import {
+  WechatQrDialog,
+  type WechatQrOrder,
+} from '@/components/wechat-qr-dialog'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { formatQuota } from '@/lib/format'
 import { DEFAULT_CURRENCY_CONFIG } from '@/stores/system-config-store'
@@ -43,6 +47,9 @@ import {
   paySubscriptionCreem,
   paySubscriptionEpay,
   paySubscriptionWaffoPancake,
+  paySubscriptionAlipay,
+  paySubscriptionWechat,
+  getSubscriptionOrderStatus,
   paySubscriptionBalance,
 } from '../../api'
 import { formatDuration, formatResetPeriod } from '../../lib'
@@ -60,6 +67,8 @@ interface Props {
   enableStripe?: boolean
   enableCreem?: boolean
   enableWaffoPancake?: boolean
+  enableAlipayDirect?: boolean
+  enableWechatDirect?: boolean
   enableOnlineTopUp?: boolean
   epayMethods?: PaymentMethod[]
   purchaseLimit?: number
@@ -73,6 +82,7 @@ export function SubscriptionPurchaseDialog(props: Props) {
   const { currency } = useSystemConfig()
   const [paying, setPaying] = useState(false)
   const [selectedEpayMethod, setSelectedEpayMethod] = useState('')
+  const [wechatOrder, setWechatOrder] = useState<WechatQrOrder | null>(null)
 
   useEffect(() => {
     if (props.open && props.epayMethods && props.epayMethods.length > 0) {
@@ -91,7 +101,16 @@ export function SubscriptionPurchaseDialog(props: Props) {
     props.enableWaffoPancake && !!plan.waffo_pancake_product_id
   const hasEpay =
     props.enableOnlineTopUp && (props.epayMethods || []).length > 0
-  const hasAnyPayment = hasStripe || hasCreem || hasWaffoPancake || hasEpay
+  // 直连通道不需要在上游预建商品，套餐只要启用即可购买。
+  const hasAlipayDirect = !!props.enableAlipayDirect
+  const hasWechatDirect = !!props.enableWechatDirect
+  const hasAnyPayment =
+    hasStripe ||
+    hasCreem ||
+    hasWaffoPancake ||
+    hasEpay ||
+    hasAlipayDirect ||
+    hasWechatDirect
   const selectedEpayMethodLabel =
     (props.epayMethods || []).find((m) => m.type === selectedEpayMethod)
       ?.name ||
@@ -227,6 +246,66 @@ export function SubscriptionPurchaseDialog(props: Props) {
     } finally {
       setPaying(false)
     }
+  }
+
+  // In-tab redirect for the same reason as Pancake: the user-gesture context
+  // is gone after the await, so a popup would be blocked.
+  const handlePayAlipayDirect = async () => {
+    setPaying(true)
+    try {
+      const res = await paySubscriptionAlipay({ plan_id: plan.id })
+      if (res.message === 'success' && res.data?.pay_url) {
+        toast.success(t('Redirecting to payment page...'))
+        window.location.href = res.data.pay_url
+      } else {
+        toast.error(
+          res.message && res.message !== 'success'
+            ? res.message
+            : t('Payment request failed')
+        )
+      }
+    } catch {
+      toast.error(t('Payment request failed'))
+    } finally {
+      setPaying(false)
+    }
+  }
+
+  const handlePayWechatDirect = async () => {
+    setPaying(true)
+    try {
+      const res = await paySubscriptionWechat({ plan_id: plan.id })
+      if (
+        res.message === 'success' &&
+        res.data?.code_url &&
+        res.data.trade_no
+      ) {
+        setWechatOrder({
+          codeUrl: res.data.code_url,
+          tradeNo: res.data.trade_no,
+          expiresAt: Number(res.data.expires_at) || 0,
+        })
+      } else {
+        toast.error(
+          res.message && res.message !== 'success'
+            ? res.message
+            : t('Payment request failed')
+        )
+      }
+    } catch {
+      toast.error(t('Payment request failed'))
+    } finally {
+      setPaying(false)
+    }
+  }
+
+  const pollSubscriptionOrder = async (tradeNo: string) => {
+    const res = await getSubscriptionOrderStatus(tradeNo)
+    return res.data?.status === 'success'
+  }
+
+  const handleWechatQrPaid = () => {
+    void props.onPurchaseSuccess?.()
   }
 
   const handlePayBalance = async () => {
@@ -402,15 +481,37 @@ export function SubscriptionPurchaseDialog(props: Props) {
                 )}
               </div>
             )}
+            {(hasAlipayDirect || hasWechatDirect) && (
+              <div className='grid grid-cols-2 gap-2 sm:flex'>
+                {hasAlipayDirect && (
+                  <Button
+                    variant='outline'
+                    className='flex-1'
+                    onClick={handlePayAlipayDirect}
+                    disabled={paying || limitReached}
+                  >
+                    {t('Alipay')}
+                  </Button>
+                )}
+                {hasWechatDirect && (
+                  <Button
+                    variant='outline'
+                    className='flex-1'
+                    onClick={handlePayWechatDirect}
+                    disabled={paying || limitReached}
+                  >
+                    {t('WeChat Pay')}
+                  </Button>
+                )}
+              </div>
+            )}
             {hasEpay && (
               <div className='grid grid-cols-[minmax(0,1fr)_auto] gap-2'>
                 <Select
-                  items={[
-                    ...(props.epayMethods || []).map((m) => ({
-                      value: m.type,
-                      label: m.name || m.type,
-                    })),
-                  ]}
+                  items={(props.epayMethods || []).map((m) => ({
+                    value: m.type,
+                    label: m.name || m.type,
+                  }))}
                   value={selectedEpayMethod}
                   onValueChange={(v) => v !== null && setSelectedEpayMethod(v)}
                   disabled={limitReached}
@@ -439,6 +540,14 @@ export function SubscriptionPurchaseDialog(props: Props) {
           </div>
         )}
       </div>
+
+      <WechatQrDialog
+        order={wechatOrder}
+        amount={Number(price)}
+        onClose={() => setWechatOrder(null)}
+        onPaid={handleWechatQrPaid}
+        pollStatus={pollSubscriptionOrder}
+      />
     </Dialog>
   )
 }

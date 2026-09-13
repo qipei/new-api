@@ -301,6 +301,11 @@ export interface TopupRecord {
   money: number
   /** Trade/order number */
   trade_no: string
+  /**
+   * Gateway-side transaction number (WeChat transaction_id, Alipay trade_no).
+   * Only the official direct gateways return one; absent elsewhere.
+   */
+  upstream_trade_no?: string
   /** Payment method type */
   payment_method: string
   /** Creation timestamp */

@@ -384,6 +384,7 @@ func SubscriptionDirectOrderStatus(c *gin.Context) {
 func reconcileSubscriptionDirectOrder(c *gin.Context, order *model.SubscriptionOrder) bool {
 	ctx := c.Request.Context()
 	paymentMethod := ""
+	upstreamTradeNo := ""
 
 	switch order.PaymentProvider {
 	case model.PaymentProviderAlipay:
@@ -403,6 +404,7 @@ func reconcileSubscriptionDirectOrder(c *gin.Context, order *model.SubscriptionO
 			logger.LogError(ctx, fmt.Sprintf("支付宝 套餐查单金额不匹配 trade_no=%s upstream=%s local=%.2f", order.TradeNo, state.TotalAmount, order.Money))
 			return false
 		}
+		upstreamTradeNo = state.TradeNo
 		paymentMethod = model.PaymentMethodAlipayDirect
 	case model.PaymentProviderWechat:
 		if !isWechatPayTopUpEnabled() {
@@ -421,6 +423,7 @@ func reconcileSubscriptionDirectOrder(c *gin.Context, order *model.SubscriptionO
 			logger.LogError(ctx, fmt.Sprintf("微信支付 套餐查单金额不匹配 trade_no=%s upstream_cents=%d local=%.2f", order.TradeNo, state.AmountTotal, order.Money))
 			return false
 		}
+		upstreamTradeNo = state.TransIDWx
 		paymentMethod = model.PaymentMethodWechatDirect
 	default:
 		return false
@@ -429,7 +432,13 @@ func reconcileSubscriptionDirectOrder(c *gin.Context, order *model.SubscriptionO
 	LockOrder(order.TradeNo)
 	defer UnlockOrder(order.TradeNo)
 
-	if err := model.CompleteSubscriptionOrder(order.TradeNo, "", order.PaymentProvider, paymentMethod); err != nil {
+	// 查单补入账时没有回调报文，至少把上游交易号留下，否则这类订单在
+	// provider_payload 里是空的，事后无法与网关账单对账。
+	payload := common.GetJsonString(map[string]string{
+		"source":            "query",
+		"upstream_trade_no": upstreamTradeNo,
+	})
+	if err := model.CompleteSubscriptionOrder(order.TradeNo, payload, order.PaymentProvider, paymentMethod); err != nil {
 		logger.LogError(ctx, fmt.Sprintf("直连支付 套餐查单补入账失败 trade_no=%s provider=%s error=%q", order.TradeNo, order.PaymentProvider, err.Error()))
 		return false
 	}

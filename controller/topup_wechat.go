@@ -116,7 +116,7 @@ func WechatPayNotify(c *gin.Context) {
 	LockOrder(result.TradeNo)
 	defer UnlockOrder(result.TradeNo)
 
-	alreadyDone, err := model.RechargeDirectPay(result.TradeNo, model.PaymentProviderWechat, c.ClientIP())
+	alreadyDone, err := model.RechargeDirectPay(result.TradeNo, model.PaymentProviderWechat, result.TransIDWx, c.ClientIP())
 	if err != nil {
 		logger.LogError(ctx, fmt.Sprintf("微信支付 充值处理失败 trade_no=%s client_ip=%s error=%q", result.TradeNo, c.ClientIP(), err.Error()))
 		// 入账失败可能是瞬时故障，返回 5xx 让微信按既定节奏重投。

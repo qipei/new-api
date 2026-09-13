@@ -5663,6 +5663,11 @@
     "Official WeChat Pay": "WeChat Pay (kết nối trực tiếp chính thức)",
     "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.": "Dùng để quyết định luồng thanh toán. Các khóa dựng sẵn gồm stripe cho Stripe, waffo_pancake cho Waffo Pancake, và alipay_direct / wxpay_direct cho các cổng trực tiếp chính thức; các giá trị khác được gửi tới Epay làm tham số type.",
     "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "Cấu hình bằng JSON PayMethods. Giá trị type quyết định luồng thanh toán: stripe cho Stripe, waffo_pancake cho Waffo Pancake, alipay_direct và wxpay_direct cho các cổng trực tiếp chính thức, các giá trị khác được gửi tới Epay làm tham số type.",
-    "Open <strong>WeChat</strong> and use <strong>Scan</strong>. Long-press and album recognition are not supported for payment codes.": "Mở <strong>WeChat</strong> và dùng chức năng <strong>Quét</strong>. Mã thanh toán không hỗ trợ nhận diện bằng cách nhấn giữ hoặc từ thư viện ảnh."
+    "Open <strong>WeChat</strong> and use <strong>Scan</strong>. Long-press and album recognition are not supported for payment codes.": "Mở <strong>WeChat</strong> và dùng chức năng <strong>Quét</strong>. Mã thanh toán không hỗ trợ nhận diện bằng cách nhấn giữ hoặc từ thư viện ảnh.",
+    "Gateway transaction": "Mã giao dịch cổng",
+    "Alipay (Official)": "Alipay (chính thức)",
+    "WeChat Pay (Official)": "WeChat Pay (chính thức)",
+    "Creem": "Creem",
+    "Waffo Pancake": "Waffo Pancake"
   }
 }

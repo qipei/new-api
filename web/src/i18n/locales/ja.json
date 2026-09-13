@@ -5663,6 +5663,11 @@
     "Official WeChat Pay": "WeChat Pay（公式直接接続）",
     "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.": "どの決済フローを使うかを決めるキーです。組み込みキーは Stripe の stripe、Waffo Pancake の waffo_pancake、公式直接接続の alipay_direct と wxpay_direct です。それ以外の値は type パラメータとして Epay に送られます。",
     "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "PayMethods の JSON で設定します。type が決済フローを決めます。stripe は Stripe、waffo_pancake は Waffo Pancake、alipay_direct と wxpay_direct は公式直接接続、それ以外の値は type パラメータとして Epay に送られます。",
-    "Open <strong>WeChat</strong> and use <strong>Scan</strong>. Long-press and album recognition are not supported for payment codes.": "<strong>WeChat</strong> を開き「<strong>スキャン</strong>」を使用してください。支払いコードは長押し認識とアルバムからの認識には対応していません。"
+    "Open <strong>WeChat</strong> and use <strong>Scan</strong>. Long-press and album recognition are not supported for payment codes.": "<strong>WeChat</strong> を開き「<strong>スキャン</strong>」を使用してください。支払いコードは長押し認識とアルバムからの認識には対応していません。",
+    "Gateway transaction": "ゲートウェイ取引番号",
+    "Alipay (Official)": "Alipay（公式）",
+    "WeChat Pay (Official)": "WeChat Pay（公式）",
+    "Creem": "Creem",
+    "Waffo Pancake": "Waffo Pancake"
   }
 }

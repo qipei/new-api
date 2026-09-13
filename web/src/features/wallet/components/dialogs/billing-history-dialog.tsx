@@ -214,6 +214,36 @@ export function BillingHistoryDialog({
                               />
                             )}
                           </div>
+                          {/*
+                            网关侧交易号。只有官方直连会回传，是与微信、支付宝
+                            账单做对账的连接键，客服排查掉单时要的就是它。
+                          */}
+                          {record.upstream_trade_no && (
+                            <div className='text-muted-foreground flex min-w-0 items-center gap-1.5'>
+                              <span className='shrink-0 text-xs'>
+                                {t('Gateway transaction')}
+                              </span>
+                              <code className='truncate font-mono text-xs'>
+                                {record.upstream_trade_no}
+                              </code>
+                              <Button
+                                variant='ghost'
+                                size='sm'
+                                className='h-5 w-5 shrink-0 p-0'
+                                onClick={() =>
+                                  copyToClipboard(
+                                    record.upstream_trade_no ?? ''
+                                  )
+                                }
+                              >
+                                {copiedText === record.upstream_trade_no ? (
+                                  <Check className='h-3 w-3' />
+                                ) : (
+                                  <Copy className='h-3 w-3' />
+                                )}
+                              </Button>
+                            </div>
+                          )}
                           <div className='text-muted-foreground text-xs'>
                             {formatTimestamp(record.create_time)}
                           </div>

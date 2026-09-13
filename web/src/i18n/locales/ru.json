@@ -5663,6 +5663,11 @@
     "Official WeChat Pay": "WeChat Pay (прямое подключение)",
     "Used to decide the payment flow. Built-in keys include stripe for Stripe, waffo_pancake for Waffo Pancake, and alipay_direct / wxpay_direct for the official direct gateways; other values are sent to Epay as the type parameter.": "Определяет, какой платёжный поток используется. Встроенные ключи: stripe для Stripe, waffo_pancake для Waffo Pancake и alipay_direct / wxpay_direct для официальных прямых шлюзов; остальные значения передаются в Epay как параметр type.",
     "Configured as PayMethods JSON. The type value decides which payment flow is used: stripe for Stripe, waffo_pancake for Waffo Pancake, alipay_direct and wxpay_direct for the official direct gateways, and other values are sent to Epay as the type parameter.": "Настраивается через JSON PayMethods. Значение type определяет платёжный поток: stripe для Stripe, waffo_pancake для Waffo Pancake, alipay_direct и wxpay_direct для официальных прямых шлюзов, остальные значения передаются в Epay как параметр type.",
-    "Open <strong>WeChat</strong> and use <strong>Scan</strong>. Long-press and album recognition are not supported for payment codes.": "Откройте <strong>WeChat</strong> и воспользуйтесь «<strong>Сканировать</strong>». Для платёжных кодов не поддерживается распознавание долгим нажатием и из галереи."
+    "Open <strong>WeChat</strong> and use <strong>Scan</strong>. Long-press and album recognition are not supported for payment codes.": "Откройте <strong>WeChat</strong> и воспользуйтесь «<strong>Сканировать</strong>». Для платёжных кодов не поддерживается распознавание долгим нажатием и из галереи.",
+    "Gateway transaction": "Транзакция шлюза",
+    "Alipay (Official)": "Alipay (официальный)",
+    "WeChat Pay (Official)": "WeChat Pay (официальный)",
+    "Creem": "Creem",
+    "Waffo Pancake": "Waffo Pancake"
   }
 }

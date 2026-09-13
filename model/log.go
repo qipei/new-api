@@ -294,7 +294,13 @@ func RecordOperationAuditLog(logUserId int, content string, ip string, action st
 	}
 }
 
-func RecordTopupLog(userId int, content string, callerIp string, paymentMethod string, callbackPaymentMethod string) {
+// RecordTopupLog 记录一条充值日志。
+//
+// tradeNo 是商户订单号，upstreamTradeNo 是网关侧交易号（如微信 transaction_id、
+// 支付宝 trade_no），两者都放进 admin_info：非管理员的日志视图会剥离该字段，
+// 所以不影响用户界面，但排查掉单时不必再去翻会轮转的应用日志文件。
+// upstreamTradeNo 为空表示该网关未回传交易号。
+func RecordTopupLog(userId int, content string, callerIp string, paymentMethod string, callbackPaymentMethod string, tradeNo string, upstreamTradeNo string) {
 	username, _ := GetUsernameById(userId, false)
 	adminInfo := map[string]interface{}{
 		"server_ip":               common.GetIp(),
@@ -302,7 +308,11 @@ func RecordTopupLog(userId int, content string, callerIp string, paymentMethod s
 		"caller_ip":               callerIp,
 		"payment_method":          paymentMethod,
 		"callback_payment_method": callbackPaymentMethod,
+		"trade_no":                tradeNo,
 		"version":                 common.Version,
+	}
+	if upstreamTradeNo != "" {
+		adminInfo["upstream_trade_no"] = upstreamTradeNo
 	}
 	other := map[string]interface{}{
 		"admin_info": adminInfo,

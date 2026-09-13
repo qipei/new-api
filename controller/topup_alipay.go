@@ -116,7 +116,8 @@ func AlipayNotify(c *gin.Context) {
 	LockOrder(tradeNo)
 	defer UnlockOrder(tradeNo)
 
-	alreadyDone, err := model.RechargeDirectPay(tradeNo, model.PaymentProviderAlipay, c.ClientIP())
+	// bm 里的 trade_no 是支付宝交易号，与我们的 out_trade_no 是两个不同的号。
+	alreadyDone, err := model.RechargeDirectPay(tradeNo, model.PaymentProviderAlipay, bm.GetString("trade_no"), c.ClientIP())
 	if err != nil {
 		logger.LogError(ctx, fmt.Sprintf("支付宝 充值处理失败 trade_no=%s client_ip=%s error=%q", tradeNo, c.ClientIP(), err.Error()))
 		writeAlipayNotifyFailure(c)

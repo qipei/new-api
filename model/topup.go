@@ -19,9 +19,13 @@ type TopUp struct {
 	TradeNo         string  `json:"trade_no" gorm:"unique;type:varchar(255);index"`
 	PaymentMethod   string  `json:"payment_method" gorm:"type:varchar(50)"`
 	PaymentProvider string  `json:"payment_provider" gorm:"type:varchar(50);default:''"`
-	CreateTime      int64   `json:"create_time"`
-	CompleteTime    int64   `json:"complete_time"`
-	Status          string  `json:"status"`
+	// UpstreamTradeNo 是网关侧的交易号，如微信的 transaction_id、支付宝的 trade_no。
+	// 与商户订单号一起构成双向对账的连接键：拿它去网关账单里定位，或反过来用它
+	// 确认某笔网关流水对应本地哪张订单。加索引是为了按网关流水反查。
+	UpstreamTradeNo string `json:"upstream_trade_no" gorm:"type:varchar(64);index"`
+	CreateTime      int64  `json:"create_time"`
+	CompleteTime    int64  `json:"complete_time"`
+	Status          string `json:"status"`
 }
 
 const (
@@ -235,7 +239,7 @@ func RechargeEpay(tradeNo string, actualPaymentMethod string, callerIp string) (
 	syncCreditUserQuotaCache(topUp.UserId, quotaToAdd, "epay topup")
 
 	common.SysLog(fmt.Sprintf("易支付充值成功 trade_no=%s user_id=%d quota_to_add=%d money=%.2f", topUp.TradeNo, topUp.UserId, quotaToAdd, topUp.Money))
-	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", logger.LogQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, PaymentProviderEpay)
+	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", logger.LogQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, PaymentProviderEpay, topUp.TradeNo, "")
 	return false, nil
 }
 
@@ -290,7 +294,7 @@ func Recharge(referenceId string, customerId string, callerIp string) (err error
 	}
 	syncCreditUserQuotaCache(topUp.UserId, quota, "stripe topup")
 
-	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%d", logger.FormatQuota(quota), topUp.Amount), callerIp, topUp.PaymentMethod, PaymentMethodStripe)
+	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%d", logger.FormatQuota(quota), topUp.Amount), callerIp, topUp.PaymentMethod, PaymentMethodStripe, topUp.TradeNo, "")
 
 	return nil
 }
@@ -525,7 +529,7 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 
 	// 事务外记录日志，避免阻塞
 	syncCreditUserQuotaCache(userId, quotaToAdd, "manual topup")
-	RecordTopupLog(userId, fmt.Sprintf("管理员补单成功，充值金额: %v，支付金额：%f", logger.FormatQuota(quotaToAdd), payMoney), callerIp, paymentMethod, "admin")
+	RecordTopupLog(userId, fmt.Sprintf("管理员补单成功，充值金额: %v，支付金额：%f", logger.FormatQuota(quotaToAdd), payMoney), callerIp, paymentMethod, "admin", tradeNo, "")
 	return nil
 }
 func RechargeCreem(referenceId string, customerEmail string, customerName string, callerIp string) (err error) {
@@ -595,7 +599,7 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 	}
 	syncCreditUserQuotaCache(topUp.UserId, quota, "creem topup")
 
-	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用Creem充值成功，充值额度: %v，支付金额：%.2f", quota, topUp.Money), callerIp, topUp.PaymentMethod, PaymentMethodCreem)
+	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用Creem充值成功，充值额度: %v，支付金额：%.2f", quota, topUp.Money), callerIp, topUp.PaymentMethod, PaymentMethodCreem, topUp.TradeNo, "")
 
 	return nil
 }
@@ -654,7 +658,7 @@ func RechargeWaffo(tradeNo string, callerIp string) (err error) {
 	syncCreditUserQuotaCache(topUp.UserId, quotaToAdd, "waffo topup")
 
 	if quotaToAdd > 0 {
-		RecordTopupLog(topUp.UserId, fmt.Sprintf("Waffo充值成功，充值额度: %v，支付金额: %.2f", logger.FormatQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, PaymentMethodWaffo)
+		RecordTopupLog(topUp.UserId, fmt.Sprintf("Waffo充值成功，充值额度: %v，支付金额: %.2f", logger.FormatQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, PaymentMethodWaffo, topUp.TradeNo, "")
 	}
 
 	return nil
@@ -736,7 +740,7 @@ func directPayProviderLabel(paymentProvider string) string {
 //
 // 回调报文中的验签、金额、收款方身份等校验由 controller 层在调用本函数前完成，
 // 本函数只负责「订单状态 -> 用户额度」这一步的原子性。
-func RechargeDirectPay(tradeNo string, paymentProvider string, callerIp string) (alreadyDone bool, err error) {
+func RechargeDirectPay(tradeNo string, paymentProvider string, upstreamTradeNo string, callerIp string) (alreadyDone bool, err error) {
 	if tradeNo == "" {
 		return false, errors.New("未提供支付单号")
 	}
@@ -772,6 +776,9 @@ func RechargeDirectPay(tradeNo string, paymentProvider string, callerIp string) 
 		if quotaErr != nil || quotaToAdd <= 0 {
 			return ErrInvalidTopUpQuota
 		}
+		if upstreamTradeNo != "" {
+			topUp.UpstreamTradeNo = upstreamTradeNo
+		}
 		topUp.CompleteTime = common.GetTimestamp()
 		topUp.Status = common.TopUpStatusSuccess
 		if err := tx.Save(topUp).Error; err != nil {
@@ -791,8 +798,8 @@ func RechargeDirectPay(tradeNo string, paymentProvider string, callerIp string) 
 	}
 	syncCreditUserQuotaCache(topUp.UserId, quotaToAdd, paymentProvider+" direct topup")
 
-	common.SysLog(fmt.Sprintf("%s 直连充值成功 trade_no=%s user_id=%d quota_to_add=%d money=%.2f", label, topUp.TradeNo, topUp.UserId, quotaToAdd, topUp.Money))
-	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用%s充值成功，充值额度: %v，支付金额：%.2f", label, logger.LogQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, paymentProvider)
+	common.SysLog(fmt.Sprintf("%s 直连充值成功 trade_no=%s upstream_trade_no=%s user_id=%d quota_to_add=%d money=%.2f", label, topUp.TradeNo, topUp.UpstreamTradeNo, topUp.UserId, quotaToAdd, topUp.Money))
+	RecordTopupLog(topUp.UserId, fmt.Sprintf("使用%s充值成功，充值额度: %v，支付金额：%.2f", label, logger.LogQuota(quotaToAdd), topUp.Money), callerIp, topUp.PaymentMethod, paymentProvider, topUp.TradeNo, topUp.UpstreamTradeNo)
 	return false, nil
 }
 

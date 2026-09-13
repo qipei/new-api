@@ -58,11 +58,23 @@ export function getStatusConfig(status: TopupStatus): StatusConfig {
 /**
  * Payment method display names
  */
+/**
+ * 支付方式标识到展示名的映射，值是 i18n 键。
+ *
+ * 未登记的标识会原样显示成 alipay_direct 这样的内部字符串，所以每新增一种
+ * 支付方式都要在这里补一条。易支付的自定义方式（custom1 等）由管理员在
+ * PayMethods 里自行命名，不走这张表。
+ */
 export const PAYMENT_METHOD_NAMES: Record<string, string> = {
   stripe: 'Stripe',
   alipay: 'Alipay',
   wxpay: 'WeChat Pay',
   waffo: 'Waffo',
+  waffo_pancake: 'Waffo Pancake',
+  creem: 'Creem',
+  balance: 'Balance',
+  alipay_direct: 'Alipay (Official)',
+  wxpay_direct: 'WeChat Pay (Official)',
 }
 
 /**

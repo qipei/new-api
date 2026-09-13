@@ -161,6 +161,7 @@ func DirectPayOrderStatus(c *gin.Context) {
 func reconcileDirectPayOrder(c *gin.Context, topUp *model.TopUp) bool {
 	ctx := c.Request.Context()
 	paid := false
+	upstreamTradeNo := ""
 
 	switch topUp.PaymentProvider {
 	case model.PaymentProviderAlipay:
@@ -178,6 +179,7 @@ func reconcileDirectPayOrder(c *gin.Context, topUp *model.TopUp) bool {
 		if !directPayAmountMatches(ctx, topUp, state.TotalAmount) {
 			return false
 		}
+		upstreamTradeNo = state.TradeNo
 		paid = true
 	case model.PaymentProviderWechat:
 		if !isWechatPayTopUpEnabled() {
@@ -194,6 +196,7 @@ func reconcileDirectPayOrder(c *gin.Context, topUp *model.TopUp) bool {
 		if !directPayCentsMatch(ctx, topUp, state.AmountTotal) {
 			return false
 		}
+		upstreamTradeNo = state.TransIDWx
 		paid = true
 	default:
 		return false
@@ -205,7 +208,7 @@ func reconcileDirectPayOrder(c *gin.Context, topUp *model.TopUp) bool {
 
 	LockOrder(topUp.TradeNo)
 	defer UnlockOrder(topUp.TradeNo)
-	alreadyDone, err := model.RechargeDirectPay(topUp.TradeNo, topUp.PaymentProvider, c.ClientIP())
+	alreadyDone, err := model.RechargeDirectPay(topUp.TradeNo, topUp.PaymentProvider, upstreamTradeNo, c.ClientIP())
 	if err != nil {
 		logger.LogError(ctx, fmt.Sprintf("直连支付 查单补入账失败 trade_no=%s provider=%s error=%q", topUp.TradeNo, topUp.PaymentProvider, err.Error()))
 		return false

@@ -190,7 +190,12 @@ export function getMinTopupAmount(topupInfo: TopupInfo | null): number {
     return DEFAULT_MIN_TOPUP
   }
 
-  if (topupInfo.enable_online_topup) {
+  // 直连通道与易支付同为人民币收款，共用 min_topup，没有各自的下限。
+  if (
+    topupInfo.enable_online_topup ||
+    topupInfo.enable_alipay_direct_topup ||
+    topupInfo.enable_wechat_direct_topup
+  ) {
     return topupInfo.min_topup
   }
 

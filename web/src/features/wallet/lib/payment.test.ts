@@ -19,14 +19,29 @@ For commercial licensing, please contact support@quantumnous.com
 import { describe, expect, test } from 'vitest'
 
 import { PAYMENT_TYPES } from '../constants'
+import type { TopupInfo } from '../types'
 import {
   dispatchSelectedPayment,
+  getMinTopupAmount,
   isAlipayDirectPayment,
   isStripePayment,
   isWaffoPayment,
   isWaffoPancakePayment,
   isWechatDirectPayment,
 } from './payment'
+
+function topupInfo(overrides: Partial<TopupInfo>): TopupInfo {
+  return {
+    enable_online_topup: false,
+    enable_stripe_topup: false,
+    pay_methods: [],
+    min_topup: 10,
+    stripe_min_topup: 5,
+    amount_options: [],
+    discount: {},
+    ...overrides,
+  }
+}
 
 describe('payment type classification', () => {
   test('keeps Waffo and Waffo Pancake on their dedicated flows', () => {
@@ -148,5 +163,22 @@ describe('payment dispatch', () => {
       'wechat-direct:80',
       `regular:${PAYMENT_TYPES.ALIPAY}`,
     ])
+  })
+})
+
+// 直连通道复用全局 min_topup，没有各自的下限。少了这条分支，只开直连时前端会
+// 退回硬编码的 1，而后端仍按配置值拒绝，用户看到的下限与实际不符。
+describe('minimum topup amount', () => {
+  test('uses the shared minimum when only a direct gateway is enabled', () => {
+    expect(
+      getMinTopupAmount(topupInfo({ enable_alipay_direct_topup: true }))
+    ).toBe(10)
+    expect(
+      getMinTopupAmount(topupInfo({ enable_wechat_direct_topup: true }))
+    ).toBe(10)
+  })
+
+  test('still prefers the Stripe minimum when only Stripe is enabled', () => {
+    expect(getMinTopupAmount(topupInfo({ enable_stripe_topup: true }))).toBe(5)
   })
 })

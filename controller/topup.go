@@ -98,24 +98,49 @@ func GetTopUpInfo(c *gin.Context) {
 
 	// 官方直连通道。方式标识与易支付的 alipay / wxpay 刻意区分，两者可以同时启用，
 	// 展示名加「官方」后缀便于用户分辨。
+	// 与其它网关一致：管理员在 PayMethods 里手写同 type 的条目即可自定义名称、
+	// 图标与排序，此处的自动追加让位于手写条目。
+	// 直连与易支付同为人民币收款，共用 MinTopUp，不单设最低额。
 	enableAlipayDirect := isAlipayTopUpEnabled()
 	if enableAlipayDirect {
-		payMethods = append(payMethods, map[string]string{
-			"name":  "支付宝（官方）",
-			"type":  model.PaymentMethodAlipayDirect,
-			"icon":  "SiAlipay",
-			"color": "#1677FF",
-		})
+		hasAlipayDirect := false
+		for _, method := range payMethods {
+			if method["type"] == model.PaymentMethodAlipayDirect {
+				hasAlipayDirect = true
+				break
+			}
+		}
+
+		if !hasAlipayDirect {
+			payMethods = append(payMethods, map[string]string{
+				"name":      "支付宝（官方）",
+				"type":      model.PaymentMethodAlipayDirect,
+				"icon":      "SiAlipay",
+				"color":     "#1677FF",
+				"min_topup": strconv.Itoa(operation_setting.MinTopUp),
+			})
+		}
 	}
 
 	enableWechatDirect := isWechatPayTopUpEnabled()
 	if enableWechatDirect {
-		payMethods = append(payMethods, map[string]string{
-			"name":  "微信支付（官方）",
-			"type":  model.PaymentMethodWechatDirect,
-			"icon":  "SiWechat",
-			"color": "#07C160",
-		})
+		hasWechatDirect := false
+		for _, method := range payMethods {
+			if method["type"] == model.PaymentMethodWechatDirect {
+				hasWechatDirect = true
+				break
+			}
+		}
+
+		if !hasWechatDirect {
+			payMethods = append(payMethods, map[string]string{
+				"name":      "微信支付（官方）",
+				"type":      model.PaymentMethodWechatDirect,
+				"icon":      "SiWechat",
+				"color":     "#07C160",
+				"min_topup": strconv.Itoa(operation_setting.MinTopUp),
+			})
+		}
 	}
 
 	data := gin.H{

@@ -2162,7 +2162,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Projets liés",
     "footer.defaultCopyright": "Tous droits réservés.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Tous droits réservés. Conçu et développé par les contributeurs du projet.",
+    "footer.newapi.projectAttributionSuffix": "Tous droits réservés. Conçu et développé par les contributeurs du projet.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Pour les canaux ajoutés après le 10 mai 2025, pas besoin de supprimer \".\" des noms de modèles lors du déploiement",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Pour les déploiements privés, format : https://fastgpt.run/api/openapi",
     "For security, existing access tokens cannot be displayed. Regenerate only when you need a new token.": "Pour des raisons de sécurité, les jetons d'accès existants ne peuvent pas être réaffichés. Ne les régénérez que si vous en avez besoin d'un nouveau.",
@@ -5653,13 +5653,14 @@
     "Numeric merchant ID, not the AppID": "Identifiant marchand numérique, et non l'AppID",
     "Merchant certificate serial number": "Numéro de série du certificat marchand",
     "WeChat Pay public key ID": "ID de clé publique WeChat Pay",
-    "Keep the PUB_KEY_ID_ prefix, removing it breaks verification": "Conservez le préfixe PUB_KEY_ID_ ; le supprimer casse la vérification",
     "Merchant API private key": "Clé privée de l'API marchand",
     "Contents of apiclient_key.pem": "Contenu de apiclient_key.pem",
     "APIv3 key": "Clé APIv3",
     "32-character key used to decrypt callbacks. WeChat sends no callbacks at all until it is set.": "Clé de 32 caractères servant à déchiffrer les rappels. WeChat n'envoie aucun rappel tant qu'elle n'est pas définie.",
     "WeChat Pay public key": "Clé publique WeChat Pay",
     "WeChat notification URL": "URL de notification WeChat",
-    "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "Transmise à chaque requête de commande, il n'y a donc rien à configurer sur la plateforme marchand. Autorisez les plages d'IP de rappel WeChat Pay si un pare-feu est en amont."
+    "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "Transmise à chaque requête de commande, il n'y a donc rien à configurer sur la plateforme marchand. Autorisez les plages d'IP de rappel WeChat Pay si un pare-feu est en amont.",
+    "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.": "Contenu intégral de pub_key.pem, lignes BEGIN et END comprises. Il s'agit de la clé elle-même, pas de l'ID de clé publique.",
+    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "Court identifiant affiché à côté du téléchargement de la clé, et non le contenu de la clé. Conservez le préfixe PUB_KEY_ID_ ; le supprimer casse la vérification."
   }
 }

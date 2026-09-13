@@ -327,7 +327,7 @@ export function DirectPaySettingsSection(props: Props) {
             />
             <p className='text-muted-foreground text-sm'>
               {t(
-                'Keep the PUB_KEY_ID_ prefix, removing it breaks verification'
+                'A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.'
               )}
             </p>
           </div>
@@ -380,6 +380,11 @@ export function DirectPaySettingsSection(props: Props) {
               props.onValueChange('WechatPayPublicKey', event.target.value)
             }
           />
+          <p className='text-muted-foreground text-sm'>
+            {t(
+              'Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.'
+            )}
+          </p>
         </div>
 
         <CallbackUrlField

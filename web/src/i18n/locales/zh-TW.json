@@ -2162,7 +2162,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "相關項目",
     "footer.defaultCopyright": "版權所有。",
-    "footer.new\u0061pi.projectAttributionSuffix": "版權所有，由項目貢獻者設計與開發。",
+    "footer.newapi.projectAttributionSuffix": "版權所有，由項目貢獻者設計與開發。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "對於 2025 年 5 月 10 日之後新增的渠道，在部署時無需從模型名稱中移除 \".\"",
     "For private deployments, format: https://fastgpt.run/api/openapi": "對於私有部署，格式為：https://fastgpt.run/api/openapi",
     "For security, existing access tokens cannot be displayed. Regenerate only when you need a new token.": "基於安全考量，現有存取令牌無法再次顯示。僅在需要新令牌時重新生成。",
@@ -5653,13 +5653,14 @@
     "Numeric merchant ID, not the AppID": "純數字的商戶號 mchid，不是 AppID",
     "Merchant certificate serial number": "商戶憑證序號",
     "WeChat Pay public key ID": "微信支付公鑰 ID",
-    "Keep the PUB_KEY_ID_ prefix, removing it breaks verification": "請保留 PUB_KEY_ID_ 前綴，刪除會導致驗簽失敗",
     "Merchant API private key": "商戶 API 私鑰",
     "Contents of apiclient_key.pem": "apiclient_key.pem 的內容",
     "APIv3 key": "APIv3 金鑰",
     "32-character key used to decrypt callbacks. WeChat sends no callbacks at all until it is set.": "32 位金鑰，用於回呼解密。未設定時微信根本不會發送任何回呼通知。",
     "WeChat Pay public key": "微信支付公鑰",
     "WeChat notification URL": "微信非同步通知位址",
-    "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "每次下單時隨請求傳給微信，商戶平台無需設定。若前方有防火牆，需放行微信支付的回呼 IP 範圍。"
+    "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "每次下單時隨請求傳給微信，商戶平台無需設定。若前方有防火牆，需放行微信支付的回呼 IP 範圍。",
+    "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.": "pub_key.pem 的完整內容，包含 BEGIN 與 END 兩行。此處填的是公鑰本身，不是公鑰 ID。",
+    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "公鑰下載處顯示的一串短識別碼，不是公鑰內容。請保留 PUB_KEY_ID_ 前綴，刪除會導致驗簽失敗。"
   }
 }

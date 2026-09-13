@@ -2162,7 +2162,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Các Dự Án Liên Quan",
     "footer.defaultCopyright": "Bản quyền được bảo lưu.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
+    "footer.newapi.projectAttributionSuffix": "Bản quyền được bảo lưu. Được thiết kế và phát triển bởi các cộng tác viên dự án.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Đối với các kênh được thêm sau ngày 10 tháng 5 năm 2025, không cần loại bỏ \".\" khỏi tên mô hình trong quá trình triển khai",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Đối với các triển khai riêng tư, định dạng: https://fastgpt.run/api/openapi",
     "For security, existing access tokens cannot be displayed. Regenerate only when you need a new token.": "Vì lý do bảo mật, không thể hiển thị lại token truy cập hiện có. Chỉ tạo lại khi bạn cần token mới.",
@@ -5653,13 +5653,14 @@
     "Numeric merchant ID, not the AppID": "Mã merchant dạng số, không phải AppID",
     "Merchant certificate serial number": "Số sê-ri chứng chỉ merchant",
     "WeChat Pay public key ID": "ID khóa công khai WeChat Pay",
-    "Keep the PUB_KEY_ID_ prefix, removing it breaks verification": "Giữ nguyên tiền tố PUB_KEY_ID_, xóa đi sẽ làm hỏng việc xác minh",
     "Merchant API private key": "Khóa riêng API merchant",
     "Contents of apiclient_key.pem": "Nội dung của apiclient_key.pem",
     "APIv3 key": "Khóa APIv3",
     "32-character key used to decrypt callbacks. WeChat sends no callbacks at all until it is set.": "Khóa 32 ký tự dùng để giải mã callback. Chưa đặt thì WeChat không gửi bất kỳ callback nào.",
     "WeChat Pay public key": "Khóa công khai WeChat Pay",
     "WeChat notification URL": "URL thông báo WeChat",
-    "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "Được gửi kèm mỗi yêu cầu tạo đơn nên không cần cấu hình trong cổng merchant. Nếu phía trước có tường lửa, hãy mở dải IP callback của WeChat Pay."
+    "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "Được gửi kèm mỗi yêu cầu tạo đơn nên không cần cấu hình trong cổng merchant. Nếu phía trước có tường lửa, hãy mở dải IP callback của WeChat Pay.",
+    "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.": "Toàn bộ nội dung của pub_key.pem, bao gồm cả dòng BEGIN và END. Đây là chính khóa, không phải ID khóa công khai.",
+    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "Một mã định danh ngắn hiển thị cạnh chỗ tải khóa, không phải nội dung khóa. Giữ nguyên tiền tố PUB_KEY_ID_, xóa đi sẽ làm hỏng việc xác minh."
   }
 }

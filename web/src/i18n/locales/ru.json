@@ -2162,7 +2162,7 @@
     "footer.columns.related.links.oneApi": "Один API",
     "footer.columns.related.title": "Связанные проекты",
     "footer.defaultCopyright": "Все права защищены.",
-    "footer.new\u0061pi.projectAttributionSuffix": "Все права защищены. Разработано участниками проекта.",
+    "footer.newapi.projectAttributionSuffix": "Все права защищены. Разработано участниками проекта.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "Для каналов, добавленных после 10 мая 2025 г., не нужно удалять \".\" из имён моделей при развёртывании",
     "For private deployments, format: https://fastgpt.run/api/openapi": "Для частных развертываний, формат: https://fastgpt.run/api/openapi",
     "For security, existing access tokens cannot be displayed. Regenerate only when you need a new token.": "В целях безопасности существующие токены доступа нельзя просмотреть повторно. Создавайте новый токен только при необходимости.",
@@ -5653,13 +5653,14 @@
     "Numeric merchant ID, not the AppID": "Числовой идентификатор продавца, а не AppID",
     "Merchant certificate serial number": "Серийный номер сертификата продавца",
     "WeChat Pay public key ID": "ID публичного ключа WeChat Pay",
-    "Keep the PUB_KEY_ID_ prefix, removing it breaks verification": "Сохраните префикс PUB_KEY_ID_, его удаление ломает проверку подписи",
     "Merchant API private key": "Приватный ключ API продавца",
     "Contents of apiclient_key.pem": "Содержимое apiclient_key.pem",
     "APIv3 key": "Ключ APIv3",
     "32-character key used to decrypt callbacks. WeChat sends no callbacks at all until it is set.": "Ключ из 32 символов для расшифровки обратных вызовов. Пока он не задан, WeChat вообще не отправляет уведомления.",
     "WeChat Pay public key": "Публичный ключ WeChat Pay",
     "WeChat notification URL": "URL уведомлений WeChat",
-    "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "Передаётся с каждым запросом заказа, поэтому в кабинете продавца настраивать ничего не нужно. Если впереди есть межсетевой экран, разрешите диапазоны IP обратных вызовов WeChat Pay."
+    "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "Передаётся с каждым запросом заказа, поэтому в кабинете продавца настраивать ничего не нужно. Если впереди есть межсетевой экран, разрешите диапазоны IP обратных вызовов WeChat Pay.",
+    "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.": "Полное содержимое pub_key.pem, включая строки BEGIN и END. Это сам ключ, а не ID публичного ключа.",
+    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "Короткий идентификатор, показанный рядом со ссылкой на скачивание ключа, а не содержимое ключа. Сохраните префикс PUB_KEY_ID_, его удаление ломает проверку подписи."
   }
 }

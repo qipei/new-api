@@ -2162,7 +2162,7 @@
     "footer.columns.related.links.oneApi": "One API",
     "footer.columns.related.title": "Related Projects",
     "footer.defaultCopyright": "All rights reserved.",
-    "footer.new\u0061pi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
+    "footer.newapi.projectAttributionSuffix": "All rights reserved. Designed and developed by the project contributors.",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment",
     "For private deployments, format: https://fastgpt.run/api/openapi": "For private deployments, format: https://fastgpt.run/api/openapi",
     "For security, existing access tokens cannot be displayed. Regenerate only when you need a new token.": "For security, existing access tokens cannot be displayed. Regenerate only when you need a new token.",
@@ -5653,13 +5653,14 @@
     "Numeric merchant ID, not the AppID": "Numeric merchant ID, not the AppID",
     "Merchant certificate serial number": "Merchant certificate serial number",
     "WeChat Pay public key ID": "WeChat Pay public key ID",
-    "Keep the PUB_KEY_ID_ prefix, removing it breaks verification": "Keep the PUB_KEY_ID_ prefix, removing it breaks verification",
     "Merchant API private key": "Merchant API private key",
     "Contents of apiclient_key.pem": "Contents of apiclient_key.pem",
     "APIv3 key": "APIv3 key",
     "32-character key used to decrypt callbacks. WeChat sends no callbacks at all until it is set.": "32-character key used to decrypt callbacks. WeChat sends no callbacks at all until it is set.",
     "WeChat Pay public key": "WeChat Pay public key",
     "WeChat notification URL": "WeChat notification URL",
-    "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front."
+    "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.",
+    "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.": "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.",
+    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification."
   }
 }

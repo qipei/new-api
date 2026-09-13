@@ -2162,7 +2162,7 @@
     "footer.columns.related.links.oneApi": "1つのAPI",
     "footer.columns.related.title": "関連プロジェクト",
     "footer.defaultCopyright": "すべての権利を留保します。",
-    "footer.new\u0061pi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
+    "footer.newapi.projectAttributionSuffix": "すべての権利を留保します。プロジェクトコントリビューターにより設計・開発されています。",
     "For channels added after May 10, 2025, no need to remove \".\" from model names during deployment": "2025 年 5 月 10 日以降に追加されたチャネルの場合、デプロイ時にモデル名から「.」を削除する必要はありません",
     "For private deployments, format: https://fastgpt.run/api/openapi": "プライベートデプロイメントの場合、形式: https://fastgpt.run/api/openapi",
     "For security, existing access tokens cannot be displayed. Regenerate only when you need a new token.": "セキュリティ上、既存のアクセストークンは再表示できません。新しいトークンが必要な場合のみ再生成してください。",
@@ -5653,13 +5653,14 @@
     "Numeric merchant ID, not the AppID": "AppID ではなく、数字のみの商戸番号です",
     "Merchant certificate serial number": "加盟店証明書のシリアル番号",
     "WeChat Pay public key ID": "WeChat Pay 公開鍵 ID",
-    "Keep the PUB_KEY_ID_ prefix, removing it breaks verification": "PUB_KEY_ID_ プレフィックスは残してください。削除すると署名検証が失敗します",
     "Merchant API private key": "加盟店 API 秘密鍵",
     "Contents of apiclient_key.pem": "apiclient_key.pem の内容",
     "APIv3 key": "APIv3 キー",
     "32-character key used to decrypt callbacks. WeChat sends no callbacks at all until it is set.": "コールバックの復号に使用する32文字のキーです。設定するまで WeChat はコールバックを一切送信しません。",
     "WeChat Pay public key": "WeChat Pay 公開鍵",
     "WeChat notification URL": "WeChat 通知URL",
-    "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "注文リクエストごとに送信されるため、加盟店プラットフォームでの設定は不要です。前段にファイアウォールがある場合は WeChat Pay のコールバック IP 範囲を許可してください。"
+    "Passed on every order request, so there is nothing to configure in the merchant platform. Allow the WeChat Pay callback IP ranges if a firewall is in front.": "注文リクエストごとに送信されるため、加盟店プラットフォームでの設定は不要です。前段にファイアウォールがある場合は WeChat Pay のコールバック IP 範囲を許可してください。",
+    "Full contents of pub_key.pem, including the BEGIN and END lines. This is the key itself, not the public key ID.": "pub_key.pem の全内容を、BEGIN 行と END 行を含めて貼り付けてください。ここに入れるのは鍵そのものであり、公開鍵 ID ではありません。",
+    "A short identifier shown next to the key download, not the key contents. Keep the PUB_KEY_ID_ prefix, removing it breaks verification.": "鍵のダウンロード欄に表示される短い識別子であり、鍵の内容ではありません。PUB_KEY_ID_ プレフィックスは残してください。削除すると署名検証が失敗します。"
   }
 }

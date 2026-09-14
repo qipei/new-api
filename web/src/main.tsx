@@ -102,6 +102,12 @@ const router = createRouter({
   defaultPreloadStaleTime: 0,
 })
 
+// Baidu Tongji only records the initial page load; report SPA route changes manually.
+router.subscribe('onResolved', (event) => {
+  if (!event.fromLocation || !event.pathChanged) return
+  window._hmt?.push(['_trackPageview', event.toLocation.href])
+})
+
 // Register the router instance for type safety
 declare module '@tanstack/react-router' {
   interface Register {

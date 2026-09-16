@@ -30,9 +30,9 @@ import {
   getDynamicPricingSummary,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
-import { isTokenBasedModel } from '../lib/model-helpers'
 // CUSTOM: 折扣角标（fork 扩展）
 import { resolveDisplayGroup } from '../lib/group-price-rank'
+import { isTokenBasedModel } from '../lib/model-helpers'
 import { bestDiscount } from '../lib/model-promotion'
 import { formatPrice, formatRequestPrice } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'

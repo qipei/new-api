@@ -5668,6 +5668,26 @@
     "Alipay (Official)": "Alipay (Official)",
     "WeChat Pay (Official)": "WeChat Pay (Official)",
     "Creem": "Creem",
-    "Waffo Pancake": "Waffo Pancake"
+    "Waffo Pancake": "Waffo Pancake",
+    "Add commission override": "Add commission override",
+    "Edit commission override": "Edit commission override",
+    "Remove commission override": "Remove commission override",
+    "Commission override saved": "Commission override saved",
+    "Commission override removed": "Commission override removed",
+    "Failed to save commission override": "Failed to save commission override",
+    "Failed to remove commission override": "Failed to remove commission override",
+    "Per-user Commission Overrides": "Per-user Commission Overrides",
+    "Promoters listed here use their own parameters. Everyone else follows the global settings above. The global enable switch still applies to all.": "Promoters listed here use their own parameters. Everyone else follows the global settings above. The global enable switch still applies to all.",
+    "Applies to this promoter. Their invitees’ top-ups earn commission at these parameters instead of the global ones.": "Applies to this promoter. Their invitees’ top-ups earn commission at these parameters instead of the global ones.",
+    "No promoter has special parameters yet.": "No promoter has special parameters yet.",
+    "Promoter": "Promoter",
+    "Promoter username": "Promoter username",
+    "The user who receives the commission, not the one who tops up.": "The user who receives the commission, not the one who tops up.",
+    "Search by promoter username": "Search by promoter username",
+    "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.",
+    "Why this promoter has special parameters": "Why this promoter has special parameters",
+    "Username is required": "Username is required",
+    "Remark is too long": "Remark is too long",
+    "Fixed amount": "Fixed amount"
   }
 }

@@ -59,6 +59,7 @@ func TestMain(m *testing.M) {
 		&SystemTaskLock{},
 		&Option{},
 		&CommissionRecord{},
+		&UserCommissionOverride{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}

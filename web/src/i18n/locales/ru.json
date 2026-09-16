@@ -5668,6 +5668,26 @@
     "Alipay (Official)": "Alipay (официальный)",
     "WeChat Pay (Official)": "WeChat Pay (официальный)",
     "Creem": "Creem",
-    "Waffo Pancake": "Waffo Pancake"
+    "Waffo Pancake": "Waffo Pancake",
+    "Add commission override": "Добавить исключение",
+    "Edit commission override": "Изменить исключение",
+    "Remove commission override": "Удалить исключение",
+    "Commission override saved": "Исключение сохранено",
+    "Commission override removed": "Исключение удалено",
+    "Failed to save commission override": "Не удалось сохранить исключение",
+    "Failed to remove commission override": "Не удалось удалить исключение",
+    "Per-user Commission Overrides": "Индивидуальные условия комиссии",
+    "Promoters listed here use their own parameters. Everyone else follows the global settings above. The global enable switch still applies to all.": "Промоутеры из этого списка используют собственные параметры. Остальные следуют глобальным настройкам выше. Глобальный переключатель по-прежнему действует для всех.",
+    "Applies to this promoter. Their invitees’ top-ups earn commission at these parameters instead of the global ones.": "Применяется к этому промоутеру. Пополнения его приглашённых дают комиссию по этим параметрам вместо глобальных.",
+    "No promoter has special parameters yet.": "Пока ни у одного промоутера нет особых параметров.",
+    "Promoter": "Промоутер",
+    "Promoter username": "Имя пользователя промоутера",
+    "The user who receives the commission, not the one who tops up.": "Пользователь, который получает комиссию, а не тот, кто пополняет.",
+    "Search by promoter username": "Поиск по имени промоутера",
+    "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "Удалить особые параметры для «{{name}}»? Промоутер вернётся к глобальным настройкам.",
+    "Why this promoter has special parameters": "Почему у этого промоутера особые параметры",
+    "Username is required": "Укажите имя пользователя",
+    "Remark is too long": "Примечание слишком длинное",
+    "Fixed amount": "Фиксированная сумма"
   }
 }

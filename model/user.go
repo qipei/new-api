@@ -504,6 +504,20 @@ func GetUserById(id int, selectAll bool) (*User, error) {
 	return &user, err
 }
 
+// GetUserIdByUsername 按用户名精确查用户 ID。
+//
+// 管理端按用户名指定操作对象，界面上认的是用户名而不是内部 id。
+func GetUserIdByUsername(username string) (int, error) {
+	if username == "" {
+		return 0, errors.New("用户名为空！")
+	}
+	var user User
+	if err := DB.Select("id").First(&user, "username = ?", username).Error; err != nil {
+		return 0, err
+	}
+	return user.Id, nil
+}
+
 func GetUserIdByAffCode(affCode string) (int, error) {
 	if affCode == "" {
 		return 0, errors.New("affCode 为空！")

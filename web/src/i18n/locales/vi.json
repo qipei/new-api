@@ -5668,6 +5668,26 @@
     "Alipay (Official)": "Alipay (chính thức)",
     "WeChat Pay (Official)": "WeChat Pay (chính thức)",
     "Creem": "Creem",
-    "Waffo Pancake": "Waffo Pancake"
+    "Waffo Pancake": "Waffo Pancake",
+    "Add commission override": "Thêm tham số riêng",
+    "Edit commission override": "Sửa tham số riêng",
+    "Remove commission override": "Xóa tham số riêng",
+    "Commission override saved": "Đã lưu tham số riêng",
+    "Commission override removed": "Đã xóa tham số riêng",
+    "Failed to save commission override": "Lưu tham số riêng thất bại",
+    "Failed to remove commission override": "Xóa tham số riêng thất bại",
+    "Per-user Commission Overrides": "Tham số hoa hồng riêng theo người",
+    "Promoters listed here use their own parameters. Everyone else follows the global settings above. The global enable switch still applies to all.": "Những người quảng bá trong danh sách này dùng tham số riêng. Những người khác theo cài đặt toàn cục ở trên. Công tắc bật toàn cục vẫn áp dụng cho tất cả.",
+    "Applies to this promoter. Their invitees’ top-ups earn commission at these parameters instead of the global ones.": "Áp dụng cho người quảng bá này. Khi người được mời nạp tiền, hoa hồng tính theo tham số ở đây thay vì tham số toàn cục.",
+    "No promoter has special parameters yet.": "Chưa có người quảng bá nào được đặt tham số riêng.",
+    "Promoter": "Người quảng bá",
+    "Promoter username": "Tên đăng nhập người quảng bá",
+    "The user who receives the commission, not the one who tops up.": "Người nhận hoa hồng, không phải người nạp tiền.",
+    "Search by promoter username": "Tìm theo tên người quảng bá",
+    "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "Xóa tham số riêng của \"{{name}}\"? Người quảng bá này sẽ quay lại cài đặt toàn cục.",
+    "Why this promoter has special parameters": "Lý do người quảng bá này có tham số riêng",
+    "Username is required": "Vui lòng nhập tên đăng nhập",
+    "Remark is too long": "Ghi chú quá dài",
+    "Fixed amount": "Số tiền cố định"
   }
 }

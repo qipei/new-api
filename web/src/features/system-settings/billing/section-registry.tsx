@@ -25,6 +25,7 @@ import { PaymentSettingsSection } from '../integrations/payment-settings-section
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { CommissionOverridesSection } from './commission-overrides/commission-overrides-section'
 import { CommissionSettingsSection } from './commission-settings-section'
 import { GroupBillingExprSection } from './group-billing-expr-section'
 import { ModelPromotionSection } from './model-promotion-section'
@@ -274,6 +275,12 @@ const BILLING_SECTIONS = [
         }}
       />
     ),
+  },
+  {
+    id: 'commission-overrides',
+    titleKey: 'Per-user Commission Overrides',
+    // 不依赖 settings：专属参数存在独立的表里，由区块自己拉取。
+    build: () => <CommissionOverridesSection />,
   },
 ] as const
 

@@ -5668,6 +5668,26 @@
     "Alipay (Official)": "Alipay（公式）",
     "WeChat Pay (Official)": "WeChat Pay（公式）",
     "Creem": "Creem",
-    "Waffo Pancake": "Waffo Pancake"
+    "Waffo Pancake": "Waffo Pancake",
+    "Add commission override": "個別設定を追加",
+    "Edit commission override": "個別設定を編集",
+    "Remove commission override": "個別設定を削除",
+    "Commission override saved": "個別設定を保存しました",
+    "Commission override removed": "個別設定を削除しました",
+    "Failed to save commission override": "個別設定の保存に失敗しました",
+    "Failed to remove commission override": "個別設定の削除に失敗しました",
+    "Per-user Commission Overrides": "プロモーター別のコミッション設定",
+    "Promoters listed here use their own parameters. Everyone else follows the global settings above. The global enable switch still applies to all.": "ここに表示されたプロモーターは個別のパラメータで還元されます。それ以外は上のグローバル設定に従います。グローバルの有効スイッチは全員に適用されます。",
+    "Applies to this promoter. Their invitees’ top-ups earn commission at these parameters instead of the global ones.": "この設定はこのプロモーターに適用されます。招待したユーザーがチャージした際、グローバル設定ではなくここの値で還元されます。",
+    "No promoter has special parameters yet.": "個別設定のあるプロモーターはまだありません。",
+    "Promoter": "プロモーター",
+    "Promoter username": "プロモーターのユーザー名",
+    "The user who receives the commission, not the one who tops up.": "還元を受け取る側のユーザーです。チャージする側ではありません。",
+    "Search by promoter username": "プロモーターのユーザー名で検索",
+    "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "「{{name}}」の個別設定を削除しますか？このプロモーターはグローバル設定に戻ります。",
+    "Why this promoter has special parameters": "このプロモーターに個別設定を行う理由",
+    "Username is required": "ユーザー名を入力してください",
+    "Remark is too long": "備考が長すぎます",
+    "Fixed amount": "固定額"
   }
 }

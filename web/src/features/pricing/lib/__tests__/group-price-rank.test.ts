@@ -108,13 +108,14 @@ describe('resolveDisplayGroup', () => {
       billing_expr: 'tier("固定", p * 20 + c * 20)',
       group_billing_expr: { tok: night },
     })
-    const hour = Number(
-      new Intl.DateTimeFormat('en-US', {
-        timeZone: 'Asia/Shanghai',
-        hour12: false,
-        hour: 'numeric',
-      }).format(new Date())
-    ) % 24
+    const hour =
+      Number(
+        new Intl.DateTimeFormat('en-US', {
+          timeZone: 'Asia/Shanghai',
+          hour12: false,
+          hour: 'numeric',
+        }).format(new Date())
+      ) % 24
     const offPeak = hour >= 22 || hour < 8
     expect(resolveDisplayGroup(m)).toBe(offPeak ? 'tok' : 'default')
   })

@@ -67,6 +67,10 @@ func ProcessCommissionForTopUp(topUp *TopUp, setting operation_setting.Commissio
 		return nil
 	}
 
+	// 推广人可能配了专属参数。必须在笔数限制判定之前解析，那一步用的就是
+	// 解析后的 TopupCountLimit。
+	setting = ResolveCommissionSetting(setting, invitee.InviterId)
+
 	var existing int64
 	if err := DB.Model(&CommissionRecord{}).Where("topup_id = ?", topUp.Id).Count(&existing).Error; err != nil {
 		return err

@@ -5668,6 +5668,26 @@
     "Alipay (Official)": "支付宝（官方）",
     "WeChat Pay (Official)": "微信支付（官方）",
     "Creem": "Creem",
-    "Waffo Pancake": "Waffo Pancake"
+    "Waffo Pancake": "Waffo Pancake",
+    "Add commission override": "新增专属参数",
+    "Edit commission override": "编辑专属参数",
+    "Remove commission override": "删除专属参数",
+    "Commission override saved": "专属参数已保存",
+    "Commission override removed": "专属参数已删除",
+    "Failed to save commission override": "保存专属参数失败",
+    "Failed to remove commission override": "删除专属参数失败",
+    "Per-user Commission Overrides": "推广人专属返佣参数",
+    "Promoters listed here use their own parameters. Everyone else follows the global settings above. The global enable switch still applies to all.": "列表中的推广人按各自的参数返佣，未列出的推广人走上方的全局设置。全局的启用开关对所有人依然有效。",
+    "Applies to this promoter. Their invitees’ top-ups earn commission at these parameters instead of the global ones.": "该设置作用于这位推广人。他邀请的用户充值时，按这里的参数返佣，而不是全局参数。",
+    "No promoter has special parameters yet.": "还没有推广人配置专属参数。",
+    "Promoter": "推广人",
+    "Promoter username": "推广人用户名",
+    "The user who receives the commission, not the one who tops up.": "填拿返佣的那个人，不是充值的那个人。",
+    "Search by promoter username": "按推广人用户名搜索",
+    "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "删除「{{name}}」的专属参数？该推广人将回到全局设置。",
+    "Why this promoter has special parameters": "说明为什么给这个推广人配专属参数",
+    "Username is required": "请填写用户名",
+    "Remark is too long": "备注过长",
+    "Fixed amount": "固定额度"
   }
 }

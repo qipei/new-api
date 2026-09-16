@@ -5668,6 +5668,26 @@
     "Alipay (Official)": "Alipay (officiel)",
     "WeChat Pay (Official)": "WeChat Pay (officiel)",
     "Creem": "Creem",
-    "Waffo Pancake": "Waffo Pancake"
+    "Waffo Pancake": "Waffo Pancake",
+    "Add commission override": "Ajouter une dérogation",
+    "Edit commission override": "Modifier la dérogation",
+    "Remove commission override": "Supprimer la dérogation",
+    "Commission override saved": "Dérogation enregistrée",
+    "Commission override removed": "Dérogation supprimée",
+    "Failed to save commission override": "Échec de l'enregistrement de la dérogation",
+    "Failed to remove commission override": "Échec de la suppression de la dérogation",
+    "Per-user Commission Overrides": "Dérogations de commission par utilisateur",
+    "Promoters listed here use their own parameters. Everyone else follows the global settings above. The global enable switch still applies to all.": "Les promoteurs listés ici utilisent leurs propres paramètres. Les autres suivent les réglages globaux ci-dessus. L'interrupteur global reste valable pour tous.",
+    "Applies to this promoter. Their invitees’ top-ups earn commission at these parameters instead of the global ones.": "S'applique à ce promoteur. Les recharges de ses invités génèrent une commission selon ces paramètres au lieu des paramètres globaux.",
+    "No promoter has special parameters yet.": "Aucun promoteur n'a encore de paramètres spécifiques.",
+    "Promoter": "Promoteur",
+    "Promoter username": "Nom d'utilisateur du promoteur",
+    "The user who receives the commission, not the one who tops up.": "L'utilisateur qui reçoit la commission, pas celui qui recharge.",
+    "Search by promoter username": "Rechercher par nom du promoteur",
+    "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "Supprimer les paramètres spécifiques de « {{name}} » ? Ce promoteur reviendra aux réglages globaux.",
+    "Why this promoter has special parameters": "Pourquoi ce promoteur a des paramètres spécifiques",
+    "Username is required": "Le nom d'utilisateur est requis",
+    "Remark is too long": "La remarque est trop longue",
+    "Fixed amount": "Montant fixe"
   }
 }

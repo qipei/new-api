@@ -965,7 +965,8 @@ const WAN3_VIDEO: ModelApiSpec = {
       titleKey: 'Text to video',
       body: {
         model: 'wan3.0-video',
-        prompt: '一只小猫在月光下的屋顶上奔跑，城市的霓虹灯在远处闪烁，电影级画质',
+        prompt:
+          '一只小猫在月光下的屋顶上奔跑，城市的霓虹灯在远处闪烁，电影级画质',
         size: '1080P',
         duration: 5,
       },

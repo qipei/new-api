@@ -5687,7 +5687,6 @@
     "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "Supprimer les paramètres spécifiques de « {{name}} » ? Ce promoteur reviendra aux réglages globaux.",
     "Why this promoter has special parameters": "Pourquoi ce promoteur a des paramètres spécifiques",
     "Username is required": "Le nom d'utilisateur est requis",
-    "Remark is too long": "La remarque est trop longue",
-    "Fixed amount": "Montant fixe"
+    "Remark is too long": "La remarque est trop longue"
   }
 }

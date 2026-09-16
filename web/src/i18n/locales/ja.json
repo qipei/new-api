@@ -5687,7 +5687,6 @@
     "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "「{{name}}」の個別設定を削除しますか？このプロモーターはグローバル設定に戻ります。",
     "Why this promoter has special parameters": "このプロモーターに個別設定を行う理由",
     "Username is required": "ユーザー名を入力してください",
-    "Remark is too long": "備考が長すぎます",
-    "Fixed amount": "固定額"
+    "Remark is too long": "備考が長すぎます"
   }
 }

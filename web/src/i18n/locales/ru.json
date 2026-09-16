@@ -5687,7 +5687,6 @@
     "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "Удалить особые параметры для «{{name}}»? Промоутер вернётся к глобальным настройкам.",
     "Why this promoter has special parameters": "Почему у этого промоутера особые параметры",
     "Username is required": "Укажите имя пользователя",
-    "Remark is too long": "Примечание слишком длинное",
-    "Fixed amount": "Фиксированная сумма"
+    "Remark is too long": "Примечание слишком длинное"
   }
 }

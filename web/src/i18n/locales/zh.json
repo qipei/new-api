@@ -5687,7 +5687,6 @@
     "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "删除「{{name}}」的专属参数？该推广人将回到全局设置。",
     "Why this promoter has special parameters": "说明为什么给这个推广人配专属参数",
     "Username is required": "请填写用户名",
-    "Remark is too long": "备注过长",
-    "Fixed amount": "固定额度"
+    "Remark is too long": "备注过长"
   }
 }

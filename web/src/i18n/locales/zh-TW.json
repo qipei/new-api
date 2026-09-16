@@ -5687,7 +5687,6 @@
     "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "刪除「{{name}}」的專屬參數？該推廣人將回到全域設定。",
     "Why this promoter has special parameters": "說明為什麼給這個推廣人設定專屬參數",
     "Username is required": "請填寫使用者名稱",
-    "Remark is too long": "備註過長",
-    "Fixed amount": "固定額度"
+    "Remark is too long": "備註過長"
   }
 }

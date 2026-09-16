@@ -186,7 +186,7 @@ export function CommissionOverrideDialog(props: Props) {
                 <Select
                   items={[
                     { value: 'percent', label: t('Percentage') },
-                    { value: 'fixed', label: t('Fixed amount') },
+                    { value: 'fixed', label: t('Fixed Amount') },
                   ]}
                   value={field.value}
                   onValueChange={(v) => v !== null && field.onChange(v)}
@@ -195,13 +195,13 @@ export function CommissionOverrideDialog(props: Props) {
                     <SelectValue>
                       {field.value === 'percent'
                         ? t('Percentage')
-                        : t('Fixed amount')}
+                        : t('Fixed Amount')}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent alignItemWithTrigger={false}>
                     <SelectGroup>
                       <SelectItem value='percent'>{t('Percentage')}</SelectItem>
-                      <SelectItem value='fixed'>{t('Fixed amount')}</SelectItem>
+                      <SelectItem value='fixed'>{t('Fixed Amount')}</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>

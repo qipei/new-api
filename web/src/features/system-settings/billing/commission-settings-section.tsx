@@ -41,6 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 
 import {
@@ -51,6 +52,7 @@ import {
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { CommissionOverridesSection } from './commission-overrides/commission-overrides-section'
 
 const createSchema = (t: TFunction) =>
   z
@@ -176,7 +178,7 @@ export function CommissionSettingsSection({
           />
 
           {enabled && (
-            <div className='grid gap-6 sm:grid-cols-2'>
+            <div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3'>
               <FormField
                 control={form.control}
                 name='type'
@@ -262,6 +264,10 @@ export function CommissionSettingsSection({
           )}
         </SettingsForm>
       </Form>
+
+      <Separator />
+
+      <CommissionOverridesSection />
     </SettingsSection>
   )
 }

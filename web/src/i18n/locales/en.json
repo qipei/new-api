@@ -5687,7 +5687,6 @@
     "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.",
     "Why this promoter has special parameters": "Why this promoter has special parameters",
     "Username is required": "Username is required",
-    "Remark is too long": "Remark is too long",
-    "Fixed amount": "Fixed amount"
+    "Remark is too long": "Remark is too long"
   }
 }

@@ -29,7 +29,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { formatTimestampToDate } from '@/lib/format'
 
-import { SettingsSection } from '../../components/settings-section'
 import { CommissionOverrideDialog } from './components/commission-override-dialog'
 import {
   useCommissionOverrideMutations,
@@ -42,8 +41,9 @@ const PAGE_SIZE = 10
 /**
  * 推广人专属返佣参数列表。
  *
- * 全局参数在上一个区块里配，这里列出所有做了单独设置的推广人。没有记录的推广人
- * 走全局参数，删除一条记录即让该推广人回到全局。
+ * 作为「推广返佣」区块的下半部分渲染，紧接在全局参数之后：两者是同一件事的
+ * 两个层级，分成两页会让人以为全局开关管不到这里。没有记录的推广人走全局参数，
+ * 删除一条记录即让该推广人回到全局。
  */
 export function CommissionOverridesSection() {
   const { t } = useTranslation()
@@ -84,13 +84,18 @@ export function CommissionOverridesSection() {
   }
 
   return (
-    <SettingsSection title={t('Per-user Commission Overrides')}>
+    <div className='flex flex-col gap-4'>
       <div className='flex flex-col gap-4'>
-        <p className='text-muted-foreground text-sm'>
-          {t(
-            'Promoters listed here use their own parameters. Everyone else follows the global settings above. The global enable switch still applies to all.'
-          )}
-        </p>
+        <div>
+          <h3 className='text-sm font-semibold'>
+            {t('Per-user Commission Overrides')}
+          </h3>
+          <p className='text-muted-foreground mt-1 text-sm'>
+            {t(
+              'Promoters listed here use their own parameters. Everyone else follows the global settings above. The global enable switch still applies to all.'
+            )}
+          </p>
+        </div>
         <div className='flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between'>
           <div className='flex w-full max-w-sm items-center gap-2'>
             <Input
@@ -136,7 +141,7 @@ export function CommissionOverridesSection() {
                     label={
                       override.type === 'percent'
                         ? t('Percentage')
-                        : t('Fixed amount')
+                        : t('Fixed Amount')
                     }
                     variant='neutral'
                     copyable={false}
@@ -239,6 +244,6 @@ export function CommissionOverridesSection() {
         handleConfirm={handleDelete}
         isLoading={remove.isPending}
       />
-    </SettingsSection>
+    </div>
   )
 }

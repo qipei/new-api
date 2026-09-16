@@ -5687,7 +5687,6 @@
     "Remove the special parameters for \"{{name}}\"? This promoter will go back to the global settings.": "Xóa tham số riêng của \"{{name}}\"? Người quảng bá này sẽ quay lại cài đặt toàn cục.",
     "Why this promoter has special parameters": "Lý do người quảng bá này có tham số riêng",
     "Username is required": "Vui lòng nhập tên đăng nhập",
-    "Remark is too long": "Ghi chú quá dài",
-    "Fixed amount": "Số tiền cố định"
+    "Remark is too long": "Ghi chú quá dài"
   }
 }

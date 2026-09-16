@@ -16,10 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { About } from '@/features/about'
+import { getFreshModuleAccess } from '@/lib/nav-modules'
 
 export const Route = createFileRoute('/about/')({
+  // 导航里关掉只是不显示入口，直接敲 URL 仍能进。与 pricing、rankings 一致，
+  // 在路由层挡一道；接口侧另有 HeaderNavModuleAuth 守卫。
+  beforeLoad: async () => {
+    const access = await getFreshModuleAccess('about')
+    if (!access.enabled) {
+      throw redirect({ to: '/' })
+    }
+  },
   component: About,
 })

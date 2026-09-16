@@ -20,7 +20,7 @@ import { getStatus } from '@/lib/api'
 
 export type ModuleAccess = { enabled: boolean; requireAuth: boolean }
 
-export type HeaderNavModule = 'rankings' | 'pricing'
+export type HeaderNavModule = 'rankings' | 'pricing' | 'about'
 
 export type HeaderNavModules = {
   home: boolean
@@ -44,6 +44,7 @@ const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
 const DEFAULTS: Record<HeaderNavModule, ModuleAccess> = {
   pricing: DEFAULT_HEADER_NAV_MODULES.pricing,
   rankings: DEFAULT_HEADER_NAV_MODULES.rankings,
+  about: { enabled: DEFAULT_HEADER_NAV_MODULES.about, requireAuth: false },
 }
 
 function cloneHeaderNavDefaults(): HeaderNavModules {
@@ -166,7 +167,13 @@ export function getModuleAccessFromStatus(
   status: Record<string, unknown> | null,
   module: HeaderNavModule
 ): ModuleAccess {
-  return parseHeaderNavModulesFromStatus(status)[module] ?? DEFAULTS[module]
+  const parsed = parseHeaderNavModulesFromStatus(status)[module]
+  // pricing 与 rankings 存成 {enabled, requireAuth} 对象，about 只是一个布尔。
+  // 不归一化的话，布尔型模块取 .enabled 恒为 undefined，守卫会把开着的模块也拦掉。
+  if (typeof parsed === 'boolean') {
+    return { enabled: parsed, requireAuth: DEFAULTS[module].requireAuth }
+  }
+  return parsed ?? DEFAULTS[module]
 }
 
 export function getModuleAccess(module: HeaderNavModule): ModuleAccess {

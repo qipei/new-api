@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/card'
 import { IconBadge } from '@/components/ui/icon-badge'
 import { Switch } from '@/components/ui/switch'
+import { useAdminSidebarModuleGate } from '@/hooks/use-sidebar-config'
 import { api } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -54,6 +55,7 @@ export function SidebarModulesCard() {
   const [config, setConfig] = useState<SidebarModulesConfig>({})
   const currentUser = useAuthStore((s) => s.auth.user)
   const setUser = useAuthStore((s) => s.auth.setUser)
+  const { isSectionAllowed, isModuleAllowed } = useAdminSidebarModuleGate()
 
   const sectionDefs: SectionDef[] = [
     {
@@ -201,6 +203,23 @@ export function SidebarModulesCard() {
     toast.success(t('Reset to default configuration'))
   }
 
+  // 管理员全局关掉的区块和模块，这里不再列出：用户改了也不会生效，摆在面板上
+  // 只会让人以为自己能打开。管理员若重新开启，选项会自动回来。
+  const visibleSections = sectionDefs
+    .filter((section) => isSectionAllowed(section.key))
+    .map((section) => ({
+      ...section,
+      modules: section.modules.filter((mod) =>
+        isModuleAllowed(section.key, mod.key)
+      ),
+    }))
+    .filter((section) => section.modules.length > 0)
+
+  // 全部区块都被管理员关闭时整张卡片没有意义。
+  if (visibleSections.length === 0) {
+    return null
+  }
+
   return (
     <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
       <CardHeader className='border-b p-3 !pb-3 sm:p-5 sm:!pb-5'>
@@ -219,7 +238,7 @@ export function SidebarModulesCard() {
         </div>
       </CardHeader>
       <CardContent className='space-y-4 p-3 sm:space-y-5 sm:p-5'>
-        {sectionDefs.map((section) => {
+        {visibleSections.map((section) => {
           const sectionEnabled = config[section.key]?.enabled !== false
           return (
             <div

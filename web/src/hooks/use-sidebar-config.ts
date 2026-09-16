@@ -329,3 +329,40 @@ export function useIsSidebarModuleVisible(url: string): boolean {
 
   return isModuleEnabled(url, adminConfig, userConfig)
 }
+
+/**
+ * 管理员侧边栏配置的只读视图，供个人设置面板过滤自己的选项。
+ *
+ * 复用同一份解析与默认值合并逻辑，不要在调用方重写：默认值一旦两处各有一份，
+ * 新增模块时必然漏改其中一处，个人面板会显示出实际不存在的开关。
+ *
+ * 返回的判定与侧边栏渲染同口径：区块本身启用、且该模块显式为 true 才算放行。
+ */
+export function useAdminSidebarModuleGate(): {
+  isSectionAllowed: (section: string) => boolean
+  isModuleAllowed: (section: string, module: string) => boolean
+} {
+  const { status } = useStatus()
+
+  const adminConfig = useMemo(
+    () =>
+      parseSidebarConfig(
+        status?.SidebarModulesAdmin as string | null | undefined
+      ),
+    [status?.SidebarModulesAdmin]
+  )
+
+  return useMemo(() => {
+    const isModuleAllowed = (section: string, module: string) => {
+      const adminSection = adminConfig[section]
+      return Boolean(
+        adminSection && adminSection.enabled && adminSection[module] === true
+      )
+    }
+    return {
+      isSectionAllowed: (section: string) =>
+        Boolean(adminConfig[section]?.enabled),
+      isModuleAllowed,
+    }
+  }, [adminConfig])
+}

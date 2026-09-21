@@ -22,9 +22,23 @@ import { z } from 'zod'
 // Form Schemas
 // ============================================================================
 
+// Mainland China mobile numbers, matching the backend's own validation.
+export const PHONE_NUMBER_REGEX = /^1[3-9]\d{9}$/
+
 export const loginFormSchema = z.object({
   username: z.string().min(1, 'Please enter your username or email'),
   password: z.string().min(1, 'Please enter your password'),
+})
+
+export const phoneLoginFormSchema = z.object({
+  phone: z
+    .string()
+    .min(1, 'Please enter your mobile number')
+    .refine(
+      (value) => PHONE_NUMBER_REGEX.test(value.replaceAll(/\D/g, '')),
+      'Please enter a valid mobile number'
+    ),
+  code: z.string().min(1, 'Please enter the verification code'),
 })
 
 export const registerFormSchema = z
@@ -69,6 +83,7 @@ export const OTP_REGEX = /^\d{6}$/
 // ============================================================================
 
 export const EMAIL_VERIFICATION_COUNTDOWN = 30 // seconds
+export const SMS_VERIFICATION_COUNTDOWN = 60 // seconds
 export const PASSWORD_RESET_COUNTDOWN = 30 // seconds
 
 // ============================================================================

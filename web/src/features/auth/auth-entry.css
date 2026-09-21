@@ -1,0 +1,124 @@
+.auth-entry {
+  --background: #fff;
+  --foreground: #141414;
+  --primary: #ffc800;
+  --primary-foreground: #141414;
+  --muted: #f4f2eb;
+  --muted-foreground: #6b695f;
+  --border: #e6e4dc;
+  --input: #e0ded4;
+  --ring: #b58c00;
+  --auth-canvas: #f4f2eb;
+  --auth-field: #faf9f5;
+  --auth-link: #8a6508;
+  display: grid;
+  min-height: 100svh;
+  place-items: center;
+  padding: 40px 20px;
+  background: var(--auth-canvas);
+  color: var(--foreground);
+}
+
+.dark .auth-entry {
+  --background: #24231f;
+  --foreground: #faf9f5;
+  --muted: #302e27;
+  --muted-foreground: #bcb8a9;
+  --border: #454238;
+  --input: #514d40;
+  --auth-canvas: #191916;
+  --auth-field: #2c2b25;
+  --auth-link: #ffda52;
+}
+
+.auth-entry-card {
+  width: 100%;
+  max-width: 460px;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  padding: 36px;
+  background: var(--background);
+  box-shadow: 0 16px 56px #14141406;
+}
+
+.auth-entry-brand {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 36px;
+}
+
+.auth-entry-title {
+  font-size: 28px;
+  line-height: 1.3;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+
+.auth-entry input:not([type='checkbox']):not([type='hidden']) {
+  height: 48px;
+  min-width: 0;
+  border-radius: 14px;
+  background: var(--auth-field);
+  padding-inline: 14px;
+  font-size: 14px;
+}
+
+.auth-entry input:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px #ffc80026;
+}
+
+.auth-entry input:has(+ button.absolute) {
+  padding-inline-end: 40px;
+}
+
+.auth-entry input[aria-invalid='true'] {
+  border-color: var(--destructive);
+}
+
+.auth-entry [data-slot='button']:not(.absolute) {
+  min-height: 46px;
+  border-radius: 14px;
+  padding-inline: 14px;
+}
+
+.auth-entry button[type='submit'] {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.auth-entry button[type='submit']:not(:disabled):hover {
+  background: #f0bd00;
+}
+
+.auth-entry button[type='submit']:disabled {
+  background: var(--muted);
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
+.auth-entry a:not(.auth-entry-brand) {
+  color: var(--auth-link);
+}
+
+.auth-entry-switch {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
+@media (max-width: 480px) {
+  .auth-entry {
+    padding: 20px 12px;
+  }
+
+  .auth-entry-card {
+    padding: 28px 24px;
+    border-radius: 24px;
+  }
+}

@@ -85,6 +85,7 @@ type User struct {
 	Role             int                        `json:"role" gorm:"type:int;default:1"`   // admin, common
 	Status           int                        `json:"status" gorm:"type:int;default:1"` // enabled, disabled
 	Email            string                     `json:"email" gorm:"index" validate:"max=50"`
+	Phone            string                     `json:"phone" gorm:"type:varchar(20);index" validate:"max=20"`
 	GitHubId         string                     `json:"github_id" gorm:"column:github_id;index"`
 	DiscordId        string                     `json:"discord_id" gorm:"column:discord_id;index"`
 	OidcId           string                     `json:"oidc_id" gorm:"column:oidc_id;index"`
@@ -441,8 +442,8 @@ func SearchUsers(keyword string, group string, role *int, status *int, startIdx 
 	query := tx.Unscoped().Model(&User{})
 
 	// 构建搜索条件
-	likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ?"
-	likeArgs := []interface{}{"%" + keyword + "%", "%" + keyword + "%", "%" + keyword + "%"}
+	likeCondition := "username LIKE ? OR email LIKE ? OR phone LIKE ? OR display_name LIKE ?"
+	likeArgs := []interface{}{"%" + keyword + "%", "%" + keyword + "%", "%" + keyword + "%", "%" + keyword + "%"}
 
 	// 尝试将关键字转换为整数ID
 	keywordInt, err := strconv.Atoi(keyword)
@@ -885,6 +886,7 @@ func (user *User) ClearBinding(bindingType string) error {
 
 	bindingColumnMap := map[string]string{
 		"email":    "email",
+		"phone":    "phone",
 		"github":   "github_id",
 		"discord":  "discord_id",
 		"oidc":     "oidc_id",

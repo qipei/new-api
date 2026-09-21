@@ -30,6 +30,10 @@ import type {
   TwoFAPayload,
   RegisterPayload,
   ApiResponse,
+  PhoneLoginPayload,
+  SMSCodePayload,
+  SMSCodeResponse,
+  BindPhonePayload,
 } from './types'
 
 // ============================================================================
@@ -51,6 +55,64 @@ export async function login(payload: LoginPayload) {
     },
     { skipAuthRefresh: true }
   )
+  return res.data
+}
+
+// Login with a phone number and an SMS verification code. The account is
+// created on the fly when the number has never signed in before.
+export async function phoneLogin(payload: PhoneLoginPayload) {
+  const turnstile = payload.turnstile ?? ''
+  const res = await api.post<LoginResponse>(
+    `/api/user/login/phone?turnstile=${turnstile}`,
+    {
+      phone: payload.phone,
+      code: payload.code,
+      aff_code: payload.aff_code,
+    },
+    { skipAuthRefresh: true }
+  )
+  return res.data
+}
+
+// Request an SMS login code. The response asks for a captcha instead of
+// sending anything when the anti-abuse thresholds have been reached.
+export async function sendLoginSMSCode(
+  payload: SMSCodePayload
+): Promise<SMSCodeResponse> {
+  const turnstile = payload.turnstile ?? ''
+  const res = await api.post<SMSCodeResponse>(
+    `/api/sms/code?turnstile=${turnstile}`,
+    {
+      phone: payload.phone,
+      captcha_ticket: payload.captcha_ticket,
+      captcha_randstr: payload.captcha_randstr,
+    },
+    { skipAuthRefresh: true, skipErrorHandler: true, skipBusinessError: true }
+  )
+  return res.data
+}
+
+// Request an SMS code for binding a phone number to the signed-in account.
+export async function sendBindPhoneCode(
+  payload: SMSCodePayload
+): Promise<SMSCodeResponse> {
+  const res = await api.post<SMSCodeResponse>(
+    '/api/user/phone/code',
+    {
+      phone: payload.phone,
+      captcha_ticket: payload.captcha_ticket,
+      captcha_randstr: payload.captcha_randstr,
+    },
+    { skipErrorHandler: true, skipBusinessError: true }
+  )
+  return res.data
+}
+
+// Bind a phone number to the signed-in account.
+export async function bindPhone(
+  payload: BindPhonePayload
+): Promise<ApiResponse> {
+  const res = await api.post('/api/user/phone/bind', payload)
   return res.data
 }
 

@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import {
   Mail,
+  Smartphone,
   Globe,
   MessageCircle,
   Send,
@@ -74,6 +75,7 @@ interface BindingItem {
 }
 
 interface StatusInfo {
+  phone_login_enabled?: boolean
   github_oauth?: boolean
   discord_oauth?: boolean
   oidc_enabled?: boolean
@@ -100,6 +102,13 @@ const BUILTIN_BINDINGS: ReadonlyArray<{
     label: 'Email',
     icon: <Mail className='h-4 w-4' />,
     statusKey: null,
+  },
+  {
+    key: 'phone',
+    field: 'phone',
+    label: 'Mobile number',
+    icon: <Smartphone className='h-4 w-4' />,
+    statusKey: 'phone_login_enabled',
   },
   {
     key: 'github_id',
@@ -393,7 +402,7 @@ export function UserBindingDialog(props: Props) {
                         <div className='min-w-0'>
                           <div className='flex items-center gap-1.5'>
                             <span className='text-sm font-medium'>
-                              {binding.label}
+                              {t(binding.label)}
                             </span>
                             {!binding.isEnabled && (
                               <StatusBadge

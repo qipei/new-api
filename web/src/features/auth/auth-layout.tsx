@@ -22,13 +22,47 @@ import { useTranslation } from 'react-i18next'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSystemConfig } from '@/hooks/use-system-config'
 
+import './auth-entry.css'
+
 type AuthLayoutProps = {
   children: React.ReactNode
+  variant?: 'default' | 'entry'
 }
 
-export function AuthLayout({ children }: AuthLayoutProps) {
+export function AuthLayout({ children, variant = 'default' }: AuthLayoutProps) {
   const { t } = useTranslation()
   const { systemName, logo, loading } = useSystemConfig()
+
+  if (variant === 'entry') {
+    return (
+      <main className='auth-entry'>
+        <div className='auth-entry-card'>
+          <Link to='/' className='auth-entry-brand'>
+            {loading ? (
+              <Skeleton className='size-12 rounded-[14px]' />
+            ) : (
+              <img
+                src={logo}
+                alt={t('Logo')}
+                className='size-12 rounded-[14px] object-contain'
+              />
+            )}
+            <div className='space-y-1'>
+              {loading ? (
+                <Skeleton className='h-6 w-24' />
+              ) : (
+                <div className='text-lg font-extrabold'>{systemName}</div>
+              )}
+              <p className='text-muted-foreground text-xs'>
+                {t('Unified AI API gateway')}
+              </p>
+            </div>
+          </Link>
+          {children}
+        </div>
+      </main>
+    )
+  }
 
   return (
     <div className='relative grid h-svh max-w-none'>

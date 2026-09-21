@@ -76,6 +76,14 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 	return string(jsonBytes)
 }
 
+// sensitiveOptionKeys 列出那些不能下发给前端、但键名又命中不了通用敏感后缀规则的配置项。
+// 通用规则只覆盖 Token/Secret/Key 结尾（大写）和 secret/api_key 结尾（小写）。
+var sensitiveOptionKeys = map[string]bool{
+	"sms_captcha.app_secret_key": true,
+	"sms_captcha.secret_id":      true,
+	"sms_captcha.secret_key":     true,
+}
+
 func GetOptions(c *gin.Context) {
 	var options []*model.Option
 	optionValues := make(map[string]string)
@@ -89,7 +97,8 @@ func GetOptions(c *gin.Context) {
 			strings.HasSuffix(k, "Secret") ||
 			strings.HasSuffix(k, "Key") ||
 			strings.HasSuffix(k, "secret") ||
-			strings.HasSuffix(k, "api_key")
+			strings.HasSuffix(k, "api_key") ||
+			sensitiveOptionKeys[k]
 		if isSensitiveKey {
 			continue
 		}
@@ -216,6 +225,22 @@ func UpdateOption(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
 				"message": "无法启用 Telegram OAuth，请先填入 Telegram Bot Token！",
+			})
+			return
+		}
+	case "PhoneLoginEnabled":
+		if option.Value == "true" && !system_setting.GetSMSSettings().Configured() {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "无法启用手机号登录，请先在「短信服务」中填入阿里云短信配置！",
+			})
+			return
+		}
+	case "sms_captcha.enabled":
+		if option.Value == "true" && !system_setting.GetSMSCaptchaSettings().Configured() {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "无法启用短信防刷验证码，请先填入腾讯云验证码相关配置信息！",
 			})
 			return
 		}

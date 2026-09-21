@@ -26,6 +26,7 @@ import {
 
 const defaultAuthSettings: AuthSettings = {
   PasswordLoginEnabled: true,
+  PhoneLoginEnabled: false,
   PasswordRegisterEnabled: true,
   EmailVerificationEnabled: false,
   RegisterEnabled: true,
@@ -68,6 +69,27 @@ const defaultAuthSettings: AuthSettings = {
   'passkey.allow_insecure_origin': false,
   'passkey.user_verification': 'preferred',
   'passkey.attachment_preference': '',
+  'sms.local_only': false,
+  'sms.debug_code': '123456',
+  'sms.endpoint': 'https://dysmsapi.aliyuncs.com/',
+  'sms.access_key_id': '',
+  'sms.access_key_secret': '',
+  'sms.sign_name': '',
+  'sms.template_code': '',
+  'sms.code_length': 6,
+  'sms.code_expire_minutes': 10,
+  'sms.resend_interval_sec': 60,
+  'sms.daily_limit': 1000,
+  'sms.phone_daily_limit': 10,
+  'sms.ip_daily_limit': 50,
+  'sms_captcha.enabled': false,
+  'sms_captcha.captcha_app_id': '',
+  'sms_captcha.app_secret_key': '',
+  'sms_captcha.secret_id': '',
+  'sms_captcha.secret_key': '',
+  'sms_captcha.phone_trigger_count': 3,
+  'sms_captcha.ip_trigger_count': 8,
+  'sms_captcha.window_seconds': 600,
 }
 
 export function AuthSettings() {

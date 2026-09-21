@@ -60,6 +60,10 @@ var ItemsPerPage = 10
 var MaxRecentItems = 1000
 
 var PasswordLoginEnabled = true
+
+// PhoneLoginEnabled 开启后手机号+短信验证码成为主登录方式，
+// 密码登录（若仍开启）退化为老用户的辅助登录入口。
+var PhoneLoginEnabled = false
 var PasswordRegisterEnabled = true
 var EmailVerificationEnabled = false
 var GitHubOAuthEnabled = false

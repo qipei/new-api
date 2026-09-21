@@ -1,5 +1,7 @@
 {
   "0 means every paid top-up earns commission; N means only the invitee's first N paid orders": "0 means every paid top-up earns commission; N means only the invitee's first N paid orders",
+  "AccessKey ID": "AccessKey ID",
+  "AccessKey Secret": "AccessKey Secret",
   "Adds an \"AI generated\" watermark to the bottom-right corner of the output.": "Adds an \"AI generated\" watermark to the bottom-right corner of the output.",
   "Alibaba Bailian Kling V3 Image": "Alibaba Bailian Kling V3 Image",
   "Alibaba Bailian Kling V3 Omni Image": "Alibaba Bailian Kling V3 Omni Image",
@@ -8,10 +10,12 @@
   "Alibaba Bailian Vidu Q2 Pro": "Alibaba Bailian Vidu Q2 Pro",
   "Alibaba Bailian Vidu Q3 Fast": "Alibaba Bailian Vidu Q3 Fast",
   "Also returns a watermarked copy of the video alongside the clean one.": "Also returns a watermarked copy of the video alongside the clean one.",
+  "AppSecretKey": "AppSecretKey",
   "Aspect ratio of the generated video, for example 16:9.": "Aspect ratio of the generated video, for example 16:9.",
   "Aspect ratio of the generated video. Not accepted by the video-edit model, which follows the input clip.": "Aspect ratio of the generated video. Not accepted by the video-edit model, which follows the input clip.",
   "Aspect ratio. Required for text-to-video and for reference-driven generation; ignored when a first frame decides the ratio.": "Aspect ratio. Required for text-to-video and for reference-driven generation; ignored when a first frame decides the ratio.",
   "Aspect ratio. Required for text-to-video and must not be adaptive there. For image-to-video the ratio follows the input image and this value is ignored.": "Aspect ratio. Required for text-to-video and must not be adaptive there. For image-to-video the ratio follows the input image and this value is ignored.",
+  "CaptchaAppId": "CaptchaAppId",
   "Commission = credited quota of the order × value ÷ 100": "Commission = credited quota of the order × value ÷ 100",
   "Commission Count Limit": "Commission Count Limit",
   "Commission Details": "Commission Details",
@@ -86,6 +90,7 @@
   "Video length in seconds. Capped at 10 when a feature reference video is supplied.": "Video length in seconds. Capped at 10 when a feature reference video is supplied.",
   "Video length in seconds. The accepted range differs per model: 3-15 for the ad model and 2-15 for the drama model.": "Video length in seconds. The accepted range differs per model: 3-15 for the ad model and 2-15 for the drama model.",
   "Video length in seconds. Up to 16 for the q3 family and up to 10 for the q2 family.": "Video length in seconds. Up to 16 for the q3 family and up to 10 for the q2 family.",
+  "Waffo Pancake": "Waffo Pancake",
   "When commission type is percentage, the value must be between 0 and 100": "When commission type is percentage, the value must be between 0 and 100",
   "When enabled, inviters automatically earn commission when invited users make paid top-ups": "When enabled, inviters automatically earn commission when invited users make paid top-ups"
 }

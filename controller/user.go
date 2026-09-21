@@ -72,44 +72,53 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// 检查是否启用2FA
-	twoFAEnabled, err := model.IsTwoFAEnabled(user.Id)
-	if err != nil {
-		common.SysLog(fmt.Sprintf("Login failed to load 2FA status for user %d: %v", user.Id, err))
-		common.ApiErrorI18n(c, i18n.MsgDatabaseError)
-		return
-	}
-	if twoFAEnabled {
-		expiresAt := time.Now().Add(5 * time.Minute)
-		payload, err := common.Marshal(twoFALoginFlowPayload{AuthVersion: user.AuthVersion})
-		if err != nil {
-			common.ApiError(c, err)
-			return
-		}
-		flowToken, _, err := model.CreateAuthFlow(model.AuthFlowCreate{
-			Purpose:   model.AuthFlowPurposeTwoFALogin,
-			UserId:    user.Id,
-			Payload:   string(payload),
-			ExpiresAt: expiresAt,
-		})
-		if err != nil {
-			common.ApiError(c, err)
-			return
-		}
-
-		c.JSON(http.StatusOK, gin.H{
-			"message": i18n.T(c, i18n.MsgUserRequire2FA),
-			"success": true,
-			"data": map[string]interface{}{
-				"require_2fa": true,
-				"flow_token":  flowToken,
-				"expires_at":  expiresAt.Unix(),
-			},
-		})
+	if issue2FAChallenge(&user, c) {
 		return
 	}
 
 	setupLogin(&user, c)
+}
+
+// issue2FAChallenge 在用户开启两步验证时下发登录挑战。返回 true 表示响应已经写出
+// （挑战或错误），调用方必须停止建立会话；返回 false 表示可以继续正常登录。
+func issue2FAChallenge(user *model.User, c *gin.Context) bool {
+	twoFAEnabled, err := model.IsTwoFAEnabled(user.Id)
+	if err != nil {
+		common.SysLog(fmt.Sprintf("Login failed to load 2FA status for user %d: %v", user.Id, err))
+		common.ApiErrorI18n(c, i18n.MsgDatabaseError)
+		return true
+	}
+	if !twoFAEnabled {
+		return false
+	}
+
+	expiresAt := time.Now().Add(5 * time.Minute)
+	payload, err := common.Marshal(twoFALoginFlowPayload{AuthVersion: user.AuthVersion})
+	if err != nil {
+		common.ApiError(c, err)
+		return true
+	}
+	flowToken, _, err := model.CreateAuthFlow(model.AuthFlowCreate{
+		Purpose:   model.AuthFlowPurposeTwoFALogin,
+		UserId:    user.Id,
+		Payload:   string(payload),
+		ExpiresAt: expiresAt,
+	})
+	if err != nil {
+		common.ApiError(c, err)
+		return true
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": i18n.T(c, i18n.MsgUserRequire2FA),
+		"success": true,
+		"data": map[string]interface{}{
+			"require_2fa": true,
+			"flow_token":  flowToken,
+			"expires_at":  expiresAt.Unix(),
+		},
+	})
+	return true
 }
 
 // loginMethodFromContext 根据请求路径推导登录方式，用于登录审计日志。
@@ -117,6 +126,8 @@ func loginMethodFromContext(c *gin.Context) string {
 	switch c.FullPath() {
 	case "/api/user/login":
 		return "password"
+	case "/api/user/login/phone":
+		return "phone"
 	case "/api/user/login/2fa":
 		return "2fa"
 	case "/api/user/passkey/login/finish":
@@ -515,6 +526,7 @@ func buildSelfUserData(user *model.User) map[string]interface{} {
 		"role":              user.Role,
 		"status":            user.Status,
 		"email":             user.Email,
+		"phone":             user.Phone,
 		"github_id":         user.GitHubId,
 		"discord_id":        user.DiscordId,
 		"oidc_id":           user.OidcId,

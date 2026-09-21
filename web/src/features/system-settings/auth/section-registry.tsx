@@ -23,6 +23,7 @@ import { BotProtectionSection } from './bot-protection-section'
 import { CustomOAuthSection } from './custom-oauth/custom-oauth-section'
 import { OAuthSection } from './oauth-section'
 import { PasskeySection } from './passkey-section'
+import { SMSSection } from './sms-section'
 
 const AUTH_SECTIONS = [
   {
@@ -32,12 +33,46 @@ const AUTH_SECTIONS = [
       <BasicAuthSection
         defaultValues={{
           PasswordLoginEnabled: settings.PasswordLoginEnabled,
+          PhoneLoginEnabled: settings.PhoneLoginEnabled,
           PasswordRegisterEnabled: settings.PasswordRegisterEnabled,
           EmailVerificationEnabled: settings.EmailVerificationEnabled,
           RegisterEnabled: settings.RegisterEnabled,
           EmailDomainRestrictionEnabled: settings.EmailDomainRestrictionEnabled,
           EmailAliasRestrictionEnabled: settings.EmailAliasRestrictionEnabled,
           EmailDomainWhitelist: settings.EmailDomainWhitelist,
+        }}
+      />
+    ),
+  },
+  {
+    id: 'sms',
+    titleKey: 'SMS Service',
+    build: (settings: AuthSettings) => (
+      <SMSSection
+        defaultValues={{
+          'sms.local_only': settings['sms.local_only'],
+          'sms.debug_code': settings['sms.debug_code'],
+          'sms.endpoint': settings['sms.endpoint'],
+          'sms.access_key_id': settings['sms.access_key_id'],
+          'sms.access_key_secret': settings['sms.access_key_secret'],
+          'sms.sign_name': settings['sms.sign_name'],
+          'sms.template_code': settings['sms.template_code'],
+          'sms.code_length': settings['sms.code_length'],
+          'sms.code_expire_minutes': settings['sms.code_expire_minutes'],
+          'sms.resend_interval_sec': settings['sms.resend_interval_sec'],
+          'sms.daily_limit': settings['sms.daily_limit'],
+          'sms.phone_daily_limit': settings['sms.phone_daily_limit'],
+          'sms.ip_daily_limit': settings['sms.ip_daily_limit'],
+          'sms_captcha.enabled': settings['sms_captcha.enabled'],
+          'sms_captcha.captcha_app_id': settings['sms_captcha.captcha_app_id'],
+          'sms_captcha.app_secret_key': settings['sms_captcha.app_secret_key'],
+          'sms_captcha.secret_id': settings['sms_captcha.secret_id'],
+          'sms_captcha.secret_key': settings['sms_captcha.secret_key'],
+          'sms_captcha.phone_trigger_count':
+            settings['sms_captcha.phone_trigger_count'],
+          'sms_captcha.ip_trigger_count':
+            settings['sms_captcha.ip_trigger_count'],
+          'sms_captcha.window_seconds': settings['sms_captcha.window_seconds'],
         }}
       />
     ),

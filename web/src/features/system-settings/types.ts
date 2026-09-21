@@ -122,6 +122,7 @@ export type SiteSettings = {
 
 export type AuthSettings = {
   PasswordLoginEnabled: boolean
+  PhoneLoginEnabled: boolean
   PasswordRegisterEnabled: boolean
   EmailVerificationEnabled: boolean
   RegisterEnabled: boolean
@@ -164,6 +165,27 @@ export type AuthSettings = {
   'passkey.allow_insecure_origin': boolean
   'passkey.user_verification': 'required' | 'preferred' | 'discouraged'
   'passkey.attachment_preference': '' | 'platform' | 'cross-platform'
+  'sms.local_only': boolean
+  'sms.debug_code': string
+  'sms.endpoint': string
+  'sms.access_key_id': string
+  'sms.access_key_secret': string
+  'sms.sign_name': string
+  'sms.template_code': string
+  'sms.code_length': number
+  'sms.code_expire_minutes': number
+  'sms.resend_interval_sec': number
+  'sms.daily_limit': number
+  'sms.phone_daily_limit': number
+  'sms.ip_daily_limit': number
+  'sms_captcha.enabled': boolean
+  'sms_captcha.captcha_app_id': string
+  'sms_captcha.app_secret_key': string
+  'sms_captcha.secret_id': string
+  'sms_captcha.secret_key': string
+  'sms_captcha.phone_trigger_count': number
+  'sms_captcha.ip_trigger_count': number
+  'sms_captcha.window_seconds': number
 }
 
 export type ContentSettings = {

@@ -43,6 +43,8 @@ export interface UserProfile {
   role: number
   /** Email address */
   email?: string
+  /** Mobile number used for SMS code login */
+  phone?: string
   /** User group */
   group: string
   /** Current quota balance */

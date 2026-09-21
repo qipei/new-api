@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
@@ -222,4 +224,44 @@ func TestRedisFailurePolicies(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, userResponse.Code)
 	assert.Empty(t, userResponse.Body.String())
 	assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/email", "192.0.2.62:12345").Code)
+}
+
+func TestSMSRateLimitRequestsCaptchaWithoutBypassingThrottle(t *testing.T) {
+	oldPhone := common.PhoneLoginEnabled
+	common.PhoneLoginEnabled = true
+	t.Cleanup(func() { common.PhoneLoginEnabled = oldPhone })
+	server, _ := useRateLimitMiniRedis(t)
+	old := *system_setting.GetSMSCaptchaSettings()
+	*system_setting.GetSMSCaptchaSettings() = system_setting.SMSCaptchaSettings{Enabled: true, CaptchaAppId: "195901070", AppSecretKey: "test", SecretId: "test", SecretKey: "test", WindowSeconds: 600}
+	t.Cleanup(func() { *system_setting.GetSMSCaptchaSettings() = old })
+	router := gin.New()
+	require.NoError(t, router.SetTrustedProxies(nil))
+	reached := 0
+	router.GET("/api/sms/code", SMSVerificationRateLimit(), func(c *gin.Context) { reached++; c.Status(http.StatusNoContent) })
+	router.GET("/api/verification", EmailVerificationRateLimit(), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	ip := "192.0.2.81"
+	require.Equal(t, 204, performRateLimitRequest(router, "/api/sms/code", ip+":1234").Code)
+	require.Equal(t, 204, performRateLimitRequest(router, "/api/sms/code", ip+":1234").Code)
+	response := performRateLimitRequest(router, "/api/sms/code", ip+":1234")
+	assert.Equal(t, 429, response.Code)
+	var body struct {
+		Success bool `json:"success"`
+		Data    struct {
+			RequireCaptcha bool   `json:"require_captcha"`
+			AppID          string `json:"captcha_app_id"`
+			ResendAfter    int    `json:"resend_after"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(response.Body.Bytes(), &body))
+	assert.False(t, body.Success)
+	assert.True(t, body.Data.RequireCaptcha)
+	assert.Equal(t, "195901070", body.Data.AppID)
+	assert.Equal(t, 30, body.Data.ResendAfter)
+	assert.Equal(t, 2, reached)
+	// 邮箱验证码使用独立的限流桶，不受短信请求消耗影响。
+	assert.Equal(t, 204, performRateLimitRequest(router, "/api/verification", ip+":1234").Code)
+	server.FastForward(31 * time.Second)
+	assert.True(t, service.SMSCaptchaRequired("13800138181", ip), "a throttled IP must still verify after its rate window expires")
+	server.FastForward(600 * time.Second)
+	assert.False(t, service.SMSCaptchaRequired("13800138181", ip))
 }

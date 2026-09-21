@@ -47,6 +47,7 @@ import { loginFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
 import { beginPasskeyLogin, finishPasskeyLogin } from '@/features/auth/passkey'
+import { PhoneLoginForm } from '@/features/auth/sign-in/components/phone-login-form'
 import type { AuthFormProps } from '@/features/auth/types'
 import { useStatus } from '@/hooks/use-status'
 import { isAuthBundle } from '@/lib/api'
@@ -73,6 +74,9 @@ export function UserAuthForm({
   const [isWeChatDialogOpen, setIsWeChatDialogOpen] = useState(false)
   const [isWeChatSubmitting, setIsWeChatSubmitting] = useState(false)
   const [turnstileWidgetKey, setTurnstileWidgetKey] = useState(0)
+  const [selectedLoginMethod, setSelectedLoginMethod] = useState<
+    'phone' | 'password'
+  >('phone')
   const legalConsentErrorMessage = t('Please agree to the legal terms first')
   const loginFailedMessage = t('Login failed')
 
@@ -84,6 +88,15 @@ export function UserAuthForm({
     (status?.password_login_enabled ??
       status?.data?.password_login_enabled ??
       true) !== false
+  const phoneLoginEnabled = Boolean(
+    status?.phone_login_enabled ?? status?.data?.phone_login_enabled
+  )
+  // Prefer phone login; only offer switching when both methods are enabled.
+  const canSwitchLoginMethod = phoneLoginEnabled && passwordLoginEnabled
+  const fallbackLoginMethod = phoneLoginEnabled ? 'phone' : 'password'
+  const activeLoginMethod = canSwitchLoginMethod
+    ? selectedLoginMethod
+    : fallbackLoginMethod
   const {
     isTurnstileEnabled,
     turnstileSiteKey,
@@ -151,6 +164,14 @@ export function UserAuthForm({
     )
   }, [status])
 
+  // A Turnstile token is single-use, so drop it and remount the widget once a
+  // request has spent it. Both login tabs and the SMS code request share it.
+  const consumeTurnstileToken = () => {
+    if (!isTurnstileEnabled) return
+    setTurnstileToken('')
+    setTurnstileWidgetKey((current) => current + 1)
+  }
+
   async function onSubmit(data: z.infer<typeof loginFormSchema>) {
     if (requiresLegalConsent && !agreedToLegal) {
       toast.error(legalConsentErrorMessage)
@@ -160,10 +181,7 @@ export function UserAuthForm({
     if (!validateTurnstile()) return
 
     const submittedTurnstileToken = turnstileToken
-    if (isTurnstileEnabled) {
-      setTurnstileToken('')
-      setTurnstileWidgetKey((current) => current + 1)
-    }
+    consumeTurnstileToken()
 
     setIsLoading(true)
     try {
@@ -348,92 +366,123 @@ export function UserAuthForm({
     </>
   )
 
-  return (
+  const phoneLoginForm = (
+    <PhoneLoginForm
+      redirectTo={redirectTo}
+      disabled={requiresLegalConsent && !agreedToLegal}
+      turnstileToken={turnstileToken}
+      validateTurnstile={validateTurnstile}
+      onTurnstileConsumed={consumeTurnstileToken}
+    />
+  )
+
+  const passwordLoginForm = (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className={cn('grid gap-4', className)}
+        className='grid gap-4'
         {...props}
       >
-        {hasAlternativeLogin && alternativeLoginMethods}
-
-        {passwordLoginEnabled && (
-          <>
-            {/* Username Field */}
-            <FormField
-              control={form.control}
-              name='username'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('Username or Email')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder={t('Enter your username or email')}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Password Field */}
-            <FormField
-              control={form.control}
-              name='password'
-              render={({ field }) => (
-                <FormItem className='relative'>
-                  <FormLabel>{t('Password')}</FormLabel>
-                  <FormControl>
-                    <PasswordInput
-                      placeholder={t('Enter password')}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                  <Link
-                    to='/forgot-password'
-                    className='text-muted-foreground absolute end-0 -top-0.5 z-10 text-sm font-medium hover:opacity-75'
-                  >
-                    {t('Forgot password?')}
-                  </Link>
-                </FormItem>
-              )}
-            />
-
-            {/* Submit Button */}
-            <Button
-              type='submit'
-              className='mt-2 w-full justify-center gap-2'
-              disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
-            >
-              {isLoading ? <Loader2 className='animate-spin' /> : <LogIn />}
-              {t('Sign in')}
-            </Button>
-
-            {/* Turnstile */}
-            {isTurnstileEnabled && (
-              <div className='mt-2'>
-                <Turnstile
-                  key={turnstileWidgetKey}
-                  siteKey={turnstileSiteKey}
-                  onVerify={setTurnstileToken}
-                  onExpire={() => setTurnstileToken('')}
+        {/* Username Field */}
+        <FormField
+          control={form.control}
+          name='username'
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t('Username or Email')}</FormLabel>
+              <FormControl>
+                <Input
+                  placeholder={t('Enter your username or email')}
+                  {...field}
                 />
-              </div>
-            )}
-          </>
-        )}
-
-        <LegalConsent
-          status={status}
-          checked={agreedToLegal}
-          onCheckedChange={setAgreedToLegal}
-          className='mt-1'
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
         />
 
-        {!hasAlternativeLogin && alternativeLoginMethods}
+        {/* Password Field */}
+        <FormField
+          control={form.control}
+          name='password'
+          render={({ field }) => (
+            <FormItem className='relative'>
+              <FormLabel>{t('Password')}</FormLabel>
+              <FormControl>
+                <PasswordInput placeholder={t('Enter password')} {...field} />
+              </FormControl>
+              <FormMessage />
+              <Link
+                to='/forgot-password'
+                className='text-muted-foreground absolute end-0 -top-0.5 z-10 text-sm font-medium hover:opacity-75'
+              >
+                {t('Forgot password?')}
+              </Link>
+            </FormItem>
+          )}
+        />
+
+        {/* Submit Button */}
+        <Button
+          type='submit'
+          className='mt-2 w-full justify-center gap-2'
+          disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+        >
+          {isLoading ? <Loader2 className='animate-spin' /> : <LogIn />}
+          {t('Sign in')}
+        </Button>
       </form>
+    </Form>
+  )
+
+  return (
+    <div className={cn('grid gap-4', className)}>
+      {hasAlternativeLogin && alternativeLoginMethods}
+
+      <div id='login-method-form'>
+        {activeLoginMethod === 'phone' && phoneLoginEnabled && phoneLoginForm}
+        {activeLoginMethod === 'password' &&
+          passwordLoginEnabled &&
+          passwordLoginForm}
+      </div>
+
+      {/* Turnstile is shared by both login methods and by the SMS code request. */}
+      {isTurnstileEnabled && (phoneLoginEnabled || passwordLoginEnabled) && (
+        <div className='mt-2'>
+          <Turnstile
+            key={turnstileWidgetKey}
+            siteKey={turnstileSiteKey}
+            onVerify={setTurnstileToken}
+            onExpire={() => setTurnstileToken('')}
+          />
+        </div>
+      )}
+
+      <LegalConsent
+        status={status}
+        checked={agreedToLegal}
+        onCheckedChange={setAgreedToLegal}
+        className='mt-1'
+      />
+
+      {canSwitchLoginMethod && (
+        <button
+          type='button'
+          aria-controls='login-method-form'
+          className='text-muted-foreground hover:text-foreground focus-visible:ring-ring min-h-11 justify-self-center rounded-md px-3 text-xs underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none'
+          onClick={() =>
+            setSelectedLoginMethod(
+              activeLoginMethod === 'phone' ? 'password' : 'phone'
+            )
+          }
+        >
+          {activeLoginMethod === 'phone'
+            ? t('Password login')
+            : t('Phone login')}
+        </button>
+      )}
+
+      {!hasAlternativeLogin && alternativeLoginMethods}
 
       {hasWeChatLogin && (
         <Dialog
@@ -500,6 +549,6 @@ export function UserAuthForm({
           </div>
         </Dialog>
       )}
-    </Form>
+    </div>
   )
 }

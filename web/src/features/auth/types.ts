@@ -28,6 +28,25 @@ export interface LoginPayload {
   turnstile?: string
 }
 
+export interface PhoneLoginPayload {
+  phone: string
+  code: string
+  aff_code?: string
+  turnstile?: string
+}
+
+export interface SMSCodePayload {
+  phone: string
+  captcha_ticket?: string
+  captcha_randstr?: string
+  turnstile?: string
+}
+
+export interface BindPhonePayload {
+  phone: string
+  code: string
+}
+
 export interface TwoFAPayload {
   code: string
   flow_token: string
@@ -77,6 +96,18 @@ export interface Login2FAResponse {
   success: boolean
   message: string
   data?: AuthBundle
+}
+
+export interface SMSCodeResponse {
+  success: boolean
+  message: string
+  data?: {
+    require_captcha?: boolean
+    captcha_app_id?: string
+    expires_in?: number
+    resend_after?: number
+    debug_code?: string
+  }
 }
 
 export interface ApiResponse<T = unknown> {
@@ -136,6 +167,9 @@ export interface SystemStatus {
     register_enabled?: boolean
     password_login_enabled?: boolean
     password_register_enabled?: boolean
+    phone_login_enabled?: boolean
+    sms_captcha_enabled?: boolean
+    sms_captcha_app_id?: string
     custom_oauth_providers?: CustomOAuthProviderInfo[]
     [key: string]: unknown
   }
@@ -181,6 +215,9 @@ export interface SystemStatus {
   register_enabled?: boolean
   password_login_enabled?: boolean
   password_register_enabled?: boolean
+  phone_login_enabled?: boolean
+  sms_captcha_enabled?: boolean
+  sms_captcha_app_id?: string
   custom_oauth_providers?: CustomOAuthProviderInfo[]
   [key: string]: unknown
 }

@@ -45,6 +45,7 @@ import { useResetForm } from '../hooks/use-reset-form'
 import { useUpdateOption } from '../hooks/use-update-option'
 
 const basicAuthSchema = z.object({
+  PhoneLoginEnabled: z.boolean(),
   PasswordLoginEnabled: z.boolean(),
   PasswordRegisterEnabled: z.boolean(),
   EmailVerificationEnabled: z.boolean(),
@@ -114,6 +115,29 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
             onSave={form.handleSubmit(onSubmit)}
             isSaving={updateOption.isPending}
           />
+          <FormField
+            control={form.control}
+            name='PhoneLoginEnabled'
+            render={({ field }) => (
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>{t('Phone Login')}</FormLabel>
+                  <FormDescription>
+                    {t(
+                      'Make phone number + SMS code the primary login. Password login, if still enabled, stays available as a fallback for existing users. Requires SMS Service to be configured.'
+                    )}
+                  </FormDescription>
+                </SettingsSwitchContent>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </SettingsSwitchItem>
+            )}
+          />
+
           <FormField
             control={form.control}
             name='PasswordLoginEnabled'

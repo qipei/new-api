@@ -23,6 +23,10 @@ For commercial licensing, please contact support@quantumnous.com
 export {
   login,
   login2fa,
+  phoneLogin,
+  sendLoginSMSCode,
+  sendBindPhoneCode,
+  bindPhone,
   logout,
   register,
   sendPasswordResetEmail,
@@ -43,6 +47,10 @@ export type {
   LoginResponse,
   Login2FAResponse,
   TwoFAPayload,
+  PhoneLoginPayload,
+  SMSCodePayload,
+  SMSCodeResponse,
+  BindPhonePayload,
   RegisterPayload,
   PasswordResetPayload,
   EmailVerificationPayload,
@@ -59,6 +67,7 @@ export type {
 
 export {
   loginFormSchema,
+  phoneLoginFormSchema,
   registerFormSchema,
   forgotPasswordFormSchema,
   otpFormSchema,
@@ -68,7 +77,9 @@ export {
   BACKUP_CODE_LENGTH,
   BACKUP_CODE_REGEX,
   OTP_REGEX,
+  PHONE_NUMBER_REGEX,
   EMAIL_VERIFICATION_COUNTDOWN,
+  SMS_VERIFICATION_COUNTDOWN,
   PASSWORD_RESET_COUNTDOWN,
 } from './constants'
 

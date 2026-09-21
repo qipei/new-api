@@ -1,4 +1,9 @@
 {
+  "AccessKey ID": "AccessKey ID",
+  "AccessKey Secret": "AccessKey Secret",
+  "AppSecretKey": "AppSecretKey",
+  "CaptchaAppId": "CaptchaAppId",
   "Referral QR Code": "Referral QR Code",
-  "Show referral QR code": "Show referral QR code"
+  "Show referral QR code": "Show referral QR code",
+  "Waffo Pancake": "Waffo Pancake"
 }

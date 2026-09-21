@@ -336,3 +336,22 @@ const (
 	MsgCustomOAuthBindingNotFound   = "custom_oauth.binding_not_found"
 	MsgCustomOAuthProviderIdInvalid = "custom_oauth.provider_id_field_invalid"
 )
+
+// Phone login and SMS verification related messages
+const (
+	MsgPhoneLoginDisabled = "phone.login_disabled"
+	MsgPhoneInvalid       = "phone.invalid"
+	MsgPhoneCodeError     = "phone.code_error"
+	MsgPhoneAlreadyTaken  = "phone.already_taken"
+	MsgPhoneNotBound      = "phone.not_bound"
+	MsgPhoneNotRegistered = "phone.not_registered"
+	MsgPhoneAlreadyBound  = "phone.already_bound"
+	MsgSMSNotConfigured   = "sms.not_configured"
+	MsgSMSSendFailed      = "sms.send_failed"
+	MsgSMSTooFrequent     = "sms.too_frequent"
+	MsgSMSCaptchaRequired = "sms.captcha_required"
+	MsgSMSCaptchaFailed   = "sms.captcha_failed"
+	MsgSMSPurposeUnknown  = "sms.purpose_unknown"
+	MsgSMSDailyLimit      = "sms.daily_limit_reached"
+	MsgSMSDailyExhausted  = "sms.daily_total_exhausted"
+)

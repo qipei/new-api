@@ -49,6 +49,7 @@ func GetStatus(c *gin.Context) {
 
 	passkeySetting := system_setting.GetPasskeySettings()
 	legalSetting := system_setting.GetLegalSettings()
+	smsCaptchaSetting := system_setting.GetSMSCaptchaSettings()
 
 	data := gin.H{
 		"version":                     common.Version,
@@ -91,6 +92,9 @@ func GetStatus(c *gin.Context) {
 		"self_use_mode_enabled":         operation_setting.SelfUseModeEnabled,
 		"register_enabled":              common.RegisterEnabled,
 		"password_login_enabled":        common.PasswordLoginEnabled,
+		"phone_login_enabled":           common.PhoneLoginEnabled,
+		"sms_captcha_enabled":           smsCaptchaSetting.Enabled && smsCaptchaSetting.Configured(),
+		"sms_captcha_app_id":            smsCaptchaSetting.CaptchaAppId,
 		"password_register_enabled":     common.PasswordRegisterEnabled,
 		"default_use_auto_group":        setting.DefaultUseAutoGroup,
 		// CUSTOM: 新建令牌的默认分组，三选一（fork 扩展）

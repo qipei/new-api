@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Mail, Shield, Send, Link2, Unlink } from 'lucide-react'
+import { Mail, Shield, Send, Link2, Unlink, Smartphone } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SiGithub, SiWechat, SiLinux } from 'react-icons/si'
@@ -53,6 +53,7 @@ import {
 import { getSelfOAuthBindings, unbindCustomOAuth } from '../../api'
 import type { UserProfile, BindingItem } from '../../types'
 import { EmailBindDialog } from '../dialogs/email-bind-dialog'
+import { PhoneBindDialog } from '../dialogs/phone-bind-dialog'
 import { TelegramBindDialog } from '../dialogs/telegram-bind-dialog'
 import { WeChatBindDialog } from '../dialogs/wechat-bind-dialog'
 
@@ -65,7 +66,7 @@ interface AccountBindingsTabProps {
   onUpdate: () => void
 }
 
-type DialogKey = 'email' | 'wechat' | 'telegram'
+type DialogKey = 'email' | 'phone' | 'wechat' | 'telegram'
 
 interface PendingOAuthBinding {
   provider: string
@@ -307,6 +308,15 @@ export function AccountBindingsTab({
         onBind: () => dialogs.open('email'),
       },
       {
+        id: 'phone',
+        label: t('Mobile number'),
+        icon: Smartphone,
+        value: profile.phone,
+        isBound: Boolean(profile.phone),
+        isEnabled: Boolean(status?.phone_login_enabled),
+        onBind: () => dialogs.open('phone'),
+      },
+      {
         id: 'wechat',
         label: t('WeChat'),
         icon: SiWechat as React.ComponentType<{ className?: string }>,
@@ -422,7 +432,10 @@ export function AccountBindingsTab({
       <div className='grid grid-cols-1 gap-2.5 sm:grid-cols-2 sm:gap-3'>
         {bindings.map((binding) => {
           let actionLabel = t('Bind')
-          if (binding.isBound && binding.id === 'email') {
+          if (
+            binding.isBound &&
+            (binding.id === 'email' || binding.id === 'phone')
+          ) {
             actionLabel = t('Change')
           } else if (binding.isBound) {
             actionLabel = t('Bound')
@@ -458,7 +471,11 @@ export function AccountBindingsTab({
                 size='sm'
                 className='h-7 shrink-0 px-2.5 text-xs'
                 onClick={binding.onBind}
-                disabled={binding.isBound && binding.id !== 'email'}
+                disabled={
+                  binding.isBound &&
+                  binding.id !== 'email' &&
+                  binding.id !== 'phone'
+                }
               >
                 {actionLabel}
               </Button>
@@ -556,6 +573,16 @@ export function AccountBindingsTab({
           open ? dialogs.open('email') : dialogs.close('email')
         }
         currentEmail={profile.email}
+        onSuccess={onUpdate}
+      />
+
+      {/* Phone Bind Dialog */}
+      <PhoneBindDialog
+        open={dialogs.isOpen('phone')}
+        onOpenChange={(open) =>
+          open ? dialogs.open('phone') : dialogs.close('phone')
+        }
+        currentPhone={profile.phone}
         onSuccess={onUpdate}
       />
 

@@ -152,7 +152,7 @@ func RegisterUserByPhone(phone string, inviterId int) (user *User, isNew bool, e
 				return err
 			}
 
-			username, err := generatePhoneUsername(tx)
+			username, err := generatePhoneUsername(tx, phone)
 			if err != nil {
 				return err
 			}
@@ -183,11 +183,14 @@ func RegisterUserByPhone(phone string, inviterId int) (user *User, isNew bool, e
 	return user, isNew, nil
 }
 
-// generatePhoneUsername 为手机号注册的账号分配一个随机用户名。用户名会出现在管理后台、
-// 日志和页面顶栏里，所以不包含手机号本身，避免完整号码随处可见。
-func generatePhoneUsername(tx *gorm.DB) (string, error) {
+// generatePhoneUsername 以「u + 手机号」作为用户名。该用户名已被占用时（例如同一号码的
+// 旧账号已注销，注销记录仍保留用户名）追加 4 位随机后缀重试。
+func generatePhoneUsername(tx *gorm.DB, phone string) (string, error) {
+	candidate := "u" + phone
 	for attempt := 0; attempt < 8; attempt++ {
-		candidate := "u" + strings.ToLower(common.GetRandomString(10))
+		if attempt > 0 {
+			candidate = "u" + phone + "_" + strings.ToLower(common.GetRandomString(4))
+		}
 		var count int64
 		if err := tx.Unscoped().Model(&User{}).Where("username = ?", candidate).Count(&count).Error; err != nil {
 			return "", err

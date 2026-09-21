@@ -16,6 +16,7 @@ func TestPhoneRegistrationAndLegacyAccountBinding(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, created)
 	assert.Equal(t, "13800138000", user.Phone)
+	assert.Equal(t, "u13800138000", user.Username)
 	same, created, err := RegisterUserByPhone("13800138000", 0)
 	require.NoError(t, err)
 	assert.False(t, created)
@@ -36,7 +37,7 @@ func TestPhoneNumberIsReleasedAfterAccountDeletion(t *testing.T) {
 	oldQuota := common.QuotaForNewUser
 	common.QuotaForNewUser = 0
 	t.Cleanup(func() { common.QuotaForNewUser = oldQuota })
-	deleted := &User{Username: "deleted-phone", Phone: "13800138002", AffCode: "del1"}
+	deleted := &User{Username: "u13800138002", Phone: "13800138002", AffCode: "del1"}
 	require.NoError(t, DB.Create(deleted).Error)
 	require.NoError(t, DB.Delete(deleted).Error)
 
@@ -45,7 +46,8 @@ func TestPhoneNumberIsReleasedAfterAccountDeletion(t *testing.T) {
 	assert.True(t, created)
 	assert.NotEqual(t, deleted.Id, user.Id)
 	assert.Equal(t, "13800138002", user.Phone)
-	assert.NotContains(t, user.Username, user.Phone)
+	// 旧账号注销后仍占用 u13800138002，新账号用户名带随机后缀。
+	assert.Regexp(t, `^u13800138002_[a-z0-9]{4}$`, user.Username)
 
 	// 注销记录保留原号码，便于审计。
 	var archived User

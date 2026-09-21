@@ -78,5 +78,8 @@ export function useStatus() {
     status: data ?? null,
     loading: isLoading,
     error,
+    // 是否向访客展示注册入口：管理员关闭注册或开启自用模式时都不展示。
+    registrationOpen:
+      !data?.self_use_mode_enabled && data?.register_enabled !== false,
   }
 }

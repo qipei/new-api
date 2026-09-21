@@ -5758,6 +5758,9 @@
     "Per-number Daily Limit": "Limite quotidienne par numéro",
     "Maximum SMS codes one number can receive per day. 0 means unlimited": "Nombre maximal de codes SMS qu'un numéro peut recevoir par jour. 0 signifie illimité",
     "Per-IP Daily Limit": "Limite quotidienne par IP",
-    "Maximum SMS codes one IP can request per day. 0 means unlimited": "Nombre maximal de codes SMS qu'une IP peut demander par jour. 0 signifie illimité"
+    "Maximum SMS codes one IP can request per day. 0 means unlimited": "Nombre maximal de codes SMS qu'une IP peut demander par jour. 0 signifie illimité",
+    "Registration is closed": "Inscriptions fermées",
+    "New account registration is currently closed. If you already have an account, please sign in.": "L'inscription de nouveaux comptes est actuellement fermée. Si vous avez déjà un compte, veuillez vous connecter.",
+    "Go to sign in": "Se connecter"
   }
 }

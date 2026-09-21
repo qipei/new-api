@@ -19,11 +19,34 @@ For commercial licensing, please contact support@quantumnous.com
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
+import { Button } from '@/components/ui/button'
+import { useStatus } from '@/hooks/use-status'
+
 import { AuthLayout } from '../auth-layout'
 import { SignUpForm } from './components/sign-up-form'
 
 export function SignUp() {
   const { t } = useTranslation()
+  const { registrationOpen } = useStatus()
+
+  // 注册关闭时直接说明情况，而不是展示一个提交后必然被后端拒绝的表单。
+  if (!registrationOpen) {
+    return (
+      <AuthLayout variant='entry'>
+        <div className='w-full space-y-6'>
+          <h1 className='auth-entry-title'>{t('Registration is closed')}</h1>
+          <p className='text-muted-foreground text-sm'>
+            {t(
+              'New account registration is currently closed. If you already have an account, please sign in.'
+            )}
+          </p>
+          <Button className='w-full' render={<Link to='/sign-in' />}>
+            {t('Go to sign in')}
+          </Button>
+        </div>
+      </AuthLayout>
+    )
+  }
 
   return (
     <AuthLayout variant='entry'>

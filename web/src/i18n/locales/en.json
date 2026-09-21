@@ -5758,6 +5758,9 @@
     "Per-number Daily Limit": "Per-number Daily Limit",
     "Maximum SMS codes one number can receive per day. 0 means unlimited": "Maximum SMS codes one number can receive per day. 0 means unlimited",
     "Per-IP Daily Limit": "Per-IP Daily Limit",
-    "Maximum SMS codes one IP can request per day. 0 means unlimited": "Maximum SMS codes one IP can request per day. 0 means unlimited"
+    "Maximum SMS codes one IP can request per day. 0 means unlimited": "Maximum SMS codes one IP can request per day. 0 means unlimited",
+    "Registration is closed": "Registration is closed",
+    "New account registration is currently closed. If you already have an account, please sign in.": "New account registration is currently closed. If you already have an account, please sign in.",
+    "Go to sign in": "Go to sign in"
   }
 }

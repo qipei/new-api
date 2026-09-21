@@ -5758,6 +5758,9 @@
     "Per-number Daily Limit": "Giới hạn mỗi số mỗi ngày",
     "Maximum SMS codes one number can receive per day. 0 means unlimited": "Số mã SMS tối đa một số nhận được mỗi ngày. 0 là không giới hạn",
     "Per-IP Daily Limit": "Giới hạn mỗi IP mỗi ngày",
-    "Maximum SMS codes one IP can request per day. 0 means unlimited": "Số mã SMS tối đa một IP yêu cầu mỗi ngày. 0 là không giới hạn"
+    "Maximum SMS codes one IP can request per day. 0 means unlimited": "Số mã SMS tối đa một IP yêu cầu mỗi ngày. 0 là không giới hạn",
+    "Registration is closed": "Đã đóng đăng ký",
+    "New account registration is currently closed. If you already have an account, please sign in.": "Hiện chưa mở đăng ký tài khoản mới. Nếu đã có tài khoản, vui lòng đăng nhập.",
+    "Go to sign in": "Đi đến đăng nhập"
   }
 }

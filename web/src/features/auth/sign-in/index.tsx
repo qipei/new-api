@@ -27,25 +27,24 @@ import { UserAuthForm } from './components/user-auth-form'
 export function SignIn() {
   const { t } = useTranslation()
   const { redirect } = useSearch({ from: '/(auth)/sign-in' })
-  const { status } = useStatus()
+  const { registrationOpen } = useStatus()
 
   return (
     <AuthLayout variant='entry'>
       <div className='w-full space-y-6'>
         <h1 className='auth-entry-title'>{t('Sign in')}</h1>
         <UserAuthForm redirectTo={redirect} />
-        {!status?.self_use_mode_enabled &&
-          status?.register_enabled !== false && (
-            <p className='auth-entry-switch'>
-              {t("Don't have an account?")}{' '}
-              <Link
-                to='/sign-up'
-                className='hover:text-primary font-medium underline underline-offset-4'
-              >
-                {t('Sign up')}
-              </Link>
-            </p>
-          )}
+        {registrationOpen && (
+          <p className='auth-entry-switch'>
+            {t("Don't have an account?")}{' '}
+            <Link
+              to='/sign-up'
+              className='hover:text-primary font-medium underline underline-offset-4'
+            >
+              {t('Sign up')}
+            </Link>
+          </p>
+        )}
       </div>
     </AuthLayout>
   )

@@ -5758,6 +5758,9 @@
     "Per-number Daily Limit": "同一番号の1日上限",
     "Maximum SMS codes one number can receive per day. 0 means unlimited": "1つの番号が1日に受け取れる SMS コードの上限。0 は無制限",
     "Per-IP Daily Limit": "同一 IP の1日上限",
-    "Maximum SMS codes one IP can request per day. 0 means unlimited": "1つの IP が1日に取得できる SMS コードの上限。0 は無制限"
+    "Maximum SMS codes one IP can request per day. 0 means unlimited": "1つの IP が1日に取得できる SMS コードの上限。0 は無制限",
+    "Registration is closed": "新規登録は停止中です",
+    "New account registration is currently closed. If you already have an account, please sign in.": "現在、新規アカウントの登録は受け付けていません。アカウントをお持ちの方はログインしてください。",
+    "Go to sign in": "ログインへ"
   }
 }

@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 
 import { AnimateInView } from '@/components/animate-in-view'
 import { Button } from '@/components/ui/button'
+import { useStatus } from '@/hooks/use-status'
 
 interface CTAProps {
   className?: string
@@ -30,6 +31,7 @@ interface CTAProps {
 
 export function CTA(props: CTAProps) {
   const { t } = useTranslation()
+  const { registrationOpen } = useStatus()
 
   if (props.isAuthenticated) {
     return null
@@ -66,7 +68,10 @@ export function CTA(props: CTAProps) {
           )}
         </p>
         <div className='mt-8 flex items-center justify-center gap-3'>
-          <Button className='group rounded-lg' render={<Link to='/sign-up' />}>
+          <Button
+            className='group rounded-lg'
+            render={<Link to={registrationOpen ? '/sign-up' : '/sign-in'} />}
+          >
             {t('Get Started')}
             <ArrowRight className='ml-1 size-3.5 transition-transform duration-200 group-hover:translate-x-0.5' />
           </Button>

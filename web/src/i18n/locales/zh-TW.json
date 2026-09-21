@@ -5758,6 +5758,9 @@
     "Per-number Daily Limit": "同手機號每日上限",
     "Maximum SMS codes one number can receive per day. 0 means unlimited": "同一手機號每天最多接收的驗證碼條數，0 表示不限",
     "Per-IP Daily Limit": "同 IP 每日上限",
-    "Maximum SMS codes one IP can request per day. 0 means unlimited": "同一 IP 每天最多取得的驗證碼條數，0 表示不限"
+    "Maximum SMS codes one IP can request per day. 0 means unlimited": "同一 IP 每天最多取得的驗證碼條數，0 表示不限",
+    "Registration is closed": "註冊已關閉",
+    "New account registration is currently closed. If you already have an account, please sign in.": "目前暫不開放新用戶註冊，已有帳號請直接登入。",
+    "Go to sign in": "前往登入"
   }
 }

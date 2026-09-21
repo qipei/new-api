@@ -5758,6 +5758,9 @@
     "Per-number Daily Limit": "Суточный лимит на номер",
     "Maximum SMS codes one number can receive per day. 0 means unlimited": "Максимум SMS-кодов, которые один номер может получить за сутки. 0 — без ограничений",
     "Per-IP Daily Limit": "Суточный лимит на IP",
-    "Maximum SMS codes one IP can request per day. 0 means unlimited": "Максимум SMS-кодов, которые один IP может запросить за сутки. 0 — без ограничений"
+    "Maximum SMS codes one IP can request per day. 0 means unlimited": "Максимум SMS-кодов, которые один IP может запросить за сутки. 0 — без ограничений",
+    "Registration is closed": "Регистрация закрыта",
+    "New account registration is currently closed. If you already have an account, please sign in.": "Регистрация новых аккаунтов сейчас закрыта. Если у вас уже есть аккаунт, войдите.",
+    "Go to sign in": "Перейти ко входу"
   }
 }

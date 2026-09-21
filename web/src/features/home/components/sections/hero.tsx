@@ -47,7 +47,7 @@ const MoreIcon = () => (
 
 export function Hero(props: HeroProps) {
   const { t } = useTranslation()
-  const { status } = useStatus()
+  const { status, registrationOpen } = useStatus()
   const docsUrl =
     (status?.docs_link as string | undefined) || 'https://docs.newapi.pro'
 
@@ -152,7 +152,9 @@ export function Hero(props: HeroProps) {
               <>
                 <Button
                   className='group h-11 rounded-lg px-5 text-sm font-medium'
-                  render={<Link to='/sign-up' />}
+                  render={
+                    <Link to={registrationOpen ? '/sign-up' : '/sign-in'} />
+                  }
                 >
                   {t('Get Started')}
                   <ArrowRight className='ml-1.5 size-4 transition-transform duration-200 group-hover:translate-x-0.5' />

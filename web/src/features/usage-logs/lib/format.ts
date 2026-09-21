@@ -21,6 +21,8 @@ import {
   BILLING_PRICING_VARS,
   normalizeTierLabel,
   parseTiersFromExpr,
+  splitBillingExprAndRequestRules,
+  tryParseRequestRuleExpr,
   type ParsedTier,
 } from '@/features/pricing/lib/billing-expr'
 
@@ -319,7 +321,18 @@ export function resolveMatchedTier(
 export interface TieredBillingSummary {
   tiers: ParsedTier[]
   tier: ParsedTier
+  priceMultiplier: number
   priceEntries: Array<{ field: string; shortLabel: string; price: number }>
+}
+
+/** The logged group ratio is the settlement ratio, including any promotion.
+ * The exclusive ratio is only a fallback for older logs: it excludes promotions.
+ */
+export function getLogBillingRatio(other: LogOtherData): number {
+  for (const ratio of [other.group_ratio, other.user_group_ratio]) {
+    if (ratio != null && Number.isFinite(ratio) && ratio >= 0) return ratio
+  }
+  return 1
 }
 
 /**
@@ -349,7 +362,20 @@ export function getTieredBillingSummary(
   const tier = resolveMatchedTier(tiers, other.matched_tier)
   if (!tier) return null
 
+  // Only outer factors apply uniformly to every token price. A rule inside
+  // a tier can affect just one term; legacy logs can also lack its trace.
+  const { requestRuleExpr } = splitBillingExprAndRequestRules(
+    exprStr.replace(/^v\d+:/, '')
+  )
+  const rules = tryParseRequestRuleExpr(requestRuleExpr) ?? []
+  if (rules.length !== (other.request_rules?.length ?? 0)) return null
   const cacheTokensPresent = hasAnyCacheTokens(other)
+  let priceMultiplier = getLogBillingRatio(other)
+  for (const rule of other.request_rules ?? []) {
+    if (!Number.isFinite(rule.multiplier) || rule.multiplier < 0) return null
+    if (rule.matched) priceMultiplier *= rule.multiplier
+  }
+  if (!Number.isFinite(priceMultiplier)) return null
 
   const priceEntries: TieredBillingSummary['priceEntries'] = []
   for (const v of BILLING_PRICING_VARS) {
@@ -361,11 +387,11 @@ export function getTieredBillingSummary(
       priceEntries.push({
         field: v.field,
         shortLabel: v.shortLabel,
-        price,
+        price: price * priceMultiplier,
       })
     }
   }
-  return { tiers, tier, priceEntries }
+  return { tiers, tier, priceMultiplier, priceEntries }
 }
 
 /**

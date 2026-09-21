@@ -56,6 +56,8 @@ type DynamicPricingBreakdownProps = {
   matchedTierLabel?: string | null
   /** Request-rule traces emitted by the settlement run. */
   requestRules?: RequestRuleTrace[] | null
+  /** Historical settlement multiplier, supplied only by usage logs. */
+  priceMultiplier?: number
   /**
    * Hide cache-pricing columns regardless of the per-tier values. The log
    * details dialog passes this when the actual request did not consume any
@@ -177,6 +179,7 @@ export function DynamicPricingBreakdown({
   billingExpr,
   matchedTierLabel,
   requestRules,
+  priceMultiplier,
   hideCacheColumns = false,
   compact = false,
   hideTiers = false,
@@ -284,7 +287,9 @@ export function DynamicPricingBreakdown({
                 : 'text-foreground mb-2 text-sm font-semibold'
             }
           >
-            {t('Tiered price table')}
+            {priceMultiplier != null
+              ? t('Unit prices after multipliers')
+              : t('Tiered price table')}
           </div>
           <div className='space-y-1.5 sm:hidden'>
             {tiers.map((tier) => {
@@ -343,7 +348,7 @@ export function DynamicPricingBreakdown({
                             )}
                           >
                             {value > 0
-                              ? `${symbol}${(value * rate).toFixed(4)}`
+                              ? `${symbol}${(value * rate * (priceMultiplier ?? 1)).toFixed(4)}`
                               : '-'}
                           </div>
                         </div>
@@ -432,7 +437,7 @@ export function DynamicPricingBreakdown({
                   )
                   return value > 0 ? (
                     <span className={cn(!compact && 'font-semibold')}>
-                      {`${symbol}${(value * rate).toFixed(4)}`}
+                      {`${symbol}${(value * rate * (priceMultiplier ?? 1)).toFixed(4)}`}
                     </span>
                   ) : (
                     '-'

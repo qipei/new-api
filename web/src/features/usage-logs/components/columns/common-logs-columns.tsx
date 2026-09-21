@@ -45,6 +45,7 @@ import type { UsageLog } from '../../data/schema'
 import {
   formatModelName,
   getTieredBillingSummary,
+  getLogBillingRatio,
   hasAnyCacheTokens,
   parseLogOther,
   isViolationFeeLog,
@@ -78,21 +79,9 @@ function formatRatioCompact(ratio: number | undefined): string {
 }
 
 function getGroupRatio(other: LogOtherData | null): number | null {
-  const userGroupRatio = other?.user_group_ratio
-  if (
-    userGroupRatio != null &&
-    userGroupRatio !== -1 &&
-    Number.isFinite(userGroupRatio)
-  ) {
-    return userGroupRatio
-  }
-
-  const groupRatio = other?.group_ratio
-  if (groupRatio != null && groupRatio !== 1 && Number.isFinite(groupRatio)) {
-    return groupRatio
-  }
-
-  return null
+  if (!other) return null
+  const ratio = getLogBillingRatio(other)
+  return ratio === 1 ? null : ratio
 }
 
 function buildDetailSegments(
@@ -232,13 +221,14 @@ function buildTypeDetailSegments(
     }
   } else {
     const modelPrice = other.model_price
+    const billingRatio = getLogBillingRatio(other)
     const isPerCall = isPerCallBilling(modelPrice)
     if (isPerCall && modelPrice != null) {
       segments.push({
-        text: `${t('Per-call')} · ${formatBillingCurrencyFromUSD(modelPrice, priceOpts)}`,
+        text: `${t('Per-call')} · ${formatBillingCurrencyFromUSD(modelPrice * billingRatio, priceOpts)}`,
       })
     } else if (other.model_ratio != null) {
-      const inputPriceUSD = other.model_ratio * 2.0
+      const inputPriceUSD = other.model_ratio * 2.0 * billingRatio
       const baseEntries = [formatPriceCompact(inputPriceUSD)]
       if (other.completion_ratio != null) {
         baseEntries.push(
@@ -271,20 +261,9 @@ function buildTypeDetailSegments(
         }
       }
     } else {
-      const userGroupRatio = other.user_group_ratio
-      const groupRatio = other.group_ratio
-      const isUserGroup =
-        userGroupRatio != null &&
-        Number.isFinite(userGroupRatio) &&
-        userGroupRatio !== -1
-      const effectiveRatio = isUserGroup ? userGroupRatio : groupRatio
-      const ratioLabel = isUserGroup
-        ? t('User Exclusive Ratio')
-        : t('Group Ratio')
-
-      if (effectiveRatio != null && Number.isFinite(effectiveRatio)) {
+      if (other.group_ratio != null || other.user_group_ratio != null) {
         segments.push({
-          text: `${ratioLabel} ${formatRatioCompact(effectiveRatio)}x`,
+          text: `${t('Effective billing ratio')} ${formatRatioCompact(billingRatio)}x`,
         })
       }
     }

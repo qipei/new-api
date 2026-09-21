@@ -164,8 +164,15 @@ func testChannel(ctx context.Context, channel *model.Channel, testUserID int, te
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set("channel", channel.Type)
 	c.Set("base_url", channel.GetBaseURL())
-	group, _ := model.GetUserGroup(testUserID, false)
-	c.Set("group", group)
+	// A direct channel test bypasses normal group routing. Keep the user's
+	// group only if this channel supports it; otherwise use a configured group
+	// so its expression, promotions and logged prices describe this channel.
+	group := cache.Group
+	channelGroups := channel.GetGroups()
+	if len(channelGroups) > 0 && !lo.Contains(channelGroups, group) {
+		group = channelGroups[0]
+	}
+	common.SetContextKey(c, constant.ContextKeyUsingGroup, group)
 
 	newAPIError := middleware.SetupContextForSelectedChannel(c, channel, testModel)
 	if newAPIError != nil {
@@ -545,10 +552,10 @@ func settleTestQuota(info *relaycommon.RelayInfo, priceData hosttypes.PriceData,
 		if priceData.ModelRatio != 0 && quota <= 0 {
 			quota = 1
 		}
-		return quota, nil
+		return common.QuotaRound(float64(quota) * priceData.GroupRatioInfo.GroupRatio), nil
 	}
 
-	return common.QuotaFromFloat(priceData.ModelPrice * common.QuotaPerUnit), nil
+	return common.QuotaFromFloat(priceData.ModelPrice * common.QuotaPerUnit * priceData.GroupRatioInfo.GroupRatio), nil
 }
 
 func buildTestLogOther(c *gin.Context, info *relaycommon.RelayInfo, priceData hosttypes.PriceData, usage *dto.Usage, tieredResult *billingexpr.TieredResult) map[string]interface{} {

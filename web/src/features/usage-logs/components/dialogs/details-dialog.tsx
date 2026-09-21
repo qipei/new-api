@@ -70,6 +70,7 @@ import {
   parseAuditLine,
   decodeBillingExprB64,
   getTieredBillingSummary,
+  getLogBillingRatio,
   hasAnyCacheTokens,
   isViolationFeeLog,
   getFirstResponseTimeColor,
@@ -227,11 +228,13 @@ function BillingBreakdown(props: {
   const isClaude = other.claude === true
   const isTieredExpr = other.billing_mode === 'tiered_expr'
   const tieredSummary = getTieredBillingSummary(other)
+  const billingRatio = getLogBillingRatio(other)
 
   const rows: Array<{ label: string; value: string }> = []
   const priceOpts = { digitsLarge: 4, digitsSmall: 6, abbreviate: false }
   const fmtPrice = (usd: number) => formatBillingCurrencyFromUSD(usd, priceOpts)
-  const baseInputUSD = other.model_ratio != null ? other.model_ratio * 2.0 : 0
+  const baseInputUSD =
+    other.model_ratio != null ? other.model_ratio * 2.0 * billingRatio : 0
 
   if (isTieredExpr) {
     rows.push({
@@ -254,7 +257,7 @@ function BillingBreakdown(props: {
     } else {
       rows.push({
         label: t('Matched Tier'),
-        value: t('No matching results'),
+        value: other.matched_tier || t('No matching results'),
       })
     }
   } else if (isPerCall) {
@@ -262,7 +265,7 @@ function BillingBreakdown(props: {
     if (other.model_price != null) {
       rows.push({
         label: t('Model Price'),
-        value: fmtPrice(other.model_price),
+        value: fmtPrice(other.model_price * billingRatio),
       })
     }
   } else {
@@ -281,13 +284,16 @@ function BillingBreakdown(props: {
     }
   }
 
-  const userGR = other.user_group_ratio
-  const isUserGR = userGR != null && Number.isFinite(userGR) && userGR !== -1
-  const effectiveGR = isUserGR ? userGR : other.group_ratio
-  if (effectiveGR != null && Number.isFinite(effectiveGR)) {
+  if (other.group_ratio != null || other.user_group_ratio != null) {
     rows.push({
-      label: isUserGR ? t('User Exclusive Ratio') : t('Group Ratio'),
-      value: `${formatRatio(effectiveGR)}x`,
+      label: t('Effective billing ratio'),
+      value: `${formatRatio(tieredSummary?.priceMultiplier ?? billingRatio)}x`,
+    })
+  }
+  if (other.promotion_ratio != null && other.promotion_ratio > 0) {
+    rows.push({
+      label: t('Promotion'),
+      value: `${other.promotion_name || t('Promotion')} · ${formatRatio(other.promotion_ratio)}x`,
     })
   }
 
@@ -356,28 +362,28 @@ function BillingBreakdown(props: {
   if (other.web_search && other.web_search_call_count) {
     rows.push({
       label: t('Web Search'),
-      value: `${other.web_search_call_count}x${other.web_search_price ? ` (${fmtPrice(other.web_search_price)})` : ''}`,
+      value: `${other.web_search_call_count}x${other.web_search_price ? ` (${fmtPrice(other.web_search_price * billingRatio)})` : ''}`,
     })
   }
 
   if (other.file_search && other.file_search_call_count) {
     rows.push({
       label: t('File Search'),
-      value: `${other.file_search_call_count}x${other.file_search_price ? ` (${fmtPrice(other.file_search_price)})` : ''}`,
+      value: `${other.file_search_call_count}x${other.file_search_price ? ` (${fmtPrice(other.file_search_price * billingRatio)})` : ''}`,
     })
   }
 
   if (other.image_generation_call && other.image_generation_call_price) {
     rows.push({
       label: t('Image Generation'),
-      value: fmtPrice(other.image_generation_call_price),
+      value: fmtPrice(other.image_generation_call_price * billingRatio),
     })
   }
 
   if (other.audio_input_seperate_price && other.audio_input_price) {
     rows.push({
       label: t('Audio Input Price'),
-      value: fmtPrice(other.audio_input_price),
+      value: fmtPrice(other.audio_input_price * billingRatio),
     })
   }
 
@@ -397,6 +403,13 @@ function BillingBreakdown(props: {
 
   return (
     <DetailSection label={t('Billing Details')}>
+      <p className='text-muted-foreground mb-2 text-xs'>
+        {isTieredExpr && !tieredSummary
+          ? t('Unable to parse structured pricing')
+          : t(
+              'Unit prices include the recorded multipliers and promotion discount.'
+            )}
+      </p>
       {rows.map((row) => (
         <DetailRow key={row.label} label={row.label} value={row.value} mono />
       ))}
@@ -482,6 +495,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
+  const tieredSummary = getTieredBillingSummary(other)
   const typeConfig = getLogTypeConfig(props.log.type)
 
   const isViolation = isViolationFeeLog(other)
@@ -1079,6 +1093,8 @@ export function DetailsDialog(props: DetailsDialogProps) {
               billingExpr={decodeBillingExprB64(other.expr_b64)}
               matchedTierLabel={other.matched_tier}
               requestRules={other.request_rules}
+              priceMultiplier={tieredSummary?.priceMultiplier}
+              hideTiers={!tieredSummary}
               hideCacheColumns={!hasAnyCacheTokens(other)}
             />
           </DetailSection>

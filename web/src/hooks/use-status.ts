@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 
+import { isPasswordRegistrationOpen } from '@/features/auth/lib/registration'
 import type { SystemStatus } from '@/features/auth/types'
 import { getStatus } from '@/lib/api'
 import { useSystemConfigStore } from '@/stores/system-config-store'
@@ -78,8 +79,7 @@ export function useStatus() {
     status: data ?? null,
     loading: isLoading,
     error,
-    // 是否向访客展示注册入口：管理员关闭注册或开启自用模式时都不展示。
-    registrationOpen:
-      !data?.self_use_mode_enabled && data?.register_enabled !== false,
+    // 用户名注册入口同时受总注册开关、用户名注册开关和自用模式控制。
+    registrationOpen: isPasswordRegistrationOpen(data),
   }
 }

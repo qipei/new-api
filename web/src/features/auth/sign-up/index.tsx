@@ -27,8 +27,16 @@ import { SignUpForm } from './components/sign-up-form'
 
 export function SignUp() {
   const { t } = useTranslation()
-  const { status, registrationOpen } = useStatus()
+  const { status, registrationOpen, loading } = useStatus()
   const phoneLoginEnabled = Boolean(status?.phone_login_enabled)
+
+  if (loading) {
+    return (
+      <AuthLayout variant='entry'>
+        <p role='status'>{t('Loading...')}</p>
+      </AuthLayout>
+    )
+  }
 
   // 注册关闭时直接说明情况，而不是展示一个提交后必然被后端拒绝的表单。
   // 手机号登录不受注册开关约束（新号码验证后自动建号），此时引导用户去用手机号登录/注册。

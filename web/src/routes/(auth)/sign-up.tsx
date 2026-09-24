@@ -17,18 +17,36 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { z } from 'zod'
 
+import { isPasswordRegistrationOpen } from '@/features/auth/lib/registration'
 import { SignUp } from '@/features/auth/sign-up'
+import { getStatus } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
 export const Route = createFileRoute('/(auth)/sign-up')({
   component: SignUp,
-  beforeLoad: async () => {
+  validateSearch: z.object({ aff: z.string().trim().optional() }),
+  beforeLoad: async ({ context, search }) => {
     const { auth } = useAuthStore.getState()
 
     // 如果已经有用户信息，说明已登录，注册页对其无意义，跳转到 dashboard
     if (auth.user) {
       throw redirect({ to: '/dashboard' })
+    }
+
+    const status = await context.queryClient.fetchQuery({
+      queryKey: ['status'],
+      queryFn: getStatus,
+      staleTime: 5 * 60 * 1000,
+    })
+    if (!status) throw new Error('System status unavailable')
+    if (!isPasswordRegistrationOpen(status) && status.phone_login_enabled) {
+      throw redirect({
+        to: '/sign-in',
+        search: { aff: search.aff },
+        replace: true,
+      })
     }
   },
 })

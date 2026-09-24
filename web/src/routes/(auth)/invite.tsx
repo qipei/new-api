@@ -19,27 +19,30 @@ For commercial licensing, please contact support@quantumnous.com
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { z } from 'zod'
 
-import { sanitizeAuthRedirect } from '@/features/auth/lib/auth-redirect'
-import { SignIn } from '@/features/auth/sign-in'
+import { isPasswordRegistrationOpen } from '@/features/auth/lib/registration'
+import { getStatus } from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
-const searchSchema = z.object({
-  redirect: z.string().optional(),
-  aff: z.string().trim().optional(),
-})
-
-export const Route = createFileRoute('/(auth)/sign-in')({
-  component: SignIn,
-  validateSearch: searchSchema,
-  beforeLoad: async ({ search }) => {
-    const { auth } = useAuthStore.getState()
-
-    // 如果已经有用户信息，说明已登录
-    if (auth.user) {
-      const target =
-        sanitizeAuthRedirect(search?.redirect, window.location.origin) ??
-        '/dashboard'
-      throw redirect({ href: target, replace: true })
+export const Route = createFileRoute('/(auth)/invite')({
+  validateSearch: z.object({ aff: z.string().trim().optional() }),
+  beforeLoad: async ({ context, search }) => {
+    if (useAuthStore.getState().auth.user) {
+      throw redirect({ to: '/dashboard', replace: true })
     }
+    const status = await context.queryClient.fetchQuery({
+      queryKey: ['status'],
+      queryFn: getStatus,
+      staleTime: 5 * 60 * 1000,
+    })
+    if (!status) throw new Error('System status unavailable')
+    const destination =
+      !status.phone_login_enabled && isPasswordRegistrationOpen(status)
+        ? '/sign-up'
+        : '/sign-in'
+    throw redirect({
+      to: destination,
+      search: { aff: search.aff },
+      replace: true,
+    })
   },
 })

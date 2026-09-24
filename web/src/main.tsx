@@ -34,6 +34,7 @@ import { applyFaviconToDom } from '@/lib/dom-utils'
 import { initializeFrontendCache } from '@/lib/frontend-cache'
 import '@/lib/dayjs'
 import { handleServerError } from '@/lib/handle-server-error'
+import { parseRouterSearch, stringifyRouterSearch } from '@/lib/router-search'
 import { SITE_SEO_TITLE } from '@/lib/site-seo'
 
 import { DirectionProvider } from './context/direction-provider'
@@ -97,6 +98,8 @@ const queryClient = new QueryClient({
 // Create a new router instance
 const router = createRouter({
   routeTree,
+  parseSearch: parseRouterSearch,
+  stringifySearch: stringifyRouterSearch,
   context: { queryClient },
   defaultPreload: 'intent',
   defaultPreloadStaleTime: 0,

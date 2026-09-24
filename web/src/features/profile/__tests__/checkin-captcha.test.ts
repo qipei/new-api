@@ -185,3 +185,37 @@ test('provider changed after preflight can request verification without a global
   expect(posts).toBe(2)
   expect(errors).not.toHaveBeenCalled()
 })
+
+test('trusted fresh status submits check-in without opening Tencent CAPTCHA', async () => {
+  const show = installCaptcha()
+  const calls: Array<{ method?: string; body: unknown }> = []
+  api.defaults.adapter = async (config) => {
+    calls.push({
+      method: config.method,
+      body: config.data ? JSON.parse(config.data as string) : undefined,
+    })
+    return {
+      data:
+        config.method === 'get'
+          ? {
+              ...status,
+              data: {
+                ...status.data,
+                captcha_provider: 'none',
+                captcha_app_id: '',
+              },
+            }
+          : { success: true, data: { quota_awarded: 4800 } },
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      config,
+    }
+  }
+  expect((await performCheckinWithCaptcha())?.success).toBe(true)
+  expect(calls).toEqual([
+    { method: 'get', body: undefined },
+    { method: 'post', body: undefined },
+  ])
+  expect(show).not.toHaveBeenCalled()
+})

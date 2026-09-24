@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useQuery } from '@tanstack/react-query'
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -23,7 +24,7 @@ import { SectionPageLayout } from '@/components/layout'
 import { WechatQrDialog } from '@/components/wechat-qr-dialog'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
-import { getSelf } from '@/lib/api'
+import { api, getSelf } from '@/lib/api'
 
 import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
@@ -85,8 +86,26 @@ export function Wallet(props: WalletProps) {
   const [showSubscriptionPanel, setShowSubscriptionPanel] = useState(true)
 
   const { status } = useStatus()
-  // 注册奖励额度为 0 时不能承诺"注册即得"，推荐计划只承诺充值返佣。
-  const signupRewardEnabled = Number(status?.data?.quota_for_inviter ?? 0) > 0
+  const referralConfig = useQuery({
+    queryKey: ['referral-config', user?.id],
+    enabled: !!user?.id,
+    retry: false,
+    queryFn: async () => {
+      const response = await api.get<{
+        success: boolean
+        data: {
+          registration_reward_enabled: boolean
+          topup_commission_enabled: boolean
+          transfer_enabled: boolean
+        }
+      }>('/api/user/self/referral/config', {
+        skipBusinessError: true,
+        skipErrorHandler: true,
+      })
+      if (!response.data.success) throw new Error('Referral config unavailable')
+      return response.data.data
+    },
+  })
   const { currency } = useSystemConfig()
   const { topupInfo, presetAmounts, loading: topupLoading } = useTopupInfo()
 
@@ -315,10 +334,22 @@ export function Wallet(props: WalletProps) {
               onTransfer={() => setTransferDialogOpen(true)}
               onShowCommissions={() => setCommissionDialogOpen(true)}
               complianceConfirmed={
-                topupInfo?.payment_compliance_confirmed !== false
+                referralConfig.data?.transfer_enabled ??
+                (topupInfo?.payment_compliance_confirmed !== false)
               }
-              signupRewardEnabled={signupRewardEnabled}
-              loading={affiliateLoading}
+              signupRewardEnabled={
+                referralConfig.isError
+                  ? undefined
+                  : referralConfig.data?.registration_reward_enabled
+              }
+              topupCommissionEnabled={
+                referralConfig.isError
+                  ? undefined
+                  : referralConfig.data?.topup_commission_enabled
+              }
+              loading={
+                affiliateLoading || (!!user?.id && referralConfig.isPending)
+              }
             />
 
             <WalletStatsCard user={user} loading={userLoading} />

@@ -253,6 +253,9 @@ const BILLING_SECTIONS = [
         defaultValues={{
           enabled: settings['checkin_setting.enabled'],
           captchaEnabled: settings['checkin_setting.captcha_enabled'],
+          captchaMode: settings['checkin_setting.captcha_mode'],
+          captchaTrustDays: settings['checkin_setting.captcha_trust_days'],
+          captchaIpUserLimit: settings['checkin_setting.captcha_ip_user_limit'],
           minQuota: settings['checkin_setting.min_quota'],
           maxQuota: settings['checkin_setting.max_quota'],
         }}

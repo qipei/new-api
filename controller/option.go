@@ -250,6 +250,23 @@ func UpdateOption(c *gin.Context) {
 			common.ApiErrorMsg(c, "请先在短信服务中配置腾讯验证码的应用 ID、应用密钥及云 API 凭据，再启用签到防刷")
 			return
 		}
+	case "checkin_setting.captcha_mode":
+		if option.Value != "adaptive" && option.Value != "always" {
+			common.ApiErrorMsg(c, "签到验证码模式必须为 adaptive 或 always")
+			return
+		}
+	case "checkin_setting.captcha_trust_days":
+		days, err := strconv.Atoi(option.Value.(string))
+		if err != nil || days < 1 || days > 30 {
+			common.ApiErrorMsg(c, "签到验证码免验证有效期必须为 1 到 30 天的整数")
+			return
+		}
+	case "checkin_setting.captcha_ip_user_limit":
+		limit, err := strconv.Atoi(option.Value.(string))
+		if err != nil || limit < 2 || limit > 100 {
+			common.ApiErrorMsg(c, "同 IP 签到账号阈值必须为 2 到 100 的整数")
+			return
+		}
 	case "theme.frontend":
 		if option.Value != "default" {
 			c.JSON(http.StatusOK, gin.H{

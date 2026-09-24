@@ -51,13 +51,6 @@ function RootComponent() {
   // Load system configuration (logo, system name, etc.) from backend
   useSystemConfig({ autoLoad: true })
 
-  useEffect(() => {
-    const aff = new URLSearchParams(window.location.search).get('aff')?.trim()
-    if (aff) {
-      saveAffiliateCode(aff)
-    }
-  }, [])
-
   useEffect(
     () =>
       useAuthStore.subscribe((state, previousState) => {
@@ -139,6 +132,13 @@ function setSetupStatusCache(value: boolean): void {
 // 内存中的标记，避免同一会话中重复检查
 let setupStatusChecked = getSetupStatusFromCache()
 
+// Runs only for committed navigation, never for speculative route preloads.
+function captureReferral({ search }: { search: Record<string, unknown> }) {
+  if (useAuthStore.getState().auth.user) return
+  const aff = typeof search.aff === 'string' ? search.aff.trim() : ''
+  if (aff) saveAffiliateCode(aff)
+}
+
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient
 }>()({
@@ -176,6 +176,8 @@ export const Route = createRootRouteWithContext<{
       await authBootstrap
     }
   },
+  onEnter: captureReferral,
+  onStay: captureReferral,
   component: RootComponent,
   notFoundComponent: NotFoundError,
   errorComponent: GeneralError,

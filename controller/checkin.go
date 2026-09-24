@@ -8,6 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
@@ -38,10 +39,31 @@ func GetCheckinStatus(c *gin.Context) {
 		provider = "turnstile"
 	}
 	if setting.CaptchaEnabled {
-		provider = "tencent"
-		appID = system_setting.GetSMSCaptchaSettings().CaptchaAppId
-		if c.Query("captcha_client") == "mini_program" {
-			appID = system_setting.GetSMSCaptchaSettings().MiniAppID
+		// Tencent owns check-in protection while enabled, including the
+		// exemption period; do not fall back to global Turnstile during it.
+		provider = "none"
+		if stats["checked_in_today"] != true {
+			client := "web"
+			if c.Query("captcha_client") == "mini_program" {
+				client = "mini_program"
+			}
+			if !system_setting.GetSMSCaptchaSettings().ConfiguredForClient(client) {
+				c.JSON(http.StatusOK, gin.H{"success": false, "code": "CAPTCHA_NOT_CONFIGURED", "message": "签到验证码尚未配置完整，请联系管理员"})
+				return
+			}
+			required, err := service.CheckinCaptchaRequired(c.Request.Context(), userId, c.ClientIP(), false)
+			if err != nil {
+				common.SysError("check-in CAPTCHA status failed: " + err.Error())
+				common.ApiErrorMsg(c, "签到安全检查暂不可用，请稍后重试")
+				return
+			}
+			if required {
+				provider = "tencent"
+				appID = system_setting.GetSMSCaptchaSettings().CaptchaAppId
+				if client == "mini_program" {
+					appID = system_setting.GetSMSCaptchaSettings().MiniAppID
+				}
+			}
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{

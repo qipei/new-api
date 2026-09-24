@@ -16,14 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-// ============================================================================
-// Affiliate Functions
-// ============================================================================
+import type { SystemStatus } from '../types'
 
-/**
- * Generate affiliate registration link
- */
-export function generateAffiliateLink(affCode: string): string {
-  if (typeof window === 'undefined') return ''
-  return `${window.location.origin}/invite?aff=${encodeURIComponent(affCode)}`
+export function isPasswordRegistrationOpen(
+  status: SystemStatus | null | undefined
+): boolean {
+  return (
+    Boolean(status) &&
+    !status?.self_use_mode_enabled &&
+    status?.register_enabled !== false &&
+    status?.password_register_enabled !== false
+  )
 }

@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
@@ -71,8 +72,18 @@ func CheckinCaptcha() gin.HandlerFunc {
 		if request.Client == "mini_program" {
 			credentials.AppID, credentials.AppSecretKey = system_setting.GetSMSCaptchaSettings().MiniAppID, system_setting.GetSMSCaptchaSettings().MiniAppSecretKey
 		}
-		if strings.TrimSpace(credentials.AppID) == "" || strings.TrimSpace(credentials.AppSecretKey) == "" || strings.TrimSpace(credentials.SecretID) == "" || strings.TrimSpace(credentials.SecretKey) == "" {
+		if !shared.ConfiguredForClient(request.Client) {
 			c.AbortWithStatusJSON(http.StatusOK, gin.H{"success": false, "code": "CAPTCHA_NOT_CONFIGURED", "message": "签到验证码尚未配置完整，请联系管理员"})
+			return
+		}
+		required, err := service.CheckinCaptchaRequired(c.Request.Context(), c.GetInt("id"), c.ClientIP(), true)
+		if err != nil {
+			common.SysError("check-in CAPTCHA policy failed: " + err.Error())
+			c.AbortWithStatusJSON(http.StatusOK, gin.H{"success": false, "message": "签到安全检查暂不可用，请稍后重试"})
+			return
+		}
+		if !required {
+			c.Next()
 			return
 		}
 		challenge := gin.H{"require_captcha": true, "captcha_provider": "tencent", "captcha_app_id": credentials.AppID, "captcha_client": request.Client}
@@ -83,6 +94,13 @@ func CheckinCaptcha() gin.HandlerFunc {
 		if err := service.VerifyTencentCaptcha(c.Request.Context(), credentials, request.Client, request.Ticket, request.Randstr, c.ClientIP()); err != nil {
 			c.AbortWithStatusJSON(http.StatusOK, gin.H{"success": false, "code": "CAPTCHA_FAILED", "message": i18n.T(c, i18n.MsgSMSCaptchaFailed), "data": challenge})
 			return
+		}
+		if setting.CaptchaMode == "adaptive" {
+			if err := model.RecordCheckinCaptchaVerification(c.GetInt("id"), time.Now().Unix()); err != nil {
+				common.SysError("check-in CAPTCHA trust save failed: " + err.Error())
+				c.AbortWithStatusJSON(http.StatusOK, gin.H{"success": false, "message": "签到安全检查暂不可用，请稍后重试"})
+				return
+			}
 		}
 		c.Next()
 	}

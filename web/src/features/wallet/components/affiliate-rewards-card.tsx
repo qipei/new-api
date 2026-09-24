@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Share2 } from 'lucide-react'
-import { QRCodeSVG } from 'qrcode.react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
@@ -29,6 +28,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatQuota } from '@/lib/format'
 
 import type { UserWalletData } from '../types'
+import { ReferralQRCode } from './referral-qr-code'
 
 interface AffiliateRewardsCardProps {
   user: UserWalletData | null
@@ -36,8 +36,8 @@ interface AffiliateRewardsCardProps {
   onTransfer: () => void
   onShowCommissions: () => void
   complianceConfirmed?: boolean
-  /** 注册奖励额度配置为 0 时不能承诺"注册即得"，只有充值返佣是真的。 */
   signupRewardEnabled?: boolean
+  topupCommissionEnabled?: boolean
   loading?: boolean
 }
 
@@ -47,7 +47,8 @@ export function AffiliateRewardsCard({
   onTransfer,
   onShowCommissions,
   complianceConfirmed = true,
-  signupRewardEnabled = false,
+  signupRewardEnabled,
+  topupCommissionEnabled,
   loading,
 }: AffiliateRewardsCardProps) {
   const { t } = useTranslation()
@@ -69,6 +70,31 @@ export function AffiliateRewardsCard({
     )
   }
 
+  let description = t(
+    'Invite friends via your referral link. Reward rules are currently unavailable.'
+  )
+  if (
+    signupRewardEnabled !== undefined &&
+    topupCommissionEnabled !== undefined
+  ) {
+    description = t(
+      'Referral rewards are currently disabled. You can still view your past rewards.'
+    )
+    if (signupRewardEnabled && topupCommissionEnabled) {
+      description = t(
+        'Invite friends via your referral link to earn sign-up rewards and commission when they top up.'
+      )
+    } else if (signupRewardEnabled) {
+      description = t(
+        'Invite friends via your referral link and earn a reward when they sign up.'
+      )
+    } else if (topupCommissionEnabled) {
+      description = t(
+        'Invite friends via your referral link and earn commission when they top up.'
+      )
+    }
+  }
+
   const hasRewards = (user?.aff_quota ?? 0) > 0
 
   return (
@@ -85,13 +111,16 @@ export function AffiliateRewardsCard({
             <div className='min-w-0'>
               <h3 className='text-sm font-semibold'>{t('Referral Program')}</h3>
               <p className='text-muted-foreground mt-1 max-w-3xl text-xs leading-relaxed'>
-                {signupRewardEnabled
-                  ? t(
-                      'Invite users via your referral link to earn sign-up rewards and commission on their paid top-ups. Transfer accumulated rewards to your balance anytime.'
-                    )
-                  : t(
-                      'Invite users via your referral link and earn commission once they make a paid top-up. Transfer accumulated rewards to your balance anytime.'
-                    )}
+                {description}
+                {complianceConfirmed &&
+                  (signupRewardEnabled !== undefined || hasRewards) && (
+                    <>
+                      {' '}
+                      {t(
+                        'Accumulated rewards can be transferred to your balance.'
+                      )}
+                    </>
+                  )}
               </p>
             </div>
           </div>
@@ -171,20 +200,7 @@ export function AffiliateRewardsCard({
           ) : null}
         </div>
 
-        <div
-          data-slot='affiliate-rewards-qr'
-          className='flex flex-col items-center justify-center gap-1.5 lg:justify-self-end'
-        >
-          <div
-            className='rounded-lg bg-white p-1.5'
-            title={t('Scan to open your referral sign-up link')}
-          >
-            <QRCodeSVG value={affiliateLink} size={100} />
-          </div>
-          <span className='text-muted-foreground text-xs font-medium'>
-            {t('Invitation QR code')}
-          </span>
-        </div>
+        <ReferralQRCode value={affiliateLink} />
       </CardContent>
     </Card>
   )

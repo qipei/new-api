@@ -148,3 +148,76 @@ func TestCheckinUserLimitCannotBeBypassedByChangingIP(t *testing.T) {
 	assert.Equal(t, http.StatusTooManyRequests, response.Code)
 	assert.NotEmpty(t, response.Header().Get("Retry-After"))
 }
+
+func TestAdaptiveCheckinSkipsPaidVerificationUntilIPRiskRequiresIt(t *testing.T) {
+	db := setupCheckinCaptchaDB(t)
+	require.NoError(t, db.AutoMigrate(&model.User{}))
+	useRateLimitMiniRedis(t)
+	require.NoError(t, i18n.Init())
+	oldSetting, oldSMS := *operation_setting.GetCheckinSetting(), *system_setting.GetSMSCaptchaSettings()
+	oldTransport, oldTurnstile := http.DefaultTransport, common.TurnstileCheckEnabled
+	t.Cleanup(func() {
+		*operation_setting.GetCheckinSetting(), *system_setting.GetSMSCaptchaSettings() = oldSetting, oldSMS
+		http.DefaultTransport, common.TurnstileCheckEnabled = oldTransport, oldTurnstile
+	})
+	*operation_setting.GetCheckinSetting() = operation_setting.CheckinSetting{Enabled: true, CaptchaEnabled: true, CaptchaMode: "adaptive", CaptchaTrustDays: 3, CaptchaIPUserLimit: 2}
+	*system_setting.GetSMSCaptchaSettings() = system_setting.SMSCaptchaSettings{CaptchaAppId: "123", AppSecretKey: "secret", SecretId: "id", SecretKey: "key"}
+	common.TurnstileCheckEnabled = true
+	verifiedAt := time.Now().Unix() - 3600
+	for _, user := range []model.User{{Id: 1, Username: "trusted-one", AffCode: "one", CheckinCaptchaVerifiedAt: verifiedAt}, {Id: 2, Username: "trusted-two", AffCode: "two", CheckinCaptchaVerifiedAt: verifiedAt}, {Id: 3, Username: "new-user", AffCode: "three"}} {
+		require.NoError(t, db.Create(&user).Error)
+	}
+	providerCalls, awarded := 0, 0
+	providerResult := `{"Response":{"CaptchaCode":1}}`
+	http.DefaultTransport = checkinCaptchaTransport(func(*http.Request) (*http.Response, error) {
+		providerCalls++
+		return &http.Response{StatusCode: 200, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(providerResult))}, nil
+	})
+	engine := gin.New()
+	require.NoError(t, engine.SetTrustedProxies(nil))
+	userID := 1
+	engine.Use(func(c *gin.Context) { c.Set("id", userID); c.Next() })
+	engine.POST("/checkin", CheckinCaptcha(), func(c *gin.Context) { awarded++; c.JSON(200, gin.H{"success": true}) })
+	request := func(ip, body string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/checkin", strings.NewReader(body))
+		req.RemoteAddr = ip + ":1234"
+		response := httptest.NewRecorder()
+		engine.ServeHTTP(response, req)
+		return response
+	}
+	response := request("192.0.2.99", "")
+	require.JSONEq(t, `{"success":true}`, response.Body.String())
+	assert.Equal(t, 0, providerCalls)
+	stored, err := model.GetCheckinCaptchaVerifiedAt(1)
+	require.NoError(t, err)
+	assert.Equal(t, verifiedAt, stored)
+	userID = 2
+	response = request("192.0.2.99", "")
+	assert.Contains(t, response.Body.String(), "CAPTCHA_REQUIRED")
+	assert.Equal(t, 1, awarded)
+	response = request("192.0.2.99", `{"captcha_ticket":"adaptive-checkin-ticket","captcha_randstr":"random"}`)
+	require.JSONEq(t, `{"success":true}`, response.Body.String())
+	assert.Equal(t, 1, providerCalls)
+	stored, err = model.GetCheckinCaptchaVerifiedAt(2)
+	require.NoError(t, err)
+	assert.Greater(t, stored, verifiedAt)
+	userID = 1
+	response = request("192.0.2.99", "")
+	assert.Contains(t, response.Body.String(), "CAPTCHA_REQUIRED")
+	response = request("192.0.2.100", "")
+	require.JSONEq(t, `{"success":true}`, response.Body.String())
+	assert.Equal(t, 1, providerCalls)
+	userID = 3
+	providerResult = `{"Response":{"CaptchaCode":8}}`
+	response = request("192.0.2.101", `{"captcha_ticket":"adaptive-rejected-ticket","captcha_randstr":"random"}`)
+	assert.Contains(t, response.Body.String(), "CAPTCHA_FAILED")
+	stored, err = model.GetCheckinCaptchaVerifiedAt(3)
+	require.NoError(t, err)
+	assert.Zero(t, stored)
+	assert.Equal(t, 3, awarded)
+	userID = 1
+	system_setting.GetSMSCaptchaSettings().AppSecretKey = ""
+	response = request("192.0.2.102", "")
+	assert.Contains(t, response.Body.String(), "CAPTCHA_NOT_CONFIGURED")
+	assert.Equal(t, 3, awarded, "missing credentials cannot fall back to a trust exemption")
+}

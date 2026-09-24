@@ -112,6 +112,9 @@ type User struct {
 	AuthVersion      int64                      `json:"-" gorm:"type:bigint;not null;default:1;column:auth_version"`
 	AdminPermissions map[string]map[string]bool `json:"admin_permissions,omitempty" gorm:"-:all"`
 
+	// Updated only after a successful adaptive check-in CAPTCHA, never via profile updates.
+	CheckinCaptchaVerifiedAt int64 `json:"-" gorm:"type:bigint;not null;default:0"`
+
 	registrationRewardQuota int // Transient amount credited by this account creation, for post-commit logging.
 }
 
@@ -834,6 +837,7 @@ func (user *User) UpdateWithTx(tx *gorm.DB, updatePassword bool) error {
 		"aff_quota",
 		"aff_history",
 		"auth_version",
+		"checkin_captcha_verified_at",
 	).Updates(newUser).Error; err != nil {
 		return err
 	}

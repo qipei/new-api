@@ -23,3 +23,7 @@ func GetReferralRewards(c *gin.Context) {
 	}
 	common.ApiSuccess(c, result)
 }
+
+func GetReferralConfig(c *gin.Context) {
+	common.ApiSuccess(c, service.GetReferralConfig(c.GetInt("id")))
+}

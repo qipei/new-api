@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
@@ -38,6 +39,37 @@ func RefreshAuth(c *gin.Context) {
 			"access_token":      bundle.AccessToken,
 			"token_type":        bundle.TokenType,
 			"access_expires_at": bundle.AccessExpiresAt,
+			"user":              buildSelfUserData(user),
+			"session":           bundle.Session,
+		},
+	})
+}
+
+// MiniAppRefreshAuth requires an explicitly submitted refresh credential.
+// Never read or write cookies here: unlike RefreshAuth, this route does not
+// enforce browser origins and must not authenticate ambient browser cookies.
+func MiniAppRefreshAuth(c *gin.Context) {
+	setAuthNoStore(c)
+	var request struct {
+		RefreshToken string `json:"refresh_token"`
+	}
+	if c.ContentType() != gin.MIMEJSON || common.DecodeJson(c.Request.Body, &request) != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "code": "AUTH_INVALID_REQUEST", "message": "a JSON body containing refresh_token is required"})
+		return
+	}
+	bundle, user, err := service.RefreshLoginSession(request.RefreshToken, c.GetHeader("X-Auth-Session"), c.ClientIP(), c.Request.UserAgent())
+	if err != nil {
+		writeAuthSessionError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"access_token":      bundle.AccessToken,
+			"token_type":        bundle.TokenType,
+			"access_expires_at": bundle.AccessExpiresAt,
+			"refresh_token":     bundle.RefreshToken,
 			"user":              buildSelfUserData(user),
 			"session":           bundle.Session,
 		},
@@ -92,6 +124,39 @@ func AuthLogout(c *gin.Context) {
 	}
 	service.ClearRefreshCookie(c)
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": ""})
+}
+
+// MiniAppAuthLogout authenticates only with an explicit login access token.
+// Never fall back to refresh cookies: this route has no browser origin guard.
+func MiniAppAuthLogout(c *gin.Context) {
+	setAuthNoStore(c)
+	rawAccessToken, ok := dashboardBearer(c.GetHeader("Authorization"))
+	if !ok {
+		writeAuthSessionError(c, service.ErrAuthTokenInvalid)
+		return
+	}
+	identity, err := service.ParseAccessToken(rawAccessToken)
+	if err != nil {
+		writeAuthSessionError(c, err)
+		return
+	}
+	if expectedSID := strings.TrimSpace(c.GetHeader("X-Auth-Session")); expectedSID != "" && expectedSID != identity.SessionID {
+		writeAuthSessionError(c, service.ErrLoginSessionMismatch)
+		return
+	}
+	if _, _, err := service.ValidateLoginSession(identity); err != nil {
+		writeAuthSessionError(c, err)
+		return
+	}
+	if _, err := model.RevokeUserSession(identity.UserID, identity.SessionID, "logout"); err != nil {
+		writeAuthSessionError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    gin.H{"revoked_sid": identity.SessionID},
+	})
 }
 
 func GetLoginSessions(c *gin.Context) {

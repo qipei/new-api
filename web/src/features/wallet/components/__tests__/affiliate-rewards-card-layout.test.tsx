@@ -58,7 +58,7 @@ describe('AffiliateRewardsCard layout', () => {
     assert.ok(linkRowIndex > actionsIndex)
     assert.equal(markup.match(/max-w-2xl/g)?.length, 2)
     assert.ok(qrIndex > actionsIndex)
-    assert.ok(markup.includes('Invitation QR code'))
+    assert.ok(markup.includes('My referral code'))
   })
 
   test('places transfer balance immediately after commission details when rewards exist', () => {
@@ -96,7 +96,11 @@ describe('AffiliateRewardsCard layout', () => {
 })
 
 describe('AffiliateRewardsCard referral copy', () => {
-  const render = (signupRewardEnabled: boolean) =>
+  const render = (
+    signupRewardEnabled?: boolean,
+    topupCommissionEnabled?: boolean,
+    complianceConfirmed = true
+  ) =>
     renderToStaticMarkup(
       <I18nextProvider i18n={i18n}>
         <AffiliateRewardsCard
@@ -105,22 +109,54 @@ describe('AffiliateRewardsCard referral copy', () => {
           onTransfer={() => {}}
           onShowCommissions={() => {}}
           signupRewardEnabled={signupRewardEnabled}
+          topupCommissionEnabled={topupCommissionEnabled}
+          complianceConfirmed={complianceConfirmed}
         />
       </I18nextProvider>
     )
 
-  // Promising a sign-up reward while the configured amount is 0 tells users they
-  // earn something they will never receive; only the top-up commission is real.
-  test('omits the sign-up reward promise when the inviter reward is unset', () => {
-    const markup = render(false)
+  test.each([
+    [true, false, 'earn a reward when they sign up.', 'commission when they top up'],
+    [
+      false,
+      true,
+      'earn commission when they top up.',
+      'sign-up rewards',
+    ],
+    [
+      true,
+      true,
+      'earn sign-up rewards and commission when they top up.',
+      'currently disabled',
+    ],
+    [
+      false,
+      false,
+      'Referral rewards are currently disabled.',
+      'earn commission',
+    ],
+    [
+      undefined,
+      undefined,
+      'Reward rules are currently unavailable.',
+      'earn commission',
+    ],
+  ])(
+    'shows accurate copy for registration=%s and top-up=%s',
+    (signup, topup, expected, absent) => {
+      const markup = render(signup, topup)
+      assert.ok(markup.includes(expected))
+      assert.ok(!markup.includes(absent))
+    }
+  )
 
-    assert.ok(markup.includes('earn commission once they make a paid top-up'))
-    assert.ok(!markup.includes('sign-up rewards'))
-  })
-
-  test('promises the sign-up reward once the inviter reward is configured', () => {
-    const markup = render(true)
-
-    assert.ok(markup.includes('earn sign-up rewards'))
+  test('does not promise balance transfers when transfers are disabled', () => {
+    const markup = render(false, true, false)
+    assert.ok(
+      !markup.includes(
+        'Accumulated rewards can be transferred to your balance.'
+      )
+    )
+    assert.ok(markup.includes('Referral reward transfer is disabled'))
   })
 })

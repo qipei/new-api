@@ -48,7 +48,8 @@ async function renderLogin(
   password: boolean,
   registration = true,
   selfUseMode = false,
-  legalRequired = false
+  legalRequired = false,
+  passwordRegistration = true
 ) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
@@ -57,6 +58,7 @@ async function renderLogin(
     phone_login_enabled: phone,
     password_login_enabled: password,
     register_enabled: registration,
+    password_register_enabled: passwordRegistration,
     self_use_mode_enabled: selfUseMode,
     user_agreement_enabled: legalRequired,
   })
@@ -166,13 +168,11 @@ test.each([
 )
 
 test('clicking get code without legal consent shows a reminder and sends no SMS', async () => {
-  const sendSMS = vi
-    .spyOn(authApi, 'sendLoginSMSCode')
-    .mockResolvedValue({
-      success: true,
-      message: '',
-      data: { require_captcha: false, expires_in: 300, resend_after: 60 },
-    })
+  const sendSMS = vi.spyOn(authApi, 'sendLoginSMSCode').mockResolvedValue({
+    success: true,
+    message: '',
+    data: { require_captcha: false, expires_in: 300, resend_after: 60 },
+  })
   const cleanup = await renderLogin(true, false, false, false, true)
   await userEvent.type(
     await screen.findByLabelText('Mobile number'),
@@ -185,5 +185,14 @@ test('clicking get code without legal consent shows a reminder and sends no SMS'
     await screen.findByText('Please agree to the legal terms first')
   ).toBeVisible()
   expect(sendSMS).not.toHaveBeenCalled()
+  cleanup()
+})
+
+test('disabled username registration hides the signup link while phone registration stays available', async () => {
+  const cleanup = await renderLogin(true, true, true, false, false, false)
+  expect(await screen.findByLabelText('Mobile number')).toBeVisible()
+  expect(
+    screen.queryByRole('link', { name: 'Sign up' })
+  ).not.toBeInTheDocument()
   cleanup()
 })

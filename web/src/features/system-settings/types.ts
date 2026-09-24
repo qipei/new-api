@@ -381,6 +381,9 @@ export type BillingSettings = {
   WechatPayPublicKeyID: string
   'checkin_setting.enabled': boolean
   'checkin_setting.captcha_enabled': boolean
+  'checkin_setting.captcha_mode': 'adaptive' | 'always'
+  'checkin_setting.captcha_trust_days': number
+  'checkin_setting.captcha_ip_user_limit': number
   'checkin_setting.min_quota': number
   'checkin_setting.max_quota': number
   'commission_setting.enabled': boolean

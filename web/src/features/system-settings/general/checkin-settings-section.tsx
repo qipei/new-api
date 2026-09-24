@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
+import { t as translate } from 'i18next'
 import { useForm, type Resolver } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -33,6 +34,13 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { formatCurrencyFromUSD, formatQuotaWithCurrency } from '@/lib/currency'
 import { useSystemConfigStore } from '@/stores/system-config-store'
@@ -49,6 +57,41 @@ import { useUpdateOption } from '../hooks/use-update-option'
 const schema = z.object({
   enabled: z.boolean(),
   captchaEnabled: z.boolean(),
+  captchaMode: z.enum(['adaptive', 'always']),
+  captchaTrustDays: z.coerce
+    .number()
+    .int({ error: () => translate('Amount must be a whole number') })
+    .min(1, {
+      error: () =>
+        translate('Count must be between {{min}} and {{max}}', {
+          min: 1,
+          max: 30,
+        }),
+    })
+    .max(30, {
+      error: () =>
+        translate('Count must be between {{min}} and {{max}}', {
+          min: 1,
+          max: 30,
+        }),
+    }),
+  captchaIpUserLimit: z.coerce
+    .number()
+    .int({ error: () => translate('Amount must be a whole number') })
+    .min(2, {
+      error: () =>
+        translate('Count must be between {{min}} and {{max}}', {
+          min: 2,
+          max: 100,
+        }),
+    })
+    .max(100, {
+      error: () =>
+        translate('Count must be between {{min}} and {{max}}', {
+          min: 2,
+          max: 100,
+        }),
+    }),
   minQuota: z.coerce.number().int().min(0),
   maxQuota: z.coerce.number().int().min(0),
 })
@@ -61,6 +104,9 @@ export function CheckinSettingsSection({
   defaultValues: {
     enabled: boolean
     captchaEnabled?: boolean
+    captchaMode?: 'adaptive' | 'always'
+    captchaTrustDays?: number
+    captchaIpUserLimit?: number
     minQuota: number
     maxQuota: number
   }
@@ -75,6 +121,9 @@ export function CheckinSettingsSection({
     defaultValues: {
       enabled: defaultValues.enabled,
       captchaEnabled: defaultValues.captchaEnabled ?? false,
+      captchaMode: defaultValues.captchaMode ?? 'adaptive',
+      captchaTrustDays: defaultValues.captchaTrustDays ?? 3,
+      captchaIpUserLimit: defaultValues.captchaIpUserLimit ?? 5,
       minQuota: defaultValues.minQuota,
       maxQuota: defaultValues.maxQuota,
     },
@@ -83,6 +132,7 @@ export function CheckinSettingsSection({
   const { isDirty, isSubmitting } = form.formState
   const enabled = form.watch('enabled')
   const captchaEnabled = form.watch('captchaEnabled')
+  const captchaMode = form.watch('captchaMode')
 
   async function onSubmit(values: Values) {
     const updates: Array<{ key: string; value: string }> = []
@@ -91,6 +141,25 @@ export function CheckinSettingsSection({
       updates.push({
         key: 'checkin_setting.captcha_enabled',
         value: String(values.captchaEnabled),
+      })
+    }
+
+    if (values.captchaMode !== (defaultValues.captchaMode ?? 'adaptive')) {
+      updates.push({
+        key: 'checkin_setting.captcha_mode',
+        value: values.captchaMode,
+      })
+    }
+    if (values.captchaTrustDays !== (defaultValues.captchaTrustDays ?? 3)) {
+      updates.push({
+        key: 'checkin_setting.captcha_trust_days',
+        value: String(values.captchaTrustDays),
+      })
+    }
+    if (values.captchaIpUserLimit !== (defaultValues.captchaIpUserLimit ?? 5)) {
+      updates.push({
+        key: 'checkin_setting.captcha_ip_user_limit',
+        value: String(values.captchaIpUserLimit),
       })
     }
 
@@ -223,6 +292,101 @@ export function CheckinSettingsSection({
                 <a href='/system-settings/auth/sms'>{t('SMS Settings')}</a>
               </AlertDescription>
             </Alert>
+          )}
+
+          {captchaEnabled && (
+            <FormField
+              control={form.control}
+              name='captchaMode'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Check-in verification mode')}</FormLabel>
+                  <Select
+                    items={[
+                      { value: 'adaptive', label: t('Adaptive verification') },
+                      { value: 'always', label: t('Verify every check-in') },
+                    ]}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={updateOption.isPending || isSubmitting}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent alignItemWithTrigger={false}>
+                      <SelectItem value='adaptive'>
+                        {t('Adaptive verification')}
+                      </SelectItem>
+                      <SelectItem value='always'>
+                        {t('Verify every check-in')}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    {t(
+                      'Adaptive verification skips CAPTCHA during the trust period unless the same-IP account threshold is reached.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
+          {captchaEnabled && captchaMode === 'adaptive' && (
+            <div className='grid gap-6 sm:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='captchaTrustDays'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('CAPTCHA trust period (days)')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        max={30}
+                        step={1}
+                        disabled={updateOption.isPending || isSubmitting}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Set 1–30 days. Only successful Tencent CAPTCHA verification renews trust; ordinary check-ins do not.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name='captchaIpUserLimit'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Same-IP account threshold')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={2}
+                        max={100}
+                        step={1}
+                        disabled={updateOption.isPending || isSubmitting}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Set 2–100 accounts. When this many distinct accounts attempt check-in from one IP (IPv6 counts the whole /64 network) within 24 hours, CAPTCHA is required even during the trust period.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           )}
 
           {enabled && (

@@ -2,7 +2,10 @@ package service
 
 import (
 	"fmt"
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"math"
 )
 
 type ReferralRewardItem struct {
@@ -40,4 +43,31 @@ func GetReferralRewards(userID, page, size int) (*ReferralRewards, error) {
 			CreatedAt: row.CreatedAt, Reward: quotaDisplayValue(row.Quota, currency)})
 	}
 	return out, nil
+}
+
+// ReferralConfig describes the current promoter's reward rules without changing
+// any existing endpoint or treating a positive registration quota as a top-up switch.
+type ReferralConfig struct {
+	RegistrationRewardEnabled bool `json:"registration_reward_enabled"`
+	TopupCommissionEnabled    bool `json:"topup_commission_enabled"`
+	TransferEnabled           bool `json:"transfer_enabled"`
+}
+
+func GetReferralConfig(userID int) ReferralConfig {
+	compliance := operation_setting.IsPaymentComplianceConfirmed()
+	result := ReferralConfig{
+		RegistrationRewardEnabled: compliance && common.QuotaForInviter > 0 && int64(common.QuotaForInviter) <= common.MaxWalletQuota,
+		TransferEnabled:           compliance,
+	}
+	commission := operation_setting.GetCommissionSetting()
+	if !commission.Enabled {
+		return result
+	}
+	commission = model.ResolveCommissionSetting(commission, userID)
+	result.TopupCommissionEnabled = commission.Value > 0 && !math.IsNaN(commission.Value) && !math.IsInf(commission.Value, 0)
+	// Fixed rewards are truncated to whole quota units by settlement.
+	if commission.Type == operation_setting.CommissionTypeFixed && commission.Value < 1 {
+		result.TopupCommissionEnabled = false
+	}
+	return result
 }

@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import { afterEach, expect, test } from 'vitest'
 
 import { api } from '@/lib/api'
@@ -39,7 +40,10 @@ afterEach(() => {
 
 function renderCheckinSettings(
   enabled = true,
-  actionsContainer: HTMLDivElement | null = null
+  actionsContainer: HTMLDivElement | null = null,
+  captchaSettings: Partial<
+    ComponentProps<typeof CheckinSettingsSection>['defaultValues']
+  > = {}
 ) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -48,7 +52,12 @@ function renderCheckinSettings(
     <QueryClientProvider client={client}>
       <SettingsPageProvider actionsContainer={actionsContainer}>
         <CheckinSettingsSection
-          defaultValues={{ enabled, minQuota: 1000, maxQuota: 10000 }}
+          defaultValues={{
+            enabled,
+            minQuota: 1000,
+            maxQuota: 10000,
+            ...captchaSettings,
+          }}
         />
       </SettingsPageProvider>
     </QueryClientProvider>
@@ -150,3 +159,140 @@ test('quota-only mode explains the unit even when check-in is disabled', () => {
   ).not.toBeInTheDocument()
   expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
 })
+
+test('enabling protection without saved risk settings defaults to adaptive verification', async () => {
+  renderCheckinSettings()
+  expect(
+    screen.queryByRole('combobox', { name: 'Check-in verification mode' })
+  ).not.toBeInTheDocument()
+  await userEvent.click(
+    screen.getByRole('switch', {
+      name: 'Protect check-in with Tencent CAPTCHA',
+    })
+  )
+  expect(
+    screen.getByRole('combobox', { name: 'Check-in verification mode' })
+  ).toHaveTextContent('Adaptive verification')
+  expect(
+    screen.getByRole('spinbutton', { name: 'CAPTCHA trust period (days)' })
+  ).toHaveValue(3)
+  expect(
+    screen.getByRole('spinbutton', { name: 'Same-IP account threshold' })
+  ).toHaveValue(5)
+
+  await userEvent.click(
+    screen.getByRole('combobox', { name: 'Check-in verification mode' })
+  )
+  await userEvent.click(
+    screen.getByRole('option', { name: 'Verify every check-in' })
+  )
+  expect(
+    screen.queryByRole('spinbutton', { name: 'CAPTCHA trust period (days)' })
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('spinbutton', { name: 'Same-IP account threshold' })
+  ).not.toBeInTheDocument()
+
+  await userEvent.click(
+    screen.getByRole('switch', {
+      name: 'Protect check-in with Tencent CAPTCHA',
+    })
+  )
+  expect(
+    screen.queryByRole('combobox', { name: 'Check-in verification mode' })
+  ).not.toBeInTheDocument()
+})
+
+test.each([
+  ['1', '2'],
+  ['30', '100'],
+])(
+  'adaptive boundary values %s days and %s accounts save and persist when switching to always verify',
+  async (days, accounts) => {
+    const saved: Array<{ key: string; value: string }> = []
+    api.defaults.adapter = async (config) => {
+      saved.push(JSON.parse(config.data as string))
+      return {
+        data: { success: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      }
+    }
+    const actions = document.createElement('div')
+    document.body.appendChild(actions)
+    const view = renderCheckinSettings(true, actions, { captchaEnabled: true })
+    try {
+      fireEvent.change(
+        screen.getByRole('spinbutton', { name: 'CAPTCHA trust period (days)' }),
+        { target: { value: days } }
+      )
+      fireEvent.change(
+        screen.getByRole('spinbutton', { name: 'Same-IP account threshold' }),
+        { target: { value: accounts } }
+      )
+      await userEvent.click(
+        screen.getByRole('combobox', { name: 'Check-in verification mode' })
+      )
+      await userEvent.click(
+        screen.getByRole('option', { name: 'Verify every check-in' })
+      )
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Save check-in settings' })
+      )
+      await waitFor(() =>
+        expect(saved).toEqual([
+          { key: 'checkin_setting.captcha_mode', value: 'always' },
+          { key: 'checkin_setting.captcha_trust_days', value: days },
+          { key: 'checkin_setting.captcha_ip_user_limit', value: accounts },
+        ])
+      )
+      expect(
+        screen.getByRole('button', { name: 'Save check-in settings' })
+      ).toBeDisabled()
+    } finally {
+      view.unmount()
+      actions.remove()
+    }
+  }
+)
+
+test.each([
+  ['CAPTCHA trust period (days)', '0'],
+  ['CAPTCHA trust period (days)', '31'],
+  ['CAPTCHA trust period (days)', '1.5'],
+  ['Same-IP account threshold', '1'],
+  ['Same-IP account threshold', '101'],
+  ['Same-IP account threshold', '2.5'],
+])(
+  'invalid %s value %s shows a field error and prevents saving',
+  async (label, value) => {
+    const saved: unknown[] = []
+    api.defaults.adapter = async (config) => {
+      saved.push(config.data)
+      return {
+        data: { success: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      }
+    }
+    const actions = document.createElement('div')
+    document.body.appendChild(actions)
+    const view = renderCheckinSettings(true, actions, { captchaEnabled: true })
+    try {
+      const input = screen.getByRole('spinbutton', { name: label })
+      fireEvent.change(input, { target: { value } })
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Save check-in settings' })
+      )
+      await waitFor(() => expect(input).toHaveAttribute('aria-invalid', 'true'))
+      expect(saved).toEqual([])
+    } finally {
+      view.unmount()
+      actions.remove()
+    }
+  }
+)

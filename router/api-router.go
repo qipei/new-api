@@ -78,7 +78,9 @@ func SetApiRouter(router *gin.Engine) {
 		userRoute := apiRouter.Group("/user")
 		{
 			userRoute.POST("/auth/refresh", middleware.SessionCookieOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.RefreshAuth)
+			userRoute.POST("/auth/refresh/miniapp", middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.MiniAppRefreshAuth)
 			userRoute.POST("/auth/logout", middleware.SessionCookieOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.AuthLogout)
+			userRoute.POST("/auth/logout/miniapp", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.MiniAppAuthLogout)
 			userRoute.POST("/register", middleware.CriticalRateLimit(), anonymousRequestBodyLimit, middleware.TurnstileCheck(), controller.Register)
 			userRoute.POST("/login", middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, middleware.TurnstileCheck(), controller.Login)
 			userRoute.POST("/login/phone", middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, middleware.TurnstileCheck(), controller.PhoneLogin)
@@ -116,6 +118,7 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/phone/bind", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.BindPhone)
 				selfRoute.GET("/aff", controller.GetAffCode)
 				selfRoute.GET("/commission/records", controller.GetUserCommissionRecords)
+				selfRoute.GET("/self/referral/config", middleware.DisableCache(), controller.GetReferralConfig)
 				selfRoute.GET("/self/referral/rewards", middleware.DisableCache(), controller.GetReferralRewards)
 				selfRoute.GET("/topup/info", controller.GetTopUpInfo)
 				selfRoute.GET("/topup/self", controller.GetUserTopUps)

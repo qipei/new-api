@@ -111,6 +111,8 @@ type User struct {
 	LastLoginAt      int64                      `json:"last_login_at" gorm:"default:0;column:last_login_at"`
 	AuthVersion      int64                      `json:"-" gorm:"type:bigint;not null;default:1;column:auth_version"`
 	AdminPermissions map[string]map[string]bool `json:"admin_permissions,omitempty" gorm:"-:all"`
+
+	registrationRewardQuota int // Transient amount credited by this account creation, for post-commit logging.
 }
 
 func (user *User) ToBaseUser() *UserBase {
@@ -688,8 +690,8 @@ func (user *User) finishInsert(inviterId int) {
 			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
 			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(common.QuotaForInvitee)))
 		}
-		if common.QuotaForInviter > 0 {
-			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
+		if user.registrationRewardQuota > 0 {
+			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(user.registrationRewardQuota)))
 		}
 	}
 }
@@ -722,6 +724,7 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 // createWithReferral persists the referral and its count in the same transaction
 // as the account, including the inviter reward and its ledger entry.
 func (user *User) createWithReferral(tx *gorm.DB, inviterId int) error {
+	user.registrationRewardQuota = 0
 	user.InviterId = inviterId
 	if err := tx.Create(user).Error; err != nil {
 		return err
@@ -734,7 +737,14 @@ func (user *User) createWithReferral(tx *gorm.DB, inviterId int) error {
 		return err
 	}
 	if operation_setting.IsPaymentComplianceConfirmed() && common.QuotaForInviter > 0 {
-		return creditRegistrationReward(tx, inviterId, user.Id, common.QuotaForInviter)
+		quota := common.QuotaForInviter
+		credited, err := creditRegistrationReward(tx, inviterId, user.Id, quota)
+		if err != nil {
+			return err
+		}
+		if credited {
+			user.registrationRewardQuota = quota
+		}
 	}
 	return nil
 }
@@ -763,8 +773,8 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
 			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(common.QuotaForInvitee)))
 		}
-		if common.QuotaForInviter > 0 {
-			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
+		if user.registrationRewardQuota > 0 {
+			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(user.registrationRewardQuota)))
 		}
 	}
 }

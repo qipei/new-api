@@ -76,8 +76,7 @@ func main() {
 	}()
 
 	if err := model.StartUserUsageWriter(); err != nil {
-		common.FatalLog("failed to restore pending usage statistics: " + err.Error())
-		return
+		common.SysError("failed to start usage statistics; gateway startup continues: " + err.Error())
 	}
 	usageRetentionCtx, cancelUsageRetention := context.WithCancel(context.Background())
 	usageRetentionDone := make(chan struct{})

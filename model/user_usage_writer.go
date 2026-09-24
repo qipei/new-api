@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -50,10 +52,29 @@ func StartUserUsageWriter() error {
 	if usageWriter.Load() != nil {
 		return nil
 	}
-	if err := restoreUserUsageSpool(userUsageDatabase()); err != nil {
-		return err
-	}
 	w := &userUsageWriter{db: userUsageDatabase(), queue: make(chan UserUsageRequest, 8192), commands: make(chan usageWriteCommand, 1), done: make(chan struct{})}
+	if err := restoreUserUsageSpool(w.db); err != nil {
+		// A corrupt file may not reveal its time range. Conservatively mark
+		// historical coverage incomplete while continuing to collect new usage.
+		w.gapFrom, w.gapUntil = 1, time.Now().Unix()
+		common.SysError("pending usage recovery incomplete; gateway startup continues: " + err.Error())
+	}
+	// Quarantine is also the durable gap marker if a crash happened before
+	// the worker's first DB flush. Use the isolation time, not each restart's
+	// time, so leaving an old file for inspection does not extend the gap.
+	quarantined, scanErr := filepath.Glob(filepath.Join(userUsageSpoolDir(), "pending-*.tmp.json.quarantined-*"))
+	if scanErr != nil {
+		w.gapFrom, w.gapUntil = 1, time.Now().Unix()
+		common.SysError("cannot inspect quarantined usage files; coverage incomplete: " + scanErr.Error())
+	}
+	for _, path := range quarantined {
+		until := time.Now().Unix()
+		stamp, err := strconv.ParseInt(path[strings.LastIndex(path, "-")+1:], 10, 64)
+		if err == nil && stamp > 0 {
+			until = max(int64(1), stamp/int64(time.Second))
+		}
+		w.gapFrom, w.gapUntil = 1, max(w.gapUntil, until)
+	}
 	if !usageWriter.CompareAndSwap(nil, w) {
 		return nil
 	}
@@ -264,28 +285,42 @@ func restoreUserUsageSpool(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
+	// Bound the entire recovery, rather than spending a timeout on every file
+	// during a database outage. Failed files remain available for manual replay.
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	var failures []error
 	for _, path := range files {
-		data, err := os.ReadFile(path)
-		if errors.Is(err, os.ErrNotExist) {
-			continue
+		if err := restoreUserUsageSpoolFile(ctx, db, path); err != nil {
+			quarantined := fmt.Sprintf("%s.quarantined-%d", path, time.Now().UnixNano())
+			if moveErr := os.Rename(path, quarantined); moveErr != nil {
+				failures = append(failures, fmt.Errorf("restore %s: %v; quarantine failed (original retained): %w", path, err, moveErr))
+			} else {
+				failures = append(failures, fmt.Errorf("restore failed; preserved at %s: %w", quarantined, err))
+			}
 		}
-		if err != nil {
-			return err
-		}
-		var spool userUsageSpool
-		if err = common.Unmarshal(data, &spool); err != nil {
-			return err
-		}
-		w := userUsageWriter{db: db, gapFrom: spool.GapFrom, gapUntil: spool.GapUntil}
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		err = w.write(ctx, spool.Rows)
-		cancel()
-		if err != nil {
-			return err
-		}
-		if err = os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return err
-		}
+	}
+	return errors.Join(failures...)
+}
+
+func restoreUserUsageSpoolFile(ctx context.Context, db *gorm.DB, path string) error {
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var spool userUsageSpool
+	if err = common.Unmarshal(data, &spool); err != nil {
+		return err
+	}
+	w := userUsageWriter{db: db, gapFrom: spool.GapFrom, gapUntil: spool.GapUntil}
+	if err = w.write(ctx, spool.Rows); err != nil {
+		return err
+	}
+	if err = os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
 	return nil
 }

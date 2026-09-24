@@ -30,6 +30,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/privacy-policy", controller.GetPrivacyPolicy)
 		apiRouter.GET("/about", middleware.HeaderNavModuleAuth("about"), controller.GetAbout)
 		apiRouter.GET("/miniapp/about", controller.GetMiniAppAbout)
+		apiRouter.GET("/miniapp/qr-code", controller.GetMiniAppQRCode)
 		apiRouter.GET("/miniapp/customer-service", controller.GetMiniAppCustomerService)
 		apiRouter.GET("/miniapp/customer-service/qrcode", controller.GetMiniAppCustomerServiceQRCode)
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
@@ -219,6 +220,8 @@ func SetApiRouter(router *gin.Engine) {
 		optionRoute.Use(middleware.RootAuth())
 		{
 			optionRoute.GET("/", controller.GetOptions)
+			optionRoute.GET("/miniapp-qr-code", controller.GetMiniAppQRCode)
+			optionRoute.PUT("/miniapp-qr-code", controller.SaveMiniAppQRCodeSettings)
 			optionRoute.GET("/customer-service", controller.GetCustomerServiceSettings)
 			optionRoute.PUT("/customer-service", controller.SaveCustomerServiceSettings)
 			optionRoute.PUT("/", controller.UpdateOption)

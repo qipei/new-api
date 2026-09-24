@@ -206,7 +206,7 @@ export function Pricing() {
                 className='mx-auto mt-4 max-w-2xl sm:mt-6'
               />
             </header>
-            <aside className='mx-auto w-full max-w-md xl:max-w-none'>
+            <aside className='mx-auto w-full max-w-md empty:hidden xl:max-w-none xl:empty:block'>
               <MiniAppQR placement='pricing' />
             </aside>
           </div>

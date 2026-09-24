@@ -1,7 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
 import { Download, Maximize2, Smartphone } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
+import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
 
 interface MiniAppQRProps {
@@ -10,6 +13,33 @@ interface MiniAppQRProps {
 
 export function MiniAppQR(props: MiniAppQRProps) {
   const { t } = useTranslation()
+  const [failedImage, setFailedImage] = useState('')
+  const query = useQuery({
+    queryKey: ['miniapp-qr-code'],
+    queryFn: async () => {
+      const response = await api.get<{
+        success: boolean
+        data: { enabled: boolean; image_url: string }
+      }>('/api/miniapp/qr-code', {
+        skipBusinessError: true,
+        skipErrorHandler: true,
+      })
+      if (!response.data.success) {
+        throw new Error('Mini program QR code unavailable')
+      }
+      return response.data.data
+    },
+    retry: false,
+  })
+  const imageURL = query.data?.image_url
+  if (
+    query.isError ||
+    !query.data?.enabled ||
+    !imageURL ||
+    imageURL === failedImage
+  ) {
+    return null
+  }
   const isPricing = props.placement === 'pricing'
 
   return (
@@ -46,16 +76,14 @@ export function MiniAppQR(props: MiniAppQRProps) {
             <span className='text-muted-foreground text-xs leading-relaxed'>
               {t('Balance, usage and daily check-ins')}
             </span>
-            <strong className='max-w-full rounded-md bg-amber-100 px-2 py-1 text-xs leading-relaxed font-bold text-amber-950 dark:bg-amber-400/15 dark:text-amber-300'>
-              {t('Watch ads to earn tokens')}
-            </strong>
             <span className='mt-1 inline-flex items-center gap-1 text-[11px] text-amber-800 dark:text-amber-300'>
               <Maximize2 className='size-3' aria-hidden='true' />
               {t('Enlarge mini program QR code')}
             </span>
           </span>
           <img
-            src='/miniapp-code.jpg'
+            src={imageURL}
+            onError={() => setFailedImage(imageURL)}
             alt={t('Mini program QR code')}
             width={344}
             height={344}
@@ -69,8 +97,10 @@ export function MiniAppQR(props: MiniAppQRProps) {
       }
       footer={
         <a
-          href='/miniapp-code.jpg'
-          download='token01-miniapp.jpg'
+          href={imageURL}
+          target='_blank'
+          rel='noopener noreferrer'
+          download
           className='inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#ffc800] px-4 py-2.5 text-sm font-medium text-[#141414] hover:bg-[#efbb00] focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:outline-none'
         >
           <Download className='size-4' aria-hidden='true' />
@@ -79,7 +109,8 @@ export function MiniAppQR(props: MiniAppQRProps) {
       }
     >
       <img
-        src='/miniapp-code.jpg'
+        src={imageURL}
+        onError={() => setFailedImage(imageURL)}
         alt={t('Mini program QR code')}
         width={344}
         height={344}

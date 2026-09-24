@@ -1,6 +1,7 @@
 package model
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"strconv"
@@ -27,27 +28,31 @@ type ReferralRewardRecord struct {
 
 // creditRegistrationReward runs in the account-creation transaction. A failed
 // ledger insert or wallet update rolls back registration and its invitation count.
-func creditRegistrationReward(tx *gorm.DB, inviterID, inviteeID, quota int) error {
+// Ineligible recipients are skipped before creating a ledger entry.
+func creditRegistrationReward(tx *gorm.DB, inviterID, inviteeID, quota int) (bool, error) {
 	if quota <= 0 || int64(quota) > common.MaxWalletQuota {
-		return errors.New("invalid registration referral reward")
-	}
-	record := ReferralRewardRecord{UserID: inviterID, SourceType: ReferralRewardRegistration,
-		SourceID: strconv.Itoa(inviteeID), RelatedUserID: inviteeID, Quota: int64(quota), CreatedAt: common.GetTimestamp()}
-	if err := tx.Create(&record).Error; err != nil {
-		return err
+		common.SysError(fmt.Sprintf("registration referral reward skipped: inviter=%d invitee=%d invalid quota=%d", inviterID, inviteeID, quota))
+		return false, nil
 	}
 	// Guard before addition, including the cumulative counter, to prevent overflow.
-	result := tx.Model(&User{}).Where("id = ? AND aff_quota <= ? AND aff_history <= ?", inviterID,
+	// The conditional update also serializes competing credits without a prior read.
+	result := tx.Model(&User{}).Where("id = ? AND status = ? AND aff_quota <= ? AND aff_history <= ?", inviterID, common.UserStatusEnabled,
 		common.MaxWalletQuota-int64(quota), common.MaxWalletQuota-int64(quota)).Updates(map[string]interface{}{
 		"aff_quota": gorm.Expr("aff_quota + ?", quota), "aff_history": gorm.Expr("aff_history + ?", quota),
 	})
 	if result.Error != nil {
-		return result.Error
+		return false, result.Error
 	}
 	if result.RowsAffected != 1 {
-		return errors.New("referral wallet missing or quota limit exceeded")
+		common.SysError(fmt.Sprintf("registration referral reward skipped: inviter=%d invitee=%d quota=%d; inviter missing, deleted, disabled, or wallet limit exceeded", inviterID, inviteeID, quota))
+		return false, nil
 	}
-	return nil
+	record := ReferralRewardRecord{UserID: inviterID, SourceType: ReferralRewardRegistration,
+		SourceID: strconv.Itoa(inviteeID), RelatedUserID: inviteeID, Quota: int64(quota), CreatedAt: common.GetTimestamp()}
+	if err := tx.Create(&record).Error; err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 type ReferralRewardRow struct {
@@ -74,11 +79,16 @@ func GetReferralRewardHistory(userID, page, size int) (*ReferralRewardHistory, e
 		return nil, errors.New("invalid referral history query")
 	}
 	out := &ReferralRewardHistory{Rows: []ReferralRewardRow{}}
+	// PostgreSQL's default READ COMMITTED would give each statement a different
+	// snapshot. Use repeatable reads on both server databases; SQLite already
+	// keeps its read snapshot for the transaction and needs no isolation override.
+	opts := &sql.TxOptions{ReadOnly: true}
+	if !common.UsingMainDatabase(common.DatabaseTypeSQLite) {
+		opts.Isolation = sql.LevelRepeatableRead
+	}
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var user User
-		// Credits and transfers lock/update this row. Lock before the first consistent
-		// read so MySQL's snapshot includes all credits committed before this lock.
-		if err := lockForUpdate(tx).Select("id", "aff_quota", "aff_history").First(&user, userID).Error; err != nil {
+		if err := tx.Select("id", "aff_quota", "aff_history").First(&user, userID).Error; err != nil {
 			return err
 		}
 		out.Available, out.Lifetime = int64(user.AffQuota), int64(user.AffHistoryQuota)
@@ -95,10 +105,11 @@ func GetReferralRewardHistory(userID, page, size int) (*ReferralRewardHistory, e
 		}
 		out.Total, recorded = aggregate.Total, aggregate.Quota
 		if recorded > out.Lifetime {
-			return fmt.Errorf("referral reward ledger exceeds lifetime earnings for user %d", userID)
+			common.SysError(fmt.Sprintf("referral reward ledger exceeds lifetime earnings: user=%d recorded=%d lifetime=%d", userID, recorded, out.Lifetime))
+		} else {
+			out.Unitemized = out.Lifetime - recorded
 		}
-		out.Unitemized = out.Lifetime - recorded
 		return tx.Raw("SELECT * FROM ("+union+") AS rewards ORDER BY created_at DESC, source_type ASC, id DESC LIMIT ? OFFSET ?", userID, userID, size, (page-1)*size).Scan(&out.Rows).Error
-	})
+	}, opts)
 	return out, err
 }

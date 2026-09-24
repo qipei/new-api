@@ -33,3 +33,18 @@ func TestReferralRewardsCurrencyAndLegacyBalance(t *testing.T) {
 		})
 	}
 }
+
+func TestReferralRewardsReturnsActualBalancesWhenLedgerExceedsLifetime(t *testing.T) {
+	setupQuotaOverviewTest(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.CommissionRecord{}, &model.ReferralRewardRecord{}))
+	require.NoError(t, model.DB.Model(&model.User{}).Where("id = ?", 1).Updates(map[string]interface{}{"aff_quota": 250000, "aff_history": 500000}).Error)
+	require.NoError(t, model.DB.Create(&model.ReferralRewardRecord{UserID: 1, SourceType: model.ReferralRewardRegistration, SourceID: "legacy", Quota: 1000000}).Error)
+	result, err := GetReferralRewards(1, 1, 20)
+	require.NoError(t, err)
+	assert.Equal(t, "0.500000", result.Available.Amount)
+	assert.Equal(t, "1.000000", result.Lifetime.Amount)
+	assert.Equal(t, "0.000000", result.HistoricalUnitemized.Amount)
+	assert.EqualValues(t, 1, result.Total)
+	require.Len(t, result.Items, 1)
+	assert.Equal(t, "2.000000", result.Items[0].Reward.Amount)
+}

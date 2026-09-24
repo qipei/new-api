@@ -29,8 +29,14 @@ import { SidebarModulesSection } from '../maintenance/sidebar-modules-section'
 import type { SiteSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { CustomerServiceSection } from './customer-service-section'
+import { MiniAppQRSection } from './miniapp-qr-section'
 
 const SITE_SECTIONS = [
+  {
+    id: 'miniapp-qr-code',
+    titleKey: 'Mini program QR code',
+    build: () => <MiniAppQRSection />,
+  },
   {
     id: 'customer-service',
     titleKey: 'Customer Service',

@@ -3,6 +3,10 @@ package model
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
+
+	"github.com/QuantumNous/new-api/common"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -195,4 +199,92 @@ func TestUsageStorageMigrationAndRetention(t *testing.T) {
 	require.NoError(t, DB.Find(&rows).Error)
 	require.Len(t, rows, 1)
 	assert.Equal(t, "retained", rows[0].RequestID)
+}
+
+func TestUsageRecoveryIsolatesCorruptSpoolAndKeepsWriterRunning(t *testing.T) {
+	setupUsageWriterDBs(t)
+	badPath := filepath.Join(userUsageSpoolDir(), "pending-a.tmp.json")
+	badData := []byte(`{"Rows":[`)
+	require.NoError(t, os.WriteFile(badPath, badData, 0600))
+	goodPath := filepath.Join(userUsageSpoolDir(), "pending-b.tmp.json")
+	data, err := common.Marshal(userUsageSpool{Rows: []UserUsageRequest{{UserID: 1, RequestID: "recovered", CreatedAt: 100, Requests: 1, Quota: 10}}})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(goodPath, data, 0600))
+	require.NoError(t, StartUserUsageWriter())
+	require.NoError(t, enqueueUserUsage(UserUsageRequest{UserID: 1, RequestID: "new", CreatedAt: 101, Requests: 1, Quota: 20}))
+	require.NoError(t, StopUserUsageWriter(context.Background()))
+	var rows []UserUsageRequest
+	require.NoError(t, LOG_DB.Order("created_at").Find(&rows).Error)
+	require.Len(t, rows, 2)
+	assert.Equal(t, "recovered", rows[0].RequestID)
+	assert.Equal(t, "new", rows[1].RequestID)
+	assert.NoFileExists(t, goodPath)
+	assert.NoFileExists(t, badPath)
+	quarantined, err := filepath.Glob(badPath + ".quarantined-*")
+	require.NoError(t, err)
+	require.Len(t, quarantined, 1)
+	preserved, err := os.ReadFile(quarantined[0])
+	require.NoError(t, err)
+	assert.Equal(t, badData, preserved)
+	complete, err := UserUsageRangeComplete(1, 200)
+	require.NoError(t, err)
+	assert.False(t, complete, "unknown missing records must not be reported as complete")
+	require.NoError(t, StartUserUsageWriter())
+	require.NoError(t, StopUserUsageWriter(context.Background()))
+	var count int64
+	require.NoError(t, LOG_DB.Model(&UserUsageRequest{}).Count(&count).Error)
+	assert.Equal(t, int64(2), count)
+}
+
+func TestUsageRecoveryDatabaseFailurePreservesSpoolWithoutBlockingStartup(t *testing.T) {
+	setupUsageWriterDBs(t)
+	path := filepath.Join(userUsageSpoolDir(), "pending-db.tmp.json")
+	data, err := common.Marshal(userUsageSpool{Rows: []UserUsageRequest{{UserID: 1, RequestID: "deferred", CreatedAt: 100, Requests: 1, Quota: 10}}})
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(path, data, 0600))
+	var fail atomic.Bool
+	fail.Store(true)
+	require.NoError(t, LOG_DB.Callback().Create().Before("gorm:create").Register("recovery_outage", func(tx *gorm.DB) {
+		if tx.Statement.Table == "user_usage_requests" && fail.Load() {
+			tx.AddError(errors.New("recovery database outage"))
+		}
+	}))
+	require.NoError(t, StartUserUsageWriter())
+	fail.Store(false)
+	require.NoError(t, enqueueUserUsage(UserUsageRequest{UserID: 1, RequestID: "after-recovery", CreatedAt: 101, Requests: 1}))
+	require.NoError(t, StopUserUsageWriter(context.Background()))
+	preserved, err := filepath.Glob(path + ".quarantined-*")
+	require.NoError(t, err)
+	require.Len(t, preserved, 1)
+	actual, err := os.ReadFile(preserved[0])
+	require.NoError(t, err)
+	assert.Equal(t, data, actual)
+	// An operator can retry an intact file after resolving its cause; request IDs
+	// remain idempotent even if the first restore partially succeeded.
+	require.NoError(t, os.Rename(preserved[0], path))
+	require.NoError(t, StartUserUsageWriter())
+	require.NoError(t, StopUserUsageWriter(context.Background()))
+	var count int64
+	require.NoError(t, LOG_DB.Model(&UserUsageRequest{}).Count(&count).Error)
+	assert.Equal(t, int64(2), count)
+}
+
+func TestUsageQuarantineSurvivesCrashBeforeGapFlush(t *testing.T) {
+	setupUsageWriterDBs(t)
+	path := filepath.Join(userUsageSpoolDir(), "pending-crash.tmp.json")
+	require.NoError(t, os.WriteFile(path, []byte(`{"Rows":[`), 0600))
+	// Recovery renamed the file, but the process exited before the writer could
+	// persist its in-memory gap. The next startup must discover the quarantine.
+	require.Error(t, restoreUserUsageSpool(LOG_DB))
+	var state UserUsageTracking
+	require.NoError(t, LOG_DB.First(&state, 1).Error)
+	require.Zero(t, state.GapFrom)
+	require.NoError(t, StartUserUsageWriter())
+	complete, err := UserUsageRangeComplete(1, time.Now().Unix())
+	require.NoError(t, err)
+	assert.False(t, complete)
+	require.NoError(t, StopUserUsageWriter(context.Background()))
+	require.NoError(t, LOG_DB.First(&state, 1).Error)
+	assert.EqualValues(t, 1, state.GapFrom)
+	assert.Positive(t, state.GapUntil)
 }

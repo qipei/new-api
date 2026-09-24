@@ -106,6 +106,28 @@ func TestPhoneLoginCreatesAccountWithRegistrationDisabled(t *testing.T) {
 	assert.EqualValues(t, 1, count)
 }
 
+func TestPhoneLoginReferralIsAssignedOnlyOnFirstRegistration(t *testing.T) {
+	db := setupPhoneControllerTest(t)
+	inviter := &model.User{Username: "phone-referrer", AffCode: "PG3A"}
+	other := &model.User{Username: "other-referrer", AffCode: "NEXT"}
+	require.NoError(t, db.Create(inviter).Error)
+	require.NoError(t, db.Create(other).Error)
+	for _, code := range []string{"PG3A", "NEXT"} {
+		require.NoError(t, service.StoreSMSCode(service.SMSPurposeLogin, "13800138889", "123456", time.Minute))
+		body, err := common.Marshal(map[string]string{"phone": "13800138889", "code": "123456", "aff_code": code})
+		require.NoError(t, err)
+		response := phoneTestRequest(t, PhoneLogin, string(body), 0)
+		require.True(t, response.Success)
+		user, err := model.GetUserByPhone("13800138889")
+		require.NoError(t, err)
+		assert.Equal(t, inviter.Id, user.InviterId)
+	}
+	require.NoError(t, db.First(inviter, inviter.Id).Error)
+	require.NoError(t, db.First(other, other.Id).Error)
+	assert.Equal(t, 1, inviter.AffCount)
+	assert.Zero(t, other.AffCount)
+}
+
 func TestPhoneLoginLegacyBindingWithRegistrationDisabled(t *testing.T) {
 	db := setupPhoneControllerTest(t)
 	common.RegisterEnabled = false
@@ -194,4 +216,59 @@ func TestPhoneLoginAfterSelfDeletionCreatesFreshAccount(t *testing.T) {
 	var fresh model.User
 	require.NoError(t, db.Where("phone = ?", "13800138107").First(&fresh).Error)
 	assert.NotEqual(t, deleted.Id, fresh.Id)
+}
+
+func TestTwoFASwitchOffSkipsChallengeAndBlocksSetup(t *testing.T) {
+	db := setupPhoneControllerTest(t)
+	oldTwoFA := common.TwoFAEnabled
+	common.TwoFAEnabled = false
+	t.Cleanup(func() { common.TwoFAEnabled = oldTwoFA })
+
+	user := &model.User{Username: "phone-2fa-off", Phone: "13800138108", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default"}
+	require.NoError(t, db.Create(user).Error)
+	require.NoError(t, db.Create(&model.TwoFA{UserId: user.Id, IsEnabled: true}).Error)
+
+	// 已开启两步验证的账号，在总开关关闭期间直接登录成功。
+	require.NoError(t, service.StoreSMSCode(service.SMSPurposeLogin, user.Phone, "123456", time.Minute))
+	response := phoneTestRequest(t, PhoneLogin, `{"phone":"13800138108","code":"123456"}`, 0)
+	assert.True(t, response.Success)
+	assert.False(t, response.Data.Require2FA)
+	assert.NotEmpty(t, response.Data.AccessToken)
+
+	// 关闭期间不能新设置两步验证。
+	response = phoneTestRequest(t, Setup2FA, `{}`, user.Id)
+	assert.False(t, response.Success)
+
+	// 重新打开后，同一账号恢复两步验证挑战。
+	common.TwoFAEnabled = true
+	require.NoError(t, service.StoreSMSCode(service.SMSPurposeLogin, user.Phone, "123456", time.Minute))
+	response = phoneTestRequest(t, PhoneLogin, `{"phone":"13800138108","code":"123456"}`, 0)
+	assert.True(t, response.Success)
+	assert.True(t, response.Data.Require2FA)
+}
+
+func TestSetInitialPasswordForPasswordlessAccount(t *testing.T) {
+	db := setupPhoneControllerTest(t)
+	user := &model.User{Username: "u13800138109", Phone: "13800138109", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "sip1"}
+	require.NoError(t, db.Create(user).Error)
+	hasPassword, err := model.UserHasPassword(user.Id)
+	require.NoError(t, err)
+	assert.False(t, hasPassword)
+
+	assert.False(t, phoneTestRequest(t, SetInitialPassword, `{"password":"short"}`, user.Id).Success)
+	assert.True(t, phoneTestRequest(t, SetInitialPassword, `{"password":"InitPass123"}`, user.Id).Success)
+
+	hasPassword, err = model.UserHasPassword(user.Id)
+	require.NoError(t, err)
+	assert.True(t, hasPassword)
+
+	// 设置后可以用用户名加密码登录。
+	login := &model.User{Username: "u13800138109", Password: "InitPass123"}
+	require.NoError(t, login.ValidateAndFill())
+	assert.Equal(t, user.Id, login.Id)
+
+	// 已有密码后不能再走设置首个密码的接口，原密码不会被覆盖。
+	assert.False(t, phoneTestRequest(t, SetInitialPassword, `{"password":"OtherPass456"}`, user.Id).Success)
+	login = &model.User{Username: "u13800138109", Password: "InitPass123"}
+	require.NoError(t, login.ValidateAndFill())
 }

@@ -123,11 +123,14 @@ export type SiteSettings = {
 export type AuthSettings = {
   PasswordLoginEnabled: boolean
   PhoneLoginEnabled: boolean
+  TwoFAEnabled: boolean
   PasswordRegisterEnabled: boolean
   EmailVerificationEnabled: boolean
   RegisterEnabled: boolean
   EmailDomainRestrictionEnabled: boolean
   EmailAliasRestrictionEnabled: boolean
+  EmailDomainBlacklistEnabled: boolean
+  EmailDomainBlacklist: string
   EmailDomainWhitelist: string
   ServerAddress: string
   GitHubOAuthEnabled: boolean
@@ -181,6 +184,8 @@ export type AuthSettings = {
   'sms_captcha.enabled': boolean
   'sms_captcha.captcha_app_id': string
   'sms_captcha.app_secret_key': string
+  'sms_captcha.mini_app_id': string
+  'sms_captcha.mini_app_secret_key': string
   'sms_captcha.secret_id': string
   'sms_captcha.secret_key': string
   'sms_captcha.phone_trigger_count': number
@@ -375,6 +380,7 @@ export type BillingSettings = {
   WechatPayPublicKey: string
   WechatPayPublicKeyID: string
   'checkin_setting.enabled': boolean
+  'checkin_setting.captcha_enabled': boolean
   'checkin_setting.min_quota': number
   'checkin_setting.max_quota': number
   'commission_setting.enabled': boolean

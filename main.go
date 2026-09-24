@@ -75,6 +75,28 @@ func main() {
 		}
 	}()
 
+	if err := model.StartUserUsageWriter(); err != nil {
+		common.FatalLog("failed to restore pending usage statistics: " + err.Error())
+		return
+	}
+	usageRetentionCtx, cancelUsageRetention := context.WithCancel(context.Background())
+	usageRetentionDone := make(chan struct{})
+	go func() {
+		defer close(usageRetentionDone)
+		if common.IsMasterNode {
+			model.RunUserUsageRetention(usageRetentionCtx)
+		}
+	}()
+	defer func() {
+		cancelUsageRetention()
+		<-usageRetentionDone
+		flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := model.StopUserUsageWriter(flushCtx); err != nil {
+			common.SysError("flush usage on shutdown: " + err.Error())
+		}
+	}()
+
 	if common.RedisEnabled {
 		// for compatibility with old versions
 		common.MemoryCacheEnabled = true

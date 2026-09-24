@@ -394,6 +394,7 @@ type RecordConsumeLogParams struct {
 }
 
 func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams) {
+	CaptureUserUsage(c, params)
 	if !common.LogConsumeEnabled {
 		return
 	}
@@ -472,6 +473,7 @@ type RecordTaskBillingLogParams struct {
 }
 
 func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
+	RecordUserUsageAdjustment(params)
 	if params.LogType == LogTypeConsume && !common.LogConsumeEnabled {
 		return
 	}

@@ -45,7 +45,7 @@ import { formatQuotaWithCurrency } from '@/lib/currency'
 import dayjs from '@/lib/dayjs'
 import { cn } from '@/lib/utils'
 
-import { getCheckinStatus, performCheckin } from '../api'
+import { getCheckinStatus, performCheckinWithCaptcha } from '../api'
 import type { CheckinRecord } from '../types'
 
 interface CheckinCalendarCardProps {
@@ -142,15 +142,26 @@ export function CheckinCalendarCard({
     async (token?: string) => {
       setCheckinLoading(true)
       try {
-        const res = await performCheckin(token)
-        if (res.success && res.data) {
+        const res = await performCheckinWithCaptcha(token)
+        if (!res) return
+        if (res.code === 'CHECKIN_ALREADY_DONE') {
+          toast.info(t('Checked in'))
+          refetch()
+          setTurnstileModalVisible(false)
+          return
+        }
+        if (res.success && typeof res.data?.quota_awarded === 'number') {
           toast.success(
             `${t('Check-in successful! Received')} ${formatQuotaWithCurrency(res.data.quota_awarded)}`
           )
           refetch()
           setTurnstileModalVisible(false)
         } else {
-          if (!token && shouldTriggerTurnstile(res.message)) {
+          if (
+            res.data?.captcha_provider !== 'tencent' &&
+            !token &&
+            shouldTriggerTurnstile(res.message)
+          ) {
             if (!turnstileSiteKey) {
               toast.error(t('Turnstile is enabled but site key is empty.'))
               return

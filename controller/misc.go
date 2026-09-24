@@ -93,6 +93,7 @@ func GetStatus(c *gin.Context) {
 		"register_enabled":              common.RegisterEnabled,
 		"password_login_enabled":        common.PasswordLoginEnabled,
 		"phone_login_enabled":           common.PhoneLoginEnabled,
+		"two_fa_enabled":                common.TwoFAEnabled,
 		"sms_captcha_enabled":           smsCaptchaSetting.Enabled && smsCaptchaSetting.Configured(),
 		"sms_captcha_app_id":            smsCaptchaSetting.CaptchaAppId,
 		"password_register_enabled":     common.PasswordRegisterEnabled,
@@ -256,6 +257,10 @@ func SendEmailVerification(c *gin.Context) {
 	email := model.NormalizeEmail(c.Query("email"))
 	if err := common.Validate.Var(email, "required,email"); err != nil {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+	if common.IsEmailDomainBlocked(email) {
+		common.ApiErrorI18n(c, i18n.MsgUserEmailDomainBlocked)
 		return
 	}
 	parts := strings.Split(email, "@")

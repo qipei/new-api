@@ -195,6 +195,10 @@ func HandleOAuth(c *gin.Context) {
 	}
 	user, err := findOrCreateOAuthUser(c, provider, oauthUser, payload.AffiliateCode)
 	if err != nil {
+		if errors.Is(err, common.ErrEmailDomainBlocked) {
+			common.ApiErrorI18n(c, i18n.MsgUserEmailDomainBlocked)
+			return
+		}
 		if errors.Is(err, model.ErrEmailAlreadyTaken) {
 			common.ApiErrorI18n(c, i18n.MsgUserEmailAlreadyTaken)
 			return

@@ -168,6 +168,7 @@ export interface SystemStatus {
     password_login_enabled?: boolean
     password_register_enabled?: boolean
     phone_login_enabled?: boolean
+    two_fa_enabled?: boolean
     sms_captcha_enabled?: boolean
     sms_captcha_app_id?: string
     custom_oauth_providers?: CustomOAuthProviderInfo[]
@@ -216,6 +217,7 @@ export interface SystemStatus {
   password_login_enabled?: boolean
   password_register_enabled?: boolean
   phone_login_enabled?: boolean
+  two_fa_enabled?: boolean
   sms_captcha_enabled?: boolean
   sms_captcha_app_id?: string
   custom_oauth_providers?: CustomOAuthProviderInfo[]

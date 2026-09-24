@@ -46,12 +46,15 @@ import { useUpdateOption } from '../hooks/use-update-option'
 
 const basicAuthSchema = z.object({
   PhoneLoginEnabled: z.boolean(),
+  TwoFAEnabled: z.boolean(),
   PasswordLoginEnabled: z.boolean(),
   PasswordRegisterEnabled: z.boolean(),
   EmailVerificationEnabled: z.boolean(),
   RegisterEnabled: z.boolean(),
   EmailDomainRestrictionEnabled: z.boolean(),
   EmailAliasRestrictionEnabled: z.boolean(),
+  EmailDomainBlacklistEnabled: z.boolean(),
+  EmailDomainBlacklist: z.string(),
   EmailDomainWhitelist: z.string(),
 })
 
@@ -68,6 +71,10 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
   const formDefaults = useMemo<BasicAuthFormValues>(
     () => ({
       ...defaultValues,
+      EmailDomainBlacklist: defaultValues.EmailDomainBlacklist.split(',')
+        .map((domain) => domain.trim())
+        .filter(Boolean)
+        .join('\n'),
       EmailDomainWhitelist: defaultValues.EmailDomainWhitelist.split(',')
         .map((domain) => domain.trim())
         .filter(Boolean)
@@ -87,14 +94,14 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
     const updates: Array<{ key: string; value: string | boolean }> = []
 
     Object.entries(data).forEach(([key, value]) => {
-      if (key === 'EmailDomainWhitelist') {
+      if (key === 'EmailDomainWhitelist' || key === 'EmailDomainBlacklist') {
         if (typeof value !== 'string') return
         const domains = value
           .split('\n')
           .map((domain) => domain.trim())
           .filter(Boolean)
           .join(',')
-        if (domains !== defaultValues.EmailDomainWhitelist) {
+        if (domains !== defaultValues[key]) {
           updates.push({ key, value: domains })
         }
       } else if (value !== defaultValues[key as keyof typeof defaultValues]) {
@@ -102,8 +109,15 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
       }
     })
 
+    // Save the blocklist before enabling it; stop if a domain is rejected.
+    updates.sort(
+      (a, b) =>
+        Number(b.key === 'EmailDomainBlacklist') -
+        Number(a.key === 'EmailDomainBlacklist')
+    )
     for (const update of updates) {
-      await updateOption.mutateAsync(update)
+      const result = await updateOption.mutateAsync(update)
+      if (!result.success) return
     }
   }
 
@@ -147,6 +161,29 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
                   <FormLabel>{t('Password Login')}</FormLabel>
                   <FormDescription>
                     {t('Allow users to log in with password')}
+                  </FormDescription>
+                </SettingsSwitchContent>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </SettingsSwitchItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='TwoFAEnabled'
+            render={({ field }) => (
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>{t('Two-Factor Authentication')}</FormLabel>
+                  <FormDescription>
+                    {t(
+                      'Let users set up two-factor authentication in their profile. When turned off the option is hidden, and sign-in and security checks no longer ask for a two-factor code; existing setups are kept and take effect again once turned back on.'
+                    )}
                   </FormDescription>
                 </SettingsSwitchContent>
                 <FormControl>
@@ -209,7 +246,9 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
                 <SettingsSwitchContent>
                   <FormLabel>{t('Email Verification')}</FormLabel>
                   <FormDescription>
-                    {t('Require email verification for new accounts')}
+                    {t(
+                      'Require an email code for username/password registration. Does not enable registration or apply to phone or third-party sign-ups.'
+                    )}
                   </FormDescription>
                 </SettingsSwitchContent>
                 <FormControl>
@@ -280,6 +319,46 @@ export function BasicAuthSection({ defaultValues }: BasicAuthSectionProps) {
                 <FormDescription>
                   {t(
                     'One domain per line (only used when domain restriction is enabled)'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name='EmailDomainBlacklistEnabled'
+            render={({ field }) => (
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>{t('Enable Email Domain Blacklist')}</FormLabel>
+                  <FormDescription>
+                    {t(
+                      'Block listed domains for new accounts and email binding, even when the whitelist is off. Existing login and password reset are unaffected.'
+                    )}
+                  </FormDescription>
+                </SettingsSwitchContent>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </SettingsSwitchItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name='EmailDomainBlacklist'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Email Domain Blacklist')}</FormLabel>
+                <FormControl>
+                  <Textarea placeholder='maildrop.cc' rows={4} {...field} />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'One domain per line, e.g. maildrop.cc. Includes subdomains and ignores case. Enter domains only, without @, URLs or wildcards. The blacklist takes priority over the whitelist.'
                   )}
                 </FormDescription>
                 <FormMessage />

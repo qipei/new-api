@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Form,
   FormControl,
@@ -33,6 +34,8 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { formatCurrencyFromUSD, formatQuotaWithCurrency } from '@/lib/currency'
+import { useSystemConfigStore } from '@/stores/system-config-store'
 
 import {
   SettingsForm,
@@ -45,6 +48,7 @@ import { useUpdateOption } from '../hooks/use-update-option'
 
 const schema = z.object({
   enabled: z.boolean(),
+  captchaEnabled: z.boolean(),
   minQuota: z.coerce.number().int().min(0),
   maxQuota: z.coerce.number().int().min(0),
 })
@@ -56,17 +60,21 @@ export function CheckinSettingsSection({
 }: {
   defaultValues: {
     enabled: boolean
+    captchaEnabled?: boolean
     minQuota: number
     maxQuota: number
   }
 }) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
+  const currency = useSystemConfigStore((state) => state.config.currency)
+  const currencyDisplay = currency.quotaDisplayType !== 'TOKENS'
 
   const form = useForm<Values>({
     resolver: zodResolver(schema) as unknown as Resolver<Values>,
     defaultValues: {
       enabled: defaultValues.enabled,
+      captchaEnabled: defaultValues.captchaEnabled ?? false,
       minQuota: defaultValues.minQuota,
       maxQuota: defaultValues.maxQuota,
     },
@@ -74,9 +82,17 @@ export function CheckinSettingsSection({
 
   const { isDirty, isSubmitting } = form.formState
   const enabled = form.watch('enabled')
+  const captchaEnabled = form.watch('captchaEnabled')
 
   async function onSubmit(values: Values) {
     const updates: Array<{ key: string; value: string }> = []
+
+    if (values.captchaEnabled !== (defaultValues.captchaEnabled ?? false)) {
+      updates.push({
+        key: 'checkin_setting.captcha_enabled',
+        value: String(values.captchaEnabled),
+      })
+    }
 
     if (values.enabled !== defaultValues.enabled) {
       updates.push({
@@ -105,7 +121,8 @@ export function CheckinSettingsSection({
     }
 
     for (const update of updates) {
-      await updateOption.mutateAsync(update)
+      const result = await updateOption.mutateAsync(update)
+      if (!result.success) return
     }
 
     form.reset(values)
@@ -145,6 +162,69 @@ export function CheckinSettingsSection({
             )}
           />
 
+          <Alert>
+            <AlertDescription>
+              <p>
+                {t(
+                  'Rewards are entered in quota points, not currency or model tokens. A random integer is awarded between the minimum and maximum (inclusive); equal values give a fixed reward.'
+                )}
+              </p>
+              <p>
+                {t('{{points}} quota points = 1 USD.', {
+                  points: currency.quotaPerUnit.toLocaleString(),
+                })}
+                {currencyDisplay && (
+                  <>
+                    {' '}
+                    {t('At the current display rate, 1 USD = {{amount}}.', {
+                      amount: formatCurrencyFromUSD(1, {
+                        digitsLarge: 6,
+                        digitsSmall: 6,
+                        abbreviate: false,
+                      }),
+                    })}
+                  </>
+                )}
+              </p>
+            </AlertDescription>
+          </Alert>
+
+          <FormField
+            control={form.control}
+            name='captchaEnabled'
+            render={({ field }) => (
+              <SettingsSwitchItem>
+                <SettingsSwitchContent>
+                  <FormLabel>
+                    {t('Protect check-in with Tencent CAPTCHA')}
+                  </FormLabel>
+                  <FormDescription>
+                    {t(
+                      'When enabled, check-in uses Tencent CAPTCHA instead of Turnstile. When disabled, the global Turnstile setting applies.'
+                    )}
+                  </FormDescription>
+                </SettingsSwitchContent>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                    disabled={updateOption.isPending || isSubmitting}
+                  />
+                </FormControl>
+              </SettingsSwitchItem>
+            )}
+          />
+          {captchaEnabled && (
+            <Alert>
+              <AlertDescription>
+                {t(
+                  'Configure Web/App and mini-program CAPTCHA credentials in SMS settings. Login and check-in share credentials for each client type, with independent protection switches.'
+                )}{' '}
+                <a href='/system-settings/auth/sms'>{t('SMS Settings')}</a>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {enabled && (
             <div className='grid gap-6 sm:grid-cols-2'>
               <FormField
@@ -152,7 +232,9 @@ export function CheckinSettingsSection({
                 name='minQuota'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('Minimum check-in quota')}</FormLabel>
+                    <FormLabel>
+                      {t('Minimum check-in reward (quota points)')}
+                    </FormLabel>
                     <FormControl>
                       <Input
                         type='number'
@@ -162,7 +244,18 @@ export function CheckinSettingsSection({
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('Minimum quota amount awarded for check-in')}
+                      {currencyDisplay
+                        ? t('Equivalent to {{amount}}', {
+                            amount: formatQuotaWithCurrency(
+                              Number(field.value),
+                              {
+                                digitsLarge: 6,
+                                digitsSmall: 6,
+                                abbreviate: false,
+                              }
+                            ),
+                          })
+                        : t('Minimum quota amount awarded for check-in')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -174,7 +267,9 @@ export function CheckinSettingsSection({
                 name='maxQuota'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('Maximum check-in quota')}</FormLabel>
+                    <FormLabel>
+                      {t('Maximum check-in reward (quota points)')}
+                    </FormLabel>
                     <FormControl>
                       <Input
                         type='number'
@@ -184,7 +279,18 @@ export function CheckinSettingsSection({
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('Maximum quota amount awarded for check-in')}
+                      {currencyDisplay
+                        ? t('Equivalent to {{amount}}', {
+                            amount: formatQuotaWithCurrency(
+                              Number(field.value),
+                              {
+                                digitsLarge: 6,
+                                digitsSmall: 6,
+                                abbreviate: false,
+                              }
+                            ),
+                          })
+                        : t('Maximum quota amount awarded for check-in')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

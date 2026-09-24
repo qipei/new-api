@@ -9,4 +9,5 @@ docs
 .gocache
 /web/node_modules
 /web/dist
+/user-usage-spool
 !THIRD-PARTY-LICENSES.md

@@ -18,10 +18,20 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import axios from 'axios'
 
-import { api, refreshAuthentication, type RefreshOutcome } from '@/lib/api'
+import {
+  api,
+  isAuthBundle,
+  refreshAuthentication,
+  type RefreshOutcome,
+} from '@/lib/api'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { getAffiliateCode } from './lib/storage'
+import {
+  clearAffiliateCode,
+  consumeLoginAffiliateCode,
+  getAffiliateCode,
+  saveLoginAffiliateCode,
+} from './lib/storage'
 import type { TelegramAuthorization } from './lib/telegram-login'
 import type {
   LoginPayload,
@@ -46,6 +56,7 @@ import type {
 
 // User login with username and password
 export async function login(payload: LoginPayload) {
+  const affiliateCode = getAffiliateCode()
   const turnstile = payload.turnstile ?? ''
   const res = await api.post<LoginResponse>(
     `/api/user/login?turnstile=${turnstile}`,
@@ -55,12 +66,24 @@ export async function login(payload: LoginPayload) {
     },
     { skipAuthRefresh: true }
   )
+  if (res.data.success && isAuthBundle(res.data.data)) {
+    clearAffiliateCode(affiliateCode)
+  } else if (
+    res.data.success &&
+    res.data.data &&
+    'require_2fa' in res.data.data &&
+    res.data.data.require_2fa &&
+    res.data.data.flow_token
+  ) {
+    saveLoginAffiliateCode(res.data.data.flow_token, affiliateCode)
+  }
   return res.data
 }
 
 // Login with a phone number and an SMS verification code. The account is
 // created on the fly when the number has never signed in before.
 export async function phoneLogin(payload: PhoneLoginPayload) {
+  const affiliateCode = payload.aff_code ?? getAffiliateCode()
   const turnstile = payload.turnstile ?? ''
   const res = await api.post<LoginResponse>(
     `/api/user/login/phone?turnstile=${turnstile}`,
@@ -71,6 +94,17 @@ export async function phoneLogin(payload: PhoneLoginPayload) {
     },
     { skipAuthRefresh: true }
   )
+  if (res.data.success && isAuthBundle(res.data.data)) {
+    clearAffiliateCode(affiliateCode)
+  } else if (
+    res.data.success &&
+    res.data.data &&
+    'require_2fa' in res.data.data &&
+    res.data.data.require_2fa &&
+    res.data.data.flow_token
+  ) {
+    saveLoginAffiliateCode(res.data.data.flow_token, affiliateCode)
+  }
   return res.data
 }
 
@@ -121,6 +155,9 @@ export async function login2fa(payload: TwoFAPayload) {
   const res = await api.post<Login2FAResponse>('/api/user/login/2fa', payload, {
     skipAuthRefresh: true,
   })
+  if (res.data.success && isAuthBundle(res.data.data)) {
+    consumeLoginAffiliateCode(payload.flow_token)
+  }
   return res.data
 }
 
@@ -247,6 +284,9 @@ export async function register(payload: RegisterPayload): Promise<ApiResponse> {
   const res = await api.post(`/api/user/register`, payload, {
     params: { turnstile: payload.turnstile ?? '' },
   })
+  if (res.data.success && payload.aff_code) {
+    clearAffiliateCode(payload.aff_code)
+  }
   return res.data
 }
 

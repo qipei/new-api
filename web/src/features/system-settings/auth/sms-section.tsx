@@ -68,6 +68,8 @@ const smsSchema = z.object({
   }),
   sms_captcha: z.object({
     enabled: z.boolean(),
+    mini_app_id: z.string(),
+    mini_app_secret_key: z.string(),
     captcha_app_id: z.string(),
     app_secret_key: z.string(),
     secret_id: z.string(),
@@ -97,6 +99,8 @@ export type FlatSMSDefaults = {
   'sms_captcha.enabled': boolean
   'sms_captcha.captcha_app_id': string
   'sms_captcha.app_secret_key': string
+  'sms_captcha.mini_app_id': string
+  'sms_captcha.mini_app_secret_key': string
   'sms_captcha.secret_id': string
   'sms_captcha.secret_key': string
   'sms_captcha.phone_trigger_count': number
@@ -122,6 +126,8 @@ const buildFormDefaults = (defaults: FlatSMSDefaults): SMSFormValues => ({
   },
   sms_captcha: {
     enabled: defaults['sms_captcha.enabled'],
+    mini_app_id: defaults['sms_captcha.mini_app_id'] ?? '',
+    mini_app_secret_key: '',
     captcha_app_id: defaults['sms_captcha.captcha_app_id'] ?? '',
     app_secret_key: defaults['sms_captcha.app_secret_key'] ?? '',
     secret_id: defaults['sms_captcha.secret_id'] ?? '',
@@ -147,6 +153,9 @@ const flattenFormValues = (values: SMSFormValues): FlatSMSDefaults => ({
   'sms.phone_daily_limit': values.sms.phone_daily_limit,
   'sms.ip_daily_limit': values.sms.ip_daily_limit,
   'sms_captcha.enabled': values.sms_captcha.enabled,
+  'sms_captcha.mini_app_id': values.sms_captcha.mini_app_id.trim(),
+  'sms_captcha.mini_app_secret_key':
+    values.sms_captcha.mini_app_secret_key.trim(),
   'sms_captcha.captcha_app_id': values.sms_captcha.captcha_app_id,
   'sms_captcha.app_secret_key': values.sms_captcha.app_secret_key,
   'sms_captcha.secret_id': values.sms_captcha.secret_id,
@@ -193,7 +202,12 @@ export function SMSSection(props: SMSSectionProps) {
     const flattened = flattenFormValues(values)
     const changedKeys = (
       Object.keys(flattened) as Array<keyof FlatSMSDefaults>
-    ).filter((key) => flattened[key] !== baselineRef.current[key])
+    ).filter((key) => {
+      if (key === 'sms_captcha.mini_app_secret_key' && !flattened[key]) {
+        return false
+      }
+      return flattened[key] !== baselineRef.current[key]
+    })
 
     if (changedKeys.length === 0) {
       toast.info(t('No changes to save'))
@@ -559,7 +573,7 @@ export function SMSSection(props: SMSSectionProps) {
             name='sms_captcha.captcha_app_id'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('CaptchaAppId')}</FormLabel>
+                <FormLabel>Web/App {t('CaptchaAppId')}</FormLabel>
                 <FormControl>
                   <Input inputMode='numeric' {...field} />
                 </FormControl>
@@ -578,7 +592,7 @@ export function SMSSection(props: SMSSectionProps) {
             name='sms_captcha.app_secret_key'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('AppSecretKey')}</FormLabel>
+                <FormLabel>Web/App {t('AppSecretKey')}</FormLabel>
                 <FormControl>
                   <PasswordInput autoComplete='new-password' {...field} />
                 </FormControl>
@@ -592,6 +606,50 @@ export function SMSSection(props: SMSSectionProps) {
             )}
           />
 
+          <p className='text-muted-foreground text-sm'>
+            {t(
+              'Configure Web/App and mini-program CAPTCHA credentials in SMS settings. Login and check-in share credentials for each client type, with independent protection switches.'
+            )}
+          </p>
+          <FormField
+            control={form.control}
+            name='sms_captcha.mini_app_id'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  {t('Mini-program CAPTCHA application ID')}
+                </FormLabel>
+                <FormControl>
+                  <Input {...field} autoComplete='off' />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name='sms_captcha.mini_app_secret_key'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>
+                  {t('Mini-program CAPTCHA application secret')}
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    {...field}
+                    type='password'
+                    autoComplete='new-password'
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'Leave blank to keep the saved secret. Never send this secret to the mini-program.'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <FormField
             control={form.control}
             name='sms_captcha.secret_id'

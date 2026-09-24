@@ -122,6 +122,7 @@ const defaultBillingSettings: BillingSettings = {
   WechatPayPublicKey: '',
   WechatPayPublicKeyID: '',
   'checkin_setting.enabled': false,
+  'checkin_setting.captcha_enabled': false,
   'checkin_setting.min_quota': 1000,
   'checkin_setting.max_quota': 10000,
   'commission_setting.enabled': false,

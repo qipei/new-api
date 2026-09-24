@@ -667,6 +667,10 @@ func getAuthenticatedUser(c *gin.Context) (*model.User, error) {
 }
 
 func requirePasskeyRegistrationVerification(c *gin.Context, userID int) bool {
+	// 两步验证被关闭时无法再提供两步验证码，不能以它作为注册 Passkey 的前置确认。
+	if !common.TwoFAEnabled {
+		return true
+	}
 	twoFA, err := model.GetTwoFAByUserId(userID)
 	if err != nil {
 		common.ApiError(c, err)
@@ -684,7 +688,7 @@ func requirePasskeyDeleteVerification(c *gin.Context, userID int) bool {
 		common.ApiError(c, err)
 		return false
 	}
-	if twoFA != nil && twoFA.IsEnabled {
+	if common.TwoFAEnabled && twoFA != nil && twoFA.IsEnabled {
 		return middleware.RequireSecurityProof(c, securityProofScopePasskeyDelete, []string{secureVerificationMethod2FA})
 	}
 

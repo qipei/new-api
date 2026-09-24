@@ -576,7 +576,7 @@ func RechargeCreem(referenceId string, customerEmail string, customerName string
 		updateFields := map[string]interface{}{}
 
 		// 如果有客户邮箱，尝试更新用户邮箱（仅当用户邮箱为空时）
-		if customerEmail != "" {
+		if customerEmail != "" && !common.IsEmailDomainBlocked(customerEmail) {
 			// 先检查用户当前邮箱是否为空
 			var user User
 			err = tx.Where("id = ?", topUp.UserId).First(&user).Error

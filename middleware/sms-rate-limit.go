@@ -24,10 +24,17 @@ const (
 func rejectThrottledSMSRequest(c *gin.Context, waitSeconds int) {
 	data := gin.H{"resend_after": waitSeconds}
 	settings := system_setting.GetSMSCaptchaSettings()
-	if common.PhoneLoginEnabled && settings.Enabled && settings.Configured() {
+	clientType := c.DefaultQuery("captcha_client", "web")
+	if common.PhoneLoginEnabled && settings.Enabled {
 		service.RequireSMSCaptchaForIP(c.ClientIP())
+	}
+	if common.PhoneLoginEnabled && settings.Enabled && settings.ConfiguredForClient(clientType) {
 		data["require_captcha"] = true
 		data["captcha_app_id"] = settings.CaptchaAppId
+		if clientType == "mini_program" {
+			data["captcha_app_id"] = settings.MiniAppID
+		}
+		data["captcha_client"] = clientType
 	}
 	c.Header("Retry-After", strconv.Itoa(waitSeconds))
 	c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{

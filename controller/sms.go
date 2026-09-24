@@ -56,6 +56,11 @@ func sendSMSCode(c *gin.Context, purpose string, currentUserId int) {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
+	clientType := c.DefaultQuery("captcha_client", "web")
+	if clientType != "web" && clientType != "mini_program" {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
 
 	phone := model.NormalizePhone(req.Phone)
 	if !model.IsValidPhone(phone) {
@@ -110,12 +115,16 @@ func sendSMSCode(c *gin.Context, purpose string, currentUserId int) {
 	captchaSettings := system_setting.GetSMSCaptchaSettings()
 	clientIP := c.ClientIP()
 	if captchaSettings.Enabled {
-		if !captchaSettings.Configured() {
+		if !captchaSettings.ConfiguredForClient(clientType) {
 			common.ApiErrorI18n(c, i18n.MsgSMSCaptchaFailed)
 			return
 		}
+		credentials := service.TencentCaptchaCredentials{AppID: captchaSettings.CaptchaAppId, AppSecretKey: captchaSettings.AppSecretKey, SecretID: captchaSettings.SecretId, SecretKey: captchaSettings.SecretKey}
+		if clientType == "mini_program" {
+			credentials.AppID, credentials.AppSecretKey = captchaSettings.MiniAppID, captchaSettings.MiniAppSecretKey
+		}
 		if req.CaptchaTicket != "" {
-			if err := service.VerifySMSCaptcha(req.CaptchaTicket, req.CaptchaRandstr, clientIP); err != nil {
+			if err := service.VerifyTencentCaptcha(c.Request.Context(), credentials, clientType, req.CaptchaTicket, req.CaptchaRandstr, clientIP); err != nil {
 				common.SysLog(fmt.Sprintf("sms captcha verification failed for %s: %v", model.MaskPhone(phone), err))
 				common.ApiErrorI18n(c, i18n.MsgSMSCaptchaFailed)
 				return
@@ -127,7 +136,8 @@ func sendSMSCode(c *gin.Context, purpose string, currentUserId int) {
 				"message": i18n.T(c, i18n.MsgSMSCaptchaRequired),
 				"data": gin.H{
 					"require_captcha": true,
-					"captcha_app_id":  captchaSettings.CaptchaAppId,
+					"captcha_app_id":  credentials.AppID,
+					"captcha_client":  clientType,
 				},
 			})
 			return

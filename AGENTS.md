@@ -64,6 +64,8 @@ web/           — Frontend (React 19, Rsbuild, Base UI, Tailwind)
 
 ### Backend Rules
 
+**API compatibility:** When an existing endpoint cannot meet a new client requirement, add a new endpoint. Preserve existing routes, parameters, and response contracts unless the user explicitly authorizes changing them. Document new mini-program endpoints under the corresponding screen in the mini-program API document.
+
 **relaykit module independence:** The `relaykit/` Go module MUST remain independently buildable.
 
 - Code under `relaykit/` MUST NOT import or depend on packages from the root `new-api` module, or rely on root-only configuration, generated files, or workspace wiring.

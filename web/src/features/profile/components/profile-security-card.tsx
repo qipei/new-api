@@ -24,11 +24,13 @@ import { IconBadge } from '@/components/ui/icon-badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TitledCard } from '@/components/ui/titled-card'
 import { useDialogs } from '@/hooks/use-dialog'
+import { useStatus } from '@/hooks/use-status'
 
 import type { UserProfile } from '../types'
 import { AccessTokenDialog } from './dialogs/access-token-dialog'
 import { ChangePasswordDialog } from './dialogs/change-password-dialog'
 import { DeleteAccountDialog } from './dialogs/delete-account-dialog'
+import { SetPasswordDialog } from './dialogs/set-password-dialog'
 
 // ============================================================================
 // Profile Security Card Component
@@ -37,16 +39,19 @@ import { DeleteAccountDialog } from './dialogs/delete-account-dialog'
 interface ProfileSecurityCardProps {
   profile: UserProfile | null
   loading: boolean
+  onProfileUpdate: () => void
 }
 
-type DialogKey = 'password' | 'token' | 'delete'
+type DialogKey = 'password' | 'set-password' | 'token' | 'delete'
 
 export function ProfileSecurityCard({
   profile,
   loading,
+  onProfileUpdate,
 }: ProfileSecurityCardProps) {
   const { t } = useTranslation()
   const dialogs = useDialogs<DialogKey>()
+  const { status } = useStatus()
 
   if (loading) {
     return (
@@ -66,14 +71,30 @@ export function ProfileSecurityCard({
 
   if (!profile) return null
 
+  // 手机号或第三方登录创建的账号没有密码，改为提供「设置登录密码」；
+  // 密码登录被管理员关闭时，设置了也无法使用，不展示该入口。
+  const hasPassword = profile.has_password !== false
+  const passwordLoginEnabled = status?.password_login_enabled !== false
+  const passwordAction = hasPassword
+    ? {
+        icon: Shield,
+        title: t('Change Password'),
+        description: t('Update your password to keep your account secure'),
+        action: () => dialogs.open('password'),
+        variant: 'default' as const,
+      }
+    : {
+        icon: Shield,
+        title: t('Set Login Password'),
+        description: t(
+          'Set a password to also sign in with your username or email'
+        ),
+        action: () => dialogs.open('set-password'),
+        variant: 'default' as const,
+      }
+
   const securityActions = [
-    {
-      icon: Shield,
-      title: t('Change Password'),
-      description: t('Update your password to keep your account secure'),
-      action: () => dialogs.open('password'),
-      variant: 'default' as const,
-    },
+    ...(hasPassword || passwordLoginEnabled ? [passwordAction] : []),
     {
       icon: Key,
       title: t('Access Token'),
@@ -130,6 +151,16 @@ export function ProfileSecurityCard({
           open ? dialogs.open('password') : dialogs.close('password')
         }
         username={profile.username}
+      />
+
+      <SetPasswordDialog
+        open={dialogs.isOpen('set-password')}
+        onOpenChange={(open) =>
+          open ? dialogs.open('set-password') : dialogs.close('set-password')
+        }
+        username={profile.username}
+        email={profile.email}
+        onSuccess={onProfileUpdate}
       />
 
       <AccessTokenDialog

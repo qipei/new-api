@@ -544,21 +544,6 @@ func HardDeleteUserById(id int) error {
 	return user.HardDelete()
 }
 
-func inviteUser(inviterId int) error {
-	result := DB.Model(&User{}).Where("id = ?", inviterId).Updates(map[string]interface{}{
-		"aff_count":   gorm.Expr("aff_count + ?", 1),
-		"aff_quota":   gorm.Expr("aff_quota + ?", common.QuotaForInviter),
-		"aff_history": gorm.Expr("aff_history + ?", common.QuotaForInviter),
-	})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return gorm.ErrRecordNotFound
-	}
-	return nil
-}
-
 func (user *User) TransferAffQuotaToQuota(quota int) error {
 	// 检查quota是否小于最小额度
 	if float64(quota) < common.QuotaPerUnit {
@@ -598,6 +583,9 @@ func (user *User) TransferAffQuotaToQuota(quota int) error {
 
 func (user *User) prepareForInsert(tx *gorm.DB) error {
 	user.Email = NormalizeEmail(user.Email)
+	if common.IsEmailDomainBlocked(user.Email) {
+		return common.ErrEmailDomainBlocked
+	}
 	if err := ensureEmailAvailableWithTx(tx, user.Email, 0); err != nil {
 		return err
 	}
@@ -614,6 +602,9 @@ func (user *User) prepareForInsert(tx *gorm.DB) error {
 // end up sharing one address. The email is normalized before check and store.
 func BindEmailToUser(user *User, email string) error {
 	email = NormalizeEmail(email)
+	if common.IsEmailDomainBlocked(email) {
+		return common.ErrEmailDomainBlocked
+	}
 	if err := DB.Transaction(func(tx *gorm.DB) error {
 		return withNormalizedEmailLock(tx, email, func(tx *gorm.DB) error {
 			if err := ensureEmailAvailableWithTx(tx, email, user.Id); err != nil {
@@ -663,7 +654,7 @@ func (user *User) Insert(inviterId int) error {
 				user.SetSetting(defaultSetting)
 			}
 
-			return tx.Create(user).Error
+			return user.createWithReferral(tx, inviterId)
 		})
 	}); err != nil {
 		return err
@@ -698,9 +689,7 @@ func (user *User) finishInsert(inviterId int) {
 			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(common.QuotaForInvitee)))
 		}
 		if common.QuotaForInviter > 0 {
-			//_ = IncreaseUserQuota(inviterId, common.QuotaForInviter)
 			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
-			_ = inviteUser(inviterId)
 		}
 	}
 }
@@ -711,7 +700,7 @@ func (user *User) FinishInsert(inviterId int) {
 
 // InsertWithTx inserts a new user within an existing transaction.
 // This is used for OAuth registration where user creation and binding need to be atomic.
-// Post-creation tasks (sidebar config, logs, inviter rewards) are handled after the transaction commits.
+// Post-creation tasks (sidebar config, logs, invitee rewards) run after commit.
 func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 	return withNormalizedEmailLock(tx, user.Email, func(tx *gorm.DB) error {
 		if err := user.prepareForInsert(tx); err != nil {
@@ -726,8 +715,28 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 			user.SetSetting(defaultSetting)
 		}
 
-		return tx.Create(user).Error
+		return user.createWithReferral(tx, inviterId)
 	})
+}
+
+// createWithReferral persists the referral and its count in the same transaction
+// as the account, including the inviter reward and its ledger entry.
+func (user *User) createWithReferral(tx *gorm.DB, inviterId int) error {
+	user.InviterId = inviterId
+	if err := tx.Create(user).Error; err != nil {
+		return err
+	}
+	if inviterId == 0 {
+		return nil
+	}
+	if err := tx.Model(&User{}).Where("id = ?", inviterId).
+		UpdateColumn("aff_count", gorm.Expr("aff_count + ?", 1)).Error; err != nil {
+		return err
+	}
+	if operation_setting.IsPaymentComplianceConfirmed() && common.QuotaForInviter > 0 {
+		return creditRegistrationReward(tx, inviterId, user.Id, common.QuotaForInviter)
+	}
+	return nil
 }
 
 // FinalizeOAuthUserCreation performs post-transaction tasks for OAuth user creation.
@@ -756,7 +765,6 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 		}
 		if common.QuotaForInviter > 0 {
 			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
-			_ = inviteUser(inviterId)
 		}
 	}
 }
@@ -1136,6 +1144,33 @@ func IsOidcIdAlreadyTaken(oidcId string) bool {
 
 func IsTelegramIdAlreadyTaken(telegramId string) bool {
 	return DB.Unscoped().Where("telegram_id = ?", telegramId).Find(&User{}).RowsAffected == 1
+}
+
+// UserHasPassword 判断账号是否设置过登录密码。手机号注册、第三方登录创建的账号初始没有密码。
+func UserHasPassword(userId int) (bool, error) {
+	var count int64
+	err := DB.Model(&User{}).Where("id = ? AND password <> ''", userId).Count(&count).Error
+	return count > 0, err
+}
+
+// SetInitialPassword 为尚未设置密码的账号写入首个登录密码。条件更新保证只在密码为空时生效，
+// 已有密码的账号返回 ErrPasswordAlreadySet，必须走验证原密码的修改流程。
+// 这里不提升 AuthVersion：账号此前没有密码，不存在需要吊销的旧凭据，当前会话保持有效。
+func SetInitialPassword(userId int, password string) error {
+	hashedPassword, err := common.Password2Hash(password)
+	if err != nil {
+		return err
+	}
+	result := DB.Model(&User{}).
+		Where("id = ? AND (password = '' OR password IS NULL)", userId).
+		Update("password", hashedPassword)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrPasswordAlreadySet
+	}
+	return nil
 }
 
 func ResetUserPasswordByEmail(email string, password string) error {

@@ -46,6 +46,9 @@ export function Profile() {
   )
   const turnstileSiteKey = status?.turnstile_site_key || ''
   const canConfigureSidebar = permissions?.sidebar_settings !== false
+  // 管理员在身份验证设置里关闭对应功能时，个人资料页不再展示入口。
+  const passkeyEnabled = Boolean(status?.passkey_login)
+  const twoFAEnabled = status?.two_fa_enabled !== false
 
   return (
     <Main>
@@ -67,7 +70,11 @@ export function Profile() {
                   profile={profile}
                   onProfileUpdate={refreshProfile}
                 />
-                <ProfileSecurityCard profile={profile} loading={loading} />
+                <ProfileSecurityCard
+                  profile={profile}
+                  loading={loading}
+                  onProfileUpdate={refreshProfile}
+                />
                 <LoginSessionsCard />
               </div>
 
@@ -80,8 +87,8 @@ export function Profile() {
                   />
                 )}
                 {canConfigureSidebar && <SidebarModulesCard />}
-                <PasskeyCard loading={loading} />
-                <TwoFACard loading={loading} />
+                {passkeyEnabled && <PasskeyCard loading={loading} />}
+                {twoFAEnabled && <TwoFACard loading={loading} />}
               </div>
             </div>
           </CardStaggerItem>

@@ -213,6 +213,11 @@ func InitDB() (err error) {
 }
 
 func InitLogDB() (err error) {
+	defer func() {
+		if err == nil && common.IsMasterNode {
+			err = InitializeUserUsageStorage()
+		}
+	}()
 	if os.Getenv("LOG_SQL_DSN") == "" {
 		LOG_DB = DB
 		common.SetLogDatabaseType(common.MainDatabaseType())
@@ -342,6 +347,7 @@ func migrateDB() error {
 		&CasbinRule{},
 		&AuthzRole{},
 		&CommissionRecord{},
+		&ReferralRewardRecord{},
 		&UserCommissionOverride{},
 	)
 	if err != nil {
@@ -405,6 +411,7 @@ func migrateDBFast() error {
 		{&SystemTask{}, "SystemTask"},
 		{&SystemTaskLock{}, "SystemTaskLock"},
 		{&CommissionRecord{}, "CommissionRecord"},
+		{&ReferralRewardRecord{}, "ReferralRewardRecord"},
 		{&UserCommissionOverride{}, "UserCommissionOverride"},
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大

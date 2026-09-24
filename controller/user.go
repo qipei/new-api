@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
@@ -82,6 +83,9 @@ func Login(c *gin.Context) {
 // issue2FAChallenge 在用户开启两步验证时下发登录挑战。返回 true 表示响应已经写出
 // （挑战或错误），调用方必须停止建立会话；返回 false 表示可以继续正常登录。
 func issue2FAChallenge(user *model.User, c *gin.Context) bool {
+	if !common.TwoFAEnabled {
+		return false
+	}
 	twoFAEnabled, err := model.IsTwoFAEnabled(user.Id)
 	if err != nil {
 		common.SysLog(fmt.Sprintf("Login failed to load 2FA status for user %d: %v", user.Id, err))
@@ -231,6 +235,10 @@ func Register(c *gin.Context) {
 	}
 	user.Username = strings.TrimSpace(user.Username)
 	user.Email = model.NormalizeEmail(user.Email)
+	if common.IsEmailDomainBlocked(user.Email) {
+		common.ApiErrorI18n(c, i18n.MsgUserEmailDomainBlocked)
+		return
+	}
 	if user.Username == "" {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
@@ -284,6 +292,10 @@ func Register(c *gin.Context) {
 		cleanUser.Email = user.Email
 	}
 	if err := cleanUser.Insert(inviterId); err != nil {
+		if errors.Is(err, common.ErrEmailDomainBlocked) {
+			common.ApiErrorI18n(c, i18n.MsgUserEmailDomainBlocked)
+			return
+		}
 		if errors.Is(err, model.ErrEmailAlreadyTaken) {
 			common.ApiErrorI18n(c, i18n.MsgUserEmailAlreadyTaken)
 			return
@@ -527,6 +539,7 @@ func buildSelfUserData(user *model.User) map[string]interface{} {
 		"status":            user.Status,
 		"email":             user.Email,
 		"phone":             user.Phone,
+		"has_password":      userHasPassword(user.Id),
 		"github_id":         user.GitHubId,
 		"discord_id":        user.DiscordId,
 		"oidc_id":           user.OidcId,
@@ -939,6 +952,51 @@ func UpdateSelf(c *gin.Context) {
 	return
 }
 
+// userHasPassword 供个人资料区分「设置登录密码」和「修改密码」。查询失败时按已设置处理，
+// 前端会走修改密码流程，不会误开放设置首个密码的入口。
+func userHasPassword(userId int) bool {
+	hasPassword, err := model.UserHasPassword(userId)
+	if err != nil {
+		common.SysError(fmt.Sprintf("failed to check password state for user %d: %v", userId, err))
+		return true
+	}
+	return hasPassword
+}
+
+type setInitialPasswordRequest struct {
+	Password string `json:"password"`
+}
+
+// SetInitialPassword 允许尚未设置密码的账号（手机号注册、第三方登录创建）设置首个登录密码，
+// 之后即可用用户名或已绑定的邮箱加密码登录。已有密码的账号必须走验证原密码的修改流程。
+func SetInitialPassword(c *gin.Context) {
+	var req setInitialPasswordRequest
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+	length := utf8.RuneCountInString(req.Password)
+	if length < 8 || length > 20 {
+		common.ApiErrorI18n(c, i18n.MsgUserPasswordLengthInvalid)
+		return
+	}
+
+	userId := c.GetInt("id")
+	if err := model.SetInitialPassword(userId, req.Password); err != nil {
+		if errors.Is(err, model.ErrPasswordAlreadySet) {
+			common.ApiErrorI18n(c, i18n.MsgUserPasswordAlreadySet)
+			return
+		}
+		common.ApiError(c, err)
+		return
+	}
+	model.RecordLog(userId, model.LogTypeSystem, "设置了登录密码")
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+	})
+}
+
 func checkUpdatePassword(originalPassword string, newPassword string, userId int) (updatePassword bool, err error) {
 	if newPassword == "" {
 		return
@@ -1298,6 +1356,10 @@ func EmailBind(c *gin.Context) {
 	}
 	email := req.Email
 	email = model.NormalizeEmail(email)
+	if common.IsEmailDomainBlocked(email) {
+		common.ApiErrorI18n(c, i18n.MsgUserEmailDomainBlocked)
+		return
+	}
 	code := req.Code
 	if !common.VerifyCodeWithKey(email, code, common.EmailVerificationPurpose) {
 		common.ApiErrorI18n(c, i18n.MsgUserVerificationCodeError)
@@ -1316,6 +1378,10 @@ func EmailBind(c *gin.Context) {
 		return
 	}
 	if err := model.BindEmailToUser(&user, email); err != nil {
+		if errors.Is(err, common.ErrEmailDomainBlocked) {
+			common.ApiErrorI18n(c, i18n.MsgUserEmailDomainBlocked)
+			return
+		}
 		if errors.Is(err, model.ErrEmailAlreadyTaken) {
 			common.ApiErrorI18n(c, i18n.MsgUserEmailAlreadyTaken)
 			return

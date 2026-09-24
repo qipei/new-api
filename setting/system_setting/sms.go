@@ -41,6 +41,8 @@ var defaultSMSSettings = SMSSettings{
 
 // SMSCaptchaSettings 腾讯云验证码配置，用于短信下发前的防刷校验。
 type SMSCaptchaSettings struct {
+	MiniAppID         string `json:"mini_app_id"`
+	MiniAppSecretKey  string `json:"mini_app_secret_key"`
 	Enabled           bool   `json:"enabled"`             // 是否启用腾讯云验证码防刷
 	CaptchaAppId      string `json:"captcha_app_id"`      // 腾讯云验证码应用 ID，会下发给前端用于拉起验证码
 	AppSecretKey      string `json:"app_secret_key"`      // 腾讯云验证码 AppSecretKey，仅服务端校验票据使用，不下发给前端
@@ -129,8 +131,19 @@ func (c *SMSCaptchaSettings) EffectiveWindowSeconds() int {
 
 // Configured 腾讯云验证码需要同时具备票据校验凭据才算配置完成。
 func (c *SMSCaptchaSettings) Configured() bool {
-	return strings.TrimSpace(c.CaptchaAppId) != "" &&
-		strings.TrimSpace(c.AppSecretKey) != "" &&
+	return c.ConfiguredForClient("web")
+}
+
+// ConfiguredForClient requires credentials for the selected client, never a fallback.
+func (c *SMSCaptchaSettings) ConfiguredForClient(clientType string) bool {
+	appID, secret := c.CaptchaAppId, c.AppSecretKey
+	if clientType == "mini_program" {
+		appID, secret = c.MiniAppID, c.MiniAppSecretKey
+	} else if clientType != "web" {
+		return false
+	}
+	return strings.TrimSpace(appID) != "" &&
+		strings.TrimSpace(secret) != "" &&
 		strings.TrimSpace(c.SecretId) != "" &&
 		strings.TrimSpace(c.SecretKey) != ""
 }

@@ -258,6 +258,15 @@ func TestSMSRateLimitRequestsCaptchaWithoutBypassingThrottle(t *testing.T) {
 	assert.Equal(t, "195901070", body.Data.AppID)
 	assert.Equal(t, 30, body.Data.ResendAfter)
 	assert.Equal(t, 2, reached)
+	// Native mini-programs must receive their own application in throttled challenges.
+	system_setting.GetSMSCaptchaSettings().MiniAppID = "456"
+	system_setting.GetSMSCaptchaSettings().MiniAppSecretKey = "mini-secret"
+	response = performRateLimitRequest(router, "/api/sms/code?captcha_client=mini_program", ip+":1234")
+	assert.Equal(t, 429, response.Code)
+	require.NoError(t, common.Unmarshal(response.Body.Bytes(), &body))
+	assert.Equal(t, "456", body.Data.AppID)
+	assert.NotContains(t, response.Body.String(), "mini-secret")
+	assert.Equal(t, 2, reached)
 	// 邮箱验证码使用独立的限流桶，不受短信请求消耗影响。
 	assert.Equal(t, 204, performRateLimitRequest(router, "/api/verification", ip+":1234").Code)
 	server.FastForward(31 * time.Second)

@@ -37,6 +37,7 @@ import {
   TOKEN01_LOGO_RADIUS_CLASS,
   Token01Wordmark,
 } from '@/components/layout/components/public-brand'
+import { MiniAppQR } from '@/components/mini-app-qr'
 import { usePricingData } from '@/features/pricing/hooks'
 import { isDynamicPricingModel } from '@/features/pricing/lib/dynamic-price'
 import { isTokenBasedModel } from '@/features/pricing/lib/model-helpers'
@@ -507,7 +508,10 @@ export function DefaultHome() {
             </div>
           </div>
         </div>
-        <GatewayDiagram />
+        <div className='flex min-w-0 flex-col gap-4'>
+          <GatewayDiagram />
+          <MiniAppQR placement='home' />
+        </div>
       </section>
 
       <HotModels />

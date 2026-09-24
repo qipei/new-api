@@ -34,11 +34,14 @@ const AUTH_SECTIONS = [
         defaultValues={{
           PasswordLoginEnabled: settings.PasswordLoginEnabled,
           PhoneLoginEnabled: settings.PhoneLoginEnabled,
+          TwoFAEnabled: settings.TwoFAEnabled,
           PasswordRegisterEnabled: settings.PasswordRegisterEnabled,
           EmailVerificationEnabled: settings.EmailVerificationEnabled,
           RegisterEnabled: settings.RegisterEnabled,
           EmailDomainRestrictionEnabled: settings.EmailDomainRestrictionEnabled,
           EmailAliasRestrictionEnabled: settings.EmailAliasRestrictionEnabled,
+          EmailDomainBlacklistEnabled: settings.EmailDomainBlacklistEnabled,
+          EmailDomainBlacklist: settings.EmailDomainBlacklist,
           EmailDomainWhitelist: settings.EmailDomainWhitelist,
         }}
       />
@@ -66,6 +69,9 @@ const AUTH_SECTIONS = [
           'sms_captcha.enabled': settings['sms_captcha.enabled'],
           'sms_captcha.captcha_app_id': settings['sms_captcha.captcha_app_id'],
           'sms_captcha.app_secret_key': settings['sms_captcha.app_secret_key'],
+          'sms_captcha.mini_app_id': settings['sms_captcha.mini_app_id'],
+          'sms_captcha.mini_app_secret_key':
+            settings['sms_captcha.mini_app_secret_key'],
           'sms_captcha.secret_id': settings['sms_captcha.secret_id'],
           'sms_captcha.secret_key': settings['sms_captcha.secret_key'],
           'sms_captcha.phone_trigger_count':

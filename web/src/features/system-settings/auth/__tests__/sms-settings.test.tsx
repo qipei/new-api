@@ -49,6 +49,8 @@ test('first-time captcha setup saves credentials before enabling verification', 
     'sms_captcha.enabled': false,
     'sms_captcha.captcha_app_id': '',
     'sms_captcha.app_secret_key': '',
+    'sms_captcha.mini_app_id': '',
+    'sms_captcha.mini_app_secret_key': '',
     'sms_captcha.secret_id': '',
     'sms_captcha.secret_key': '',
     'sms_captcha.phone_trigger_count': 3,
@@ -79,10 +81,10 @@ test('first-time captcha setup saves credentials before enabling verification', 
       </SettingsPageProvider>
     </QueryClientProvider>
   )
-  fireEvent.change(screen.getByLabelText('CaptchaAppId'), {
+  fireEvent.change(screen.getByLabelText('Web/App CaptchaAppId'), {
     target: { value: '123' },
   })
-  fireEvent.change(screen.getByLabelText('AppSecretKey'), {
+  fireEvent.change(screen.getByLabelText('Web/App AppSecretKey'), {
     target: { value: 'app-secret' },
   })
   fireEvent.change(screen.getByLabelText('Tencent Cloud SecretId'), {
@@ -91,12 +93,26 @@ test('first-time captcha setup saves credentials before enabling verification', 
   fireEvent.change(screen.getByLabelText('Tencent Cloud SecretKey'), {
     target: { value: 'secret-key' },
   })
+  fireEvent.change(
+    screen.getByLabelText('Mini-program CAPTCHA application ID'),
+    { target: { value: '456' } }
+  )
+  fireEvent.change(
+    screen.getByLabelText('Mini-program CAPTCHA application secret'),
+    { target: { value: 'mini-secret' } }
+  )
   await userEvent.click(
     screen.getByRole('switch', { name: 'SMS Anti-abuse Captcha' })
   )
   await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
-  await waitFor(() => expect(saved).toHaveLength(5))
+  await waitFor(() => expect(saved).toHaveLength(7))
   expect(saved.at(-1)).toBe('sms_captcha.enabled')
+  expect(saved).toContain('sms_captcha.mini_app_secret_key')
+  await waitFor(() =>
+    expect(
+      screen.getByLabelText('Mini-program CAPTCHA application secret')
+    ).toHaveValue('')
+  )
   view.unmount()
   actions.remove()
   queryClient.clear()

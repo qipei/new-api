@@ -211,7 +211,8 @@ export function PhoneLoginForm(props: PhoneLoginFormProps) {
           ) : (
             <LogIn />
           )}
-          {t('Sign in')}
+          {/* 未注册的号码验证后会自动建号，按钮写明「注册」，避免用户到处找注册入口。 */}
+          {t('Sign in / Sign up')}
         </Button>
       </form>
     </Form>

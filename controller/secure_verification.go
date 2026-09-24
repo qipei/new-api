@@ -35,6 +35,9 @@ func UniversalVerify(c *gin.Context) {
 		common.ApiError(c, fmt.Errorf("参数错误: %v", err))
 		return
 	}
+	if rejectWhenTwoFADisabled(c) {
+		return
+	}
 	if request.Method != secureVerificationMethod2FA {
 		common.ApiError(c, errors.New("Passkey 验证必须使用 Passkey verify 流程"))
 		return

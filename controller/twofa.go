@@ -36,7 +36,22 @@ type Setup2FAResponse struct {
 }
 
 // Setup2FA 初始化2FA设置
+// rejectWhenTwoFADisabled 管理员关闭两步验证后，拒绝设置、启用和重新生成备用码等操作。
+func rejectWhenTwoFADisabled(c *gin.Context) bool {
+	if common.TwoFAEnabled {
+		return false
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": false,
+		"message": "管理员已关闭两步验证",
+	})
+	return true
+}
+
 func Setup2FA(c *gin.Context) {
+	if rejectWhenTwoFADisabled(c) {
+		return
+	}
 	userId := c.GetInt("id")
 
 	// 检查用户是否已经启用2FA
@@ -132,6 +147,9 @@ func Setup2FA(c *gin.Context) {
 
 // Enable2FA 启用2FA
 func Enable2FA(c *gin.Context) {
+	if rejectWhenTwoFADisabled(c) {
+		return
+	}
 	var req Setup2FARequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -306,7 +324,8 @@ func Get2FAStatus(c *gin.Context) {
 		"locked":  false,
 	}
 
-	if twoFA != nil {
+	// 两步验证被管理员关闭时对外一律视为未启用，安全验证弹窗等处不再提供两步验证方式。
+	if twoFA != nil && common.TwoFAEnabled {
 		status["enabled"] = twoFA.IsEnabled
 		status["locked"] = twoFA.IsLocked()
 		if twoFA.IsEnabled {
@@ -329,6 +348,9 @@ func Get2FAStatus(c *gin.Context) {
 
 // RegenerateBackupCodes 重新生成备用码
 func RegenerateBackupCodes(c *gin.Context) {
+	if rejectWhenTwoFADisabled(c) {
+		return
+	}
 	var req Verify2FARequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusOK, gin.H{

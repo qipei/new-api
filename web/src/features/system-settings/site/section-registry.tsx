@@ -28,8 +28,14 @@ import { NoticeSection } from '../maintenance/notice-section'
 import { SidebarModulesSection } from '../maintenance/sidebar-modules-section'
 import type { SiteSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { CustomerServiceSection } from './customer-service-section'
 
 const SITE_SECTIONS = [
+  {
+    id: 'customer-service',
+    titleKey: 'Customer Service',
+    build: () => <CustomerServiceSection />,
+  },
   {
     id: 'system-info',
     titleKey: 'System Information',

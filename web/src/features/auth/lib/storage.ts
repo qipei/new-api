@@ -26,6 +26,7 @@ For commercial licensing, please contact support@quantumnous.com
 
 const STORAGE_KEYS = {
   AFFILIATE: 'aff',
+  LOGIN_AFFILIATE: 'login_affiliate',
   STATUS: 'status',
 } as const
 
@@ -57,5 +58,57 @@ export function saveAffiliateCode(code: string): void {
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to save affiliate code:', error)
+  }
+}
+
+/** Clear a consumed referral without removing a newer link opened in another tab. */
+export function clearAffiliateCode(expectedCode?: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (
+      expectedCode === undefined ||
+      window.localStorage.getItem(STORAGE_KEYS.AFFILIATE) === expectedCode
+    ) {
+      window.localStorage.removeItem(STORAGE_KEYS.AFFILIATE)
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to clear affiliate code:', error)
+  }
+}
+
+/** Keep the original referral across the second-factor screen and reloads. */
+export function saveLoginAffiliateCode(flowToken: string, code: string): void {
+  try {
+    window.sessionStorage.setItem(
+      STORAGE_KEYS.LOGIN_AFFILIATE,
+      JSON.stringify({ flowToken, code })
+    )
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to save login affiliate code:', error)
+  }
+}
+
+export function consumeLoginAffiliateCode(flowToken: string): void {
+  try {
+    const stored = window.sessionStorage.getItem(STORAGE_KEYS.LOGIN_AFFILIATE)
+    if (!stored) return
+    const pending: unknown = JSON.parse(stored)
+    if (
+      typeof pending !== 'object' ||
+      pending === null ||
+      !('flowToken' in pending) ||
+      pending.flowToken !== flowToken ||
+      !('code' in pending) ||
+      typeof pending.code !== 'string'
+    ) {
+      return
+    }
+    clearAffiliateCode(pending.code)
+    window.sessionStorage.removeItem(STORAGE_KEYS.LOGIN_AFFILIATE)
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to consume login affiliate code:', error)
   }
 }

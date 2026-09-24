@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 )
 
@@ -32,13 +33,26 @@ func GetCheckinStatus(c *gin.Context) {
 		return
 	}
 
+	provider, appID := "none", ""
+	if common.TurnstileCheckEnabled {
+		provider = "turnstile"
+	}
+	if setting.CaptchaEnabled {
+		provider = "tencent"
+		appID = system_setting.GetSMSCaptchaSettings().CaptchaAppId
+		if c.Query("captcha_client") == "mini_program" {
+			appID = system_setting.GetSMSCaptchaSettings().MiniAppID
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data": gin.H{
-			"enabled":   setting.Enabled,
-			"min_quota": setting.MinQuota,
-			"max_quota": setting.MaxQuota,
-			"stats":     stats,
+			"enabled":          setting.Enabled,
+			"min_quota":        setting.MinQuota,
+			"max_quota":        setting.MaxQuota,
+			"captcha_provider": provider,
+			"captcha_app_id":   appID,
+			"stats":            stats,
 		},
 	})
 }

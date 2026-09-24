@@ -25,6 +25,7 @@ For commercial licensing, please contact support@quantumnous.com
  */
 export interface ApiResponse<T = unknown> {
   success: boolean
+  code?: string
   message?: string
   data?: T
 }
@@ -45,6 +46,8 @@ export interface UserProfile {
   email?: string
   /** Mobile number used for SMS code login */
   phone?: string
+  /** False for accounts created by phone or third-party login that never set a password */
+  has_password?: boolean
   /** User group */
   group: string
   /** Current quota balance */
@@ -223,6 +226,8 @@ export interface CheckinStats {
 export interface CheckinStatusResponse {
   /** Whether check-in feature is enabled */
   enabled: boolean
+  captcha_provider?: 'none' | 'turnstile' | 'tencent'
+  captcha_app_id?: string
   /** Check-in statistics */
   stats: CheckinStats
 }
@@ -232,5 +237,9 @@ export interface CheckinStatusResponse {
  */
 export interface CheckinResponse {
   /** Quota awarded for this check-in */
-  quota_awarded: number
+  quota_awarded?: number
+  checkin_date?: string
+  require_captcha?: boolean
+  captcha_provider?: 'tencent'
+  captcha_app_id?: string
 }

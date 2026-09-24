@@ -64,6 +64,10 @@ var PasswordLoginEnabled = true
 // PhoneLoginEnabled 开启后手机号+短信验证码成为主登录方式，
 // 密码登录（若仍开启）退化为老用户的辅助登录入口。
 var PhoneLoginEnabled = false
+
+// TwoFAEnabled 两步验证总开关。关闭后用户无法设置两步验证，登录和安全验证也不再要求
+// 两步验证码；已开启的配置保留，重新打开后恢复生效。
+var TwoFAEnabled = true
 var PasswordRegisterEnabled = true
 var EmailVerificationEnabled = false
 var GitHubOAuthEnabled = false

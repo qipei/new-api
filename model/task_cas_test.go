@@ -59,6 +59,7 @@ func TestMain(m *testing.M) {
 		&SystemTaskLock{},
 		&Option{},
 		&CommissionRecord{},
+		&ReferralRewardRecord{},
 		&UserCommissionOverride{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
@@ -93,6 +94,7 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM system_task_locks")
 		DB.Exec("DELETE FROM system_tasks")
 		DB.Exec("DELETE FROM commission_records")
+		DB.Exec("DELETE FROM referral_reward_records")
 		DB.Exec("DELETE FROM options")
 	})
 }

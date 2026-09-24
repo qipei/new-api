@@ -79,9 +79,10 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 // sensitiveOptionKeys 列出那些不能下发给前端、但键名又命中不了通用敏感后缀规则的配置项。
 // 通用规则只覆盖 Token/Secret/Key 结尾（大写）和 secret/api_key 结尾（小写）。
 var sensitiveOptionKeys = map[string]bool{
-	"sms_captcha.app_secret_key": true,
-	"sms_captcha.secret_id":      true,
-	"sms_captcha.secret_key":     true,
+	"sms_captcha.mini_app_secret_key": true,
+	"sms_captcha.app_secret_key":      true,
+	"sms_captcha.secret_id":           true,
+	"sms_captcha.secret_key":          true,
 }
 
 func GetOptions(c *gin.Context) {
@@ -89,7 +90,7 @@ func GetOptions(c *gin.Context) {
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
-		if k == "theme.frontend" {
+		if k == "theme.frontend" || k == customerServiceOption {
 			continue
 		}
 		value := common.Interface2String(v)
@@ -242,6 +243,11 @@ func UpdateOption(c *gin.Context) {
 				"success": false,
 				"message": "无法启用短信防刷验证码，请先填入腾讯云验证码相关配置信息！",
 			})
+			return
+		}
+	case "checkin_setting.captcha_enabled":
+		if option.Value == "true" && !system_setting.GetSMSCaptchaSettings().Configured() {
+			common.ApiErrorMsg(c, "请先在短信服务中配置腾讯验证码的应用 ID、应用密钥及云 API 凭据，再启用签到防刷")
 			return
 		}
 	case "theme.frontend":

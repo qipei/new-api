@@ -27,21 +27,31 @@ import { SignUpForm } from './components/sign-up-form'
 
 export function SignUp() {
   const { t } = useTranslation()
-  const { registrationOpen } = useStatus()
+  const { status, registrationOpen } = useStatus()
+  const phoneLoginEnabled = Boolean(status?.phone_login_enabled)
 
   // 注册关闭时直接说明情况，而不是展示一个提交后必然被后端拒绝的表单。
+  // 手机号登录不受注册开关约束（新号码验证后自动建号），此时引导用户去用手机号登录/注册。
   if (!registrationOpen) {
     return (
       <AuthLayout variant='entry'>
         <div className='w-full space-y-6'>
-          <h1 className='auth-entry-title'>{t('Registration is closed')}</h1>
+          <h1 className='auth-entry-title'>
+            {phoneLoginEnabled
+              ? t('Sign up with your phone number')
+              : t('Registration is closed')}
+          </h1>
           <p className='text-muted-foreground text-sm'>
-            {t(
-              'New account registration is currently closed. If you already have an account, please sign in.'
-            )}
+            {phoneLoginEnabled
+              ? t(
+                  'Sign in with your mobile number and an SMS code. New numbers get an account automatically after verification.'
+                )
+              : t(
+                  'New account registration is currently closed. If you already have an account, please sign in.'
+                )}
           </p>
           <Button className='w-full' render={<Link to='/sign-in' />}>
-            {t('Go to sign in')}
+            {phoneLoginEnabled ? t('Sign in / Sign up') : t('Go to sign in')}
           </Button>
         </div>
       </AuthLayout>

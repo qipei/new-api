@@ -29,6 +29,9 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/user-agreement", controller.GetUserAgreement)
 		apiRouter.GET("/privacy-policy", controller.GetPrivacyPolicy)
 		apiRouter.GET("/about", middleware.HeaderNavModuleAuth("about"), controller.GetAbout)
+		apiRouter.GET("/miniapp/about", controller.GetMiniAppAbout)
+		apiRouter.GET("/miniapp/customer-service", controller.GetMiniAppCustomerService)
+		apiRouter.GET("/miniapp/customer-service/qrcode", controller.GetMiniAppCustomerServiceQRCode)
 		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
 		apiRouter.GET("/home/rankings", controller.GetRankings)
@@ -94,8 +97,12 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/sessions/revoke-others", middleware.DisableCache(), controller.RevokeOtherLoginSessions)
 				selfRoute.GET("/self/groups", controller.GetUserGroups)
 				selfRoute.GET("/self", controller.GetSelf)
+				selfRoute.GET("/self/quota/overview", middleware.DisableCache(), controller.GetUserQuotaOverview)
+				selfRoute.GET("/self/usage/overview", middleware.UserUsageRateLimit(), middleware.DisableCache(), controller.GetUserUsageOverview)
+				selfRoute.GET("/self/usage/records", middleware.UserUsageRateLimit(), middleware.DisableCache(), controller.GetUserUsageRecords)
 				selfRoute.GET("/models", controller.GetUserModels)
 				selfRoute.PUT("/self", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.UpdateSelf)
+				selfRoute.POST("/self/password", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.SetInitialPassword)
 				selfRoute.DELETE("/self", controller.DeleteSelf)
 				selfRoute.GET("/token", middleware.CriticalRateLimit(), middleware.UserCriticalRateLimit("access-token"), middleware.DisableCache(), controller.GenerateAccessToken)
 				selfRoute.GET("/passkey", controller.PasskeyStatus)
@@ -108,6 +115,7 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/phone/bind", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.BindPhone)
 				selfRoute.GET("/aff", controller.GetAffCode)
 				selfRoute.GET("/commission/records", controller.GetUserCommissionRecords)
+				selfRoute.GET("/self/referral/rewards", middleware.DisableCache(), controller.GetReferralRewards)
 				selfRoute.GET("/topup/info", controller.GetTopUpInfo)
 				selfRoute.GET("/topup/self", controller.GetUserTopUps)
 				selfRoute.POST("/topup", middleware.CriticalRateLimit(), controller.TopUp)
@@ -136,7 +144,7 @@ func SetApiRouter(router *gin.Engine) {
 
 				// Check-in routes
 				selfRoute.GET("/checkin", controller.GetCheckinStatus)
-				selfRoute.POST("/checkin", middleware.TurnstileCheck(), controller.DoCheckin)
+				selfRoute.POST("/checkin", middleware.CheckinIPRateLimit(), middleware.CheckinRateLimit(), middleware.CheckinCaptcha(), controller.DoCheckin)
 
 				// Custom OAuth bindings
 				selfRoute.GET("/oauth/bindings", controller.GetUserOAuthBindings)
@@ -211,6 +219,8 @@ func SetApiRouter(router *gin.Engine) {
 		optionRoute.Use(middleware.RootAuth())
 		{
 			optionRoute.GET("/", controller.GetOptions)
+			optionRoute.GET("/customer-service", controller.GetCustomerServiceSettings)
+			optionRoute.PUT("/customer-service", controller.SaveCustomerServiceSettings)
 			optionRoute.PUT("/", controller.UpdateOption)
 			optionRoute.POST("/payment_compliance", controller.ConfirmPaymentCompliance)
 			optionRoute.GET("/channel_affinity_cache", controller.GetChannelAffinityCacheStats)

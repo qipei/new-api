@@ -11,6 +11,9 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 GNU Affero General Public License for more details.
 
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 For commercial licensing, please contact support@quantumnous.com
 */
 // CUSTOM: 折扣角标（fork 扩展）。列表和卡片上展示该模型当前能拿到的最低折扣。

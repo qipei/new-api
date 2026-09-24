@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-
 // CUSTOM: 视频定价矩阵编辑器的解析/序列化/校验逻辑，
 // 与后端 setting/video_billing 的 JSON 结构（video_billing.price_tables）保持一致。
 // 语义：每档为绝对原价（USD），计价单位按模型选择（每秒 / 每百万 token），

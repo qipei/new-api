@@ -572,6 +572,7 @@ export function DefaultHome() {
           >
             {t('Shaanxi ICP No. 19023877-5')}
           </a>
+          <span>{t('ICP/EDI License 陕B2-20260463')}</span>
         </div>
       </footer>
 

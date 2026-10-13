@@ -59,7 +59,7 @@ describe('activePromotionForGroup', () => {
 
   it('ignores nonsensical ratios instead of zeroing the price', () => {
     const model = {
-      promotions: [promo({ ratio: 0 }), promo({ ratio: Number.NaN })],
+      promotions: [promo({ ratio: -0.5 }), promo({ ratio: Number.NaN })],
     }
     expect(activePromotionForGroup(model, 'default')).toBeNull()
   })
@@ -72,6 +72,12 @@ describe('activePromotionForGroup', () => {
 
 // 展示价必须和实际扣费一致：后端把活动乘进了 GroupRatio，前端也要乘。
 describe('effectiveGroupRatio', () => {
+  it('sets the effective price to zero for a free promotion', () => {
+    const model = { promotions: [promo({ ratio: 0, groups: ['vip'] })] }
+    expect(effectiveGroupRatio(model, 'vip', 0.5)).toBe(0)
+    expect(effectiveGroupRatio(model, 'default', 1)).toBe(1)
+  })
+
   it('multiplies the group ratio by the promotion', () => {
     const model = { promotions: [promo({ groups: ['8.8折'] })] }
     expect(effectiveGroupRatio(model, '8.8折', 0.88)).toBeCloseTo(0.44)
@@ -100,6 +106,23 @@ describe('hasAnyActivePromotion', () => {
 // 列表和卡片上的"最低折扣"。折扣有两个来源——分组倍率本身小于 1，或者倍率为 1
 // 的分组上挂了限时活动——只看其中一个都会漏。
 describe('bestDiscount', () => {
+  it('selects a free promotion ahead of paid discounts', () => {
+    const free = promo({ ratio: 0, groups: ['default'] })
+    expect(
+      bestDiscount({
+        enable_groups: ['vip', 'default'],
+        group_ratio: { vip: 0.5, default: 1 },
+        promotions: [promo({ ratio: 0.5 }), free],
+      })
+    ).toMatchObject({ ratio: 0, group: 'default', promotion: free })
+  })
+
+  it('retains a free group as the best discount', () => {
+    expect(
+      bestDiscount({ enable_groups: ['free'], group_ratio: { free: 0 } })
+    ).toMatchObject({ ratio: 0, group: 'free' })
+  })
+
   it('takes the cheapest group ratio', () => {
     expect(
       bestDiscount({
@@ -142,7 +165,7 @@ describe('bestDiscount', () => {
     ],
     ['没有分组', { enable_groups: [], group_ratio: {} }],
     ['倍率缺失', { enable_groups: ['x'], group_ratio: {} }],
-    ['倍率为 0 视为无效', { enable_groups: ['x'], group_ratio: { x: 0 } }],
+    ['倍率为负视为无效', { enable_groups: ['x'], group_ratio: { x: -0.5 } }],
   ])('%s 时返回 null', (_name, model) => {
     expect(bestDiscount(model)).toBeNull()
   })

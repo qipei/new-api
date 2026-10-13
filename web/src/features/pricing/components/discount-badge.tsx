@@ -43,7 +43,9 @@ export function DiscountBadge(props: {
         props.className
       )}
     >
-      {formatDiscountLabel(props.discount.ratio)}
+      {props.discount.ratio === 0
+        ? t('Free of charge')
+        : formatDiscountLabel(props.discount.ratio)}
     </span>
   )
 }

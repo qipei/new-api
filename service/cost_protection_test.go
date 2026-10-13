@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	hosttypes "github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -350,4 +351,36 @@ func TestCostProtectionResolvesUpstreamKeyForMultiKeyChannel(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, costs, 1)
 	assert.True(t, costs[0].ExceedsPlatform)
+}
+
+func TestFreePromotionIsAuditedWithoutCostProtectionSurcharge(t *testing.T) {
+	db := setupCostProtectionTestDB(t)
+	user := model.User{Id: 7301, Username: "free-promo-user", Password: "password123", Quota: 1000}
+	token := model.Token{Id: 7302, UserId: user.Id, Key: "free-promo-token", RemainQuota: 1000}
+	require.NoError(t, db.Create(&user).Error)
+	require.NoError(t, db.Create(&token).Error)
+	createCostProtectionChannel(t, db, 7303, "default", "free-promo-model")
+	model.InitChannelCache()
+	other := map[string]interface{}{"billing_source": BillingSourceWallet}
+	appendPromotionInfo(hosttypes.PriceData{GroupRatioInfo: hosttypes.GroupRatioInfo{
+		GroupRatio: 0, PromotionRatio: 0, PromotionName: "免费活动",
+	}}, other)
+	require.Contains(t, other, "promotion_ratio", "free promotions must retain their zero ratio in consume logs")
+	assert.Equal(t, float64(0), other["promotion_ratio"])
+	log := model.Log{
+		UserId: user.Id, Type: model.LogTypeConsume, ModelName: "free-promo-model", Quota: 0,
+		ChannelId: 7303, TokenId: token.Id, Group: "default", Other: common.MapToJsonStr(other),
+	}
+	require.NoError(t, db.Create(&log).Error)
+	applyCostProtection(context.Background(), UpstreamCostInfo{LogId: log.Id, NormalizedUpstreamQuota: 150})
+	var gotUser model.User
+	var gotToken model.Token
+	var gotLog model.Log
+	require.NoError(t, db.First(&gotUser, user.Id).Error)
+	require.NoError(t, db.First(&gotToken, token.Id).Error)
+	require.NoError(t, db.First(&gotLog, log.Id).Error)
+	assert.Equal(t, 1000, gotUser.Quota)
+	assert.Equal(t, 1000, gotToken.RemainQuota)
+	assert.Zero(t, gotLog.Quota)
+	assert.NotContains(t, getCostProtectedChannelIDs("default", log.ModelName), log.ChannelId)
 }

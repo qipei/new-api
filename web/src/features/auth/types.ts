@@ -121,9 +121,11 @@ export interface ApiResponse<T = unknown> {
 // ============================================================================
 
 export interface SystemStatus {
+  rewarded_ad_enabled?: boolean
   success?: boolean
   message?: string
   data?: {
+    rewarded_ad_enabled?: boolean
     version?: string
     system_name?: string
     logo?: string

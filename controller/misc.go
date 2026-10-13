@@ -141,6 +141,7 @@ func GetStatus(c *gin.Context) {
 		"setup":                       constant.Setup,
 		"user_agreement_enabled":      legalSetting.UserAgreement != "",
 		"privacy_policy_enabled":      legalSetting.PrivacyPolicy != "",
+		"rewarded_ad_enabled":         operation_setting.GetRewardedAdSetting().Enabled && operation_setting.GetRewardedAdSetting().Configured(),
 		"checkin_enabled":             operation_setting.GetCheckinSetting().Enabled,
 	}
 

@@ -61,6 +61,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/oauth/:provider", middleware.CriticalRateLimit(), middleware.DisableCache(), middleware.TryUserAuth(), controller.HandleOAuth)
 		apiRouter.GET("/ratio_config", middleware.CriticalRateLimit(), controller.GetRatioConfig)
 
+		apiRouter.GET("/rewarded-ad/dcloud/callback", middleware.DisableCache(), controller.RewardedAdCallback)
 		apiRouter.POST("/stripe/webhook", anonymousRequestBodyLimit, controller.StripeWebhook)
 		apiRouter.POST("/creem/webhook", anonymousRequestBodyLimit, controller.CreemWebhook)
 		apiRouter.POST("/waffo/webhook", anonymousRequestBodyLimit, controller.WaffoWebhook)
@@ -100,6 +101,10 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/sessions/revoke-others", middleware.DisableCache(), controller.RevokeOtherLoginSessions)
 				selfRoute.GET("/self/groups", controller.GetUserGroups)
 				selfRoute.GET("/self", controller.GetSelf)
+				selfRoute.GET("/self/rewarded-ad", middleware.DisableCache(), controller.GetRewardedAdState)
+				selfRoute.POST("/self/rewarded-ad/wechat-session", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.InitializeRewardedAdIdentity)
+				selfRoute.POST("/self/rewarded-ad/sessions", middleware.UserCriticalRateLimit("rewarded-ad"), middleware.DisableCache(), controller.CreateRewardedAdSession)
+				selfRoute.GET("/self/rewarded-ad/sessions/:id", middleware.DisableCache(), controller.GetRewardedAdSession)
 				selfRoute.GET("/self/quota/overview", middleware.DisableCache(), controller.GetUserQuotaOverview)
 				selfRoute.GET("/self/usage/overview", middleware.UserUsageRateLimit(), middleware.DisableCache(), controller.GetUserUsageOverview)
 				selfRoute.GET("/self/usage/records", middleware.UserUsageRateLimit(), middleware.DisableCache(), controller.GetUserUsageRecords)
@@ -222,6 +227,8 @@ func SetApiRouter(router *gin.Engine) {
 		optionRoute := apiRouter.Group("/option")
 		optionRoute.Use(middleware.RootAuth())
 		{
+			optionRoute.GET("/rewarded-ad", controller.GetRewardedAdSettings)
+			optionRoute.PUT("/rewarded-ad", controller.SaveRewardedAdSettings)
 			optionRoute.GET("/", controller.GetOptions)
 			optionRoute.GET("/miniapp-qr-code", controller.GetMiniAppQRCode)
 			optionRoute.PUT("/miniapp-qr-code", controller.SaveMiniAppQRCodeSettings)

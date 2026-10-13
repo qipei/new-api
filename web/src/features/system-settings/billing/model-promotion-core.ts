@@ -94,10 +94,10 @@ export function validatePromotion(promotion: ModelPromotion): string | null {
   }
   if (
     !Number.isFinite(promotion.ratio) ||
-    promotion.ratio <= 0 ||
+    promotion.ratio < 0 ||
     promotion.ratio > 1
   ) {
-    return 'The promotion multiplier must be greater than 0 and at most 1.'
+    return 'The promotion multiplier must be between 0 and 1 (inclusive).'
   }
   return null
 }

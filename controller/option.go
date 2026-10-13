@@ -90,7 +90,7 @@ func GetOptions(c *gin.Context) {
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
-		if k == "theme.frontend" || k == customerServiceOption || k == miniAppQRCodeOption {
+		if k == "theme.frontend" || k == customerServiceOption || k == miniAppQRCodeOption || k == operation_setting.RewardedAdOptionKey {
 			continue
 		}
 		value := common.Interface2String(v)
@@ -139,6 +139,10 @@ func UpdateOption(c *gin.Context) {
 			"success": false,
 			"message": "无效的参数",
 		})
+		return
+	}
+	if option.Key == operation_setting.RewardedAdOptionKey {
+		c.JSON(http.StatusBadRequest, gin.H{"success": false, "message": "请使用专用广告配置接口"})
 		return
 	}
 	switch option.Value.(type) {

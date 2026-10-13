@@ -40,7 +40,7 @@ import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import { formatLogQuota, formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-import { LOG_TYPE_ALL_VALUE } from '../../constants'
+import { LOG_TYPE_ALL_VALUE, LOG_TYPE_ENUM } from '../../constants'
 import type { UsageLog } from '../../data/schema'
 import {
   formatModelName,
@@ -111,6 +111,19 @@ function buildTypeDetailSegments(
   if (log.type === 3 || log.type === 7) {
     const text = renderAuditContent(other, t)
     return text ? [{ text }] : []
+  }
+
+  if (
+    log.type === LOG_TYPE_ENUM.CHECKIN ||
+    log.type === LOG_TYPE_ENUM.REWARDED_AD
+  ) {
+    return [
+      {
+        text: t(
+          log.type === LOG_TYPE_ENUM.CHECKIN ? 'Check-in Reward' : 'Ad Reward'
+        ),
+      },
+    ]
   }
 
   if (log.type === 6) {
@@ -688,11 +701,22 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
     {
       accessorKey: 'quota',
       header: t('Cost'),
-      cell: ({ row }) => {
+      cell: function QuotaCell({ row }) {
+        const { sensitiveVisible } = useUsageLogsContext()
         const log = row.original
         if (!isDisplayableLogType(log.type)) return null
 
         const quota = row.getValue('quota') as number
+        if (
+          log.type === LOG_TYPE_ENUM.CHECKIN ||
+          log.type === LOG_TYPE_ENUM.REWARDED_AD
+        ) {
+          return (
+            <span className='font-mono text-green-600'>
+              {sensitiveVisible ? `+${formatLogQuota(quota)}` : '••••'}
+            </span>
+          )
+        }
         const other = parseLogOther(log.other)
         return (
           <LogCostDisplay

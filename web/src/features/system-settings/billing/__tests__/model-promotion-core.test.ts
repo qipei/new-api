@@ -79,17 +79,13 @@ describe('promotion validation mirrors the backend rules', () => {
     [
       'ratio above 1',
       { ...base, ratio: 1.5 },
-      'The promotion multiplier must be greater than 0 and at most 1.',
+      'The promotion multiplier must be between 0 and 1 (inclusive).',
     ],
-    [
-      'ratio zero',
-      { ...base, ratio: 0 },
-      'The promotion multiplier must be greater than 0 and at most 1.',
-    ],
+    ['ratio zero', { ...base, ratio: 0 }, null],
     [
       'ratio negative',
       { ...base, ratio: -0.5 },
-      'The promotion multiplier must be greater than 0 and at most 1.',
+      'The promotion multiplier must be between 0 and 1 (inclusive).',
     ],
   ])('%s', (_name, promotion, expected) => {
     expect(validatePromotion(promotion as ModelPromotion)).toBe(expected)

@@ -140,6 +140,14 @@ Do NOT directly import or call `encoding/json` in business code. `json.RawMessag
 - In React components, use `useTranslation()` and call `t('English key')` for user-facing text.
 - Follow `web/AGENTS.md` for detailed frontend conventions, including TypeScript, component structure, styling, accessibility, testing, and build checks.
 
+### Release Packaging
+
+- 用户说“打包”“发版打包”时，默认生成源码发布包 `.tar.gz`，沿用已确认的 `token01-new-api-3f884afc-20260930-192520.tar.gz` 格式；只有用户明确要求 Docker 镜像包或其他产物时才改用对应方式。
+- 包内直接保留项目根目录结构（`./Dockerfile`、`./go.mod`、`./web/` 等），不额外套一层目录。以 Git 跟踪文件的当前工作区内容为基础，包含尚未提交的修改；新增且属于本次发布的源码文件也应纳入。
+- 保留 Docker 构建配置、前后端源码、依赖锁文件、`relaykit/` 和许可证、归属文件。排除 `.git/`、`node_modules/`、本地构建产物、运行数据、日志、密钥和个人配置。
+- 默认输出到 `/Users/macbookpro/Downloads/token01-packages-release/`，命名为 `token01-new-api-<8位Git提交号>-<YYYYMMDD-HHMMSS>.tar.gz`，并生成同名 `.tar.gz.sha256` 校验文件；不覆盖既有发布包。
+- 打包后验证归档可读取、文件内容与当前工作区一致、当次修改和必要构建文件已包含，最后提供发布包及校验文件的可点击链接。
+
 ### Project Governance
 
 **Protected project information:** The following project-related information is strictly protected and MUST NOT be modified, deleted, replaced, or removed under any circumstances:

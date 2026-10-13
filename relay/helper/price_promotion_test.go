@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"fmt"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -55,32 +56,38 @@ func TestPromotionAppliesToBothBillingModes(t *testing.T) {
 	}
 
 	for _, modelName := range []string{"expr-model", "ratio-model"} {
-		t.Run(modelName, func(t *testing.T) {
-			billing_setting.SwapPromotionsForTest(map[string][]billing_setting.ModelPromotion{})
-			c, _ := gin.CreateTestContext(httptest.NewRecorder())
-			c.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
-			info := &relaycommon.RelayInfo{
-				OriginModelName: modelName, UsingGroup: "vip", UserGroup: "vip",
-				StartTime: shanghaiTime(t, "2026-09-01 12:00"),
-			}
-			regular, err := ModelPriceHelper(c, info, 1_000_000, &types.TokenCountMeta{MaxTokens: 0})
-			require.NoError(t, err)
+		for _, promotionRatio := range []float64{0.5, 0} {
+			promotions[modelName][0].Ratio = promotionRatio
+			t.Run(fmt.Sprintf("%s/ratio=%g", modelName, promotionRatio), func(t *testing.T) {
+				billing_setting.SwapPromotionsForTest(map[string][]billing_setting.ModelPromotion{})
+				c, _ := gin.CreateTestContext(httptest.NewRecorder())
+				c.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+				info := &relaycommon.RelayInfo{
+					OriginModelName: modelName, UsingGroup: "vip", UserGroup: "vip",
+					StartTime: shanghaiTime(t, "2026-09-01 12:00"),
+				}
+				regular, err := ModelPriceHelper(c, info, 1_000_000, &types.TokenCountMeta{MaxTokens: 0})
+				require.NoError(t, err)
 
-			billing_setting.SwapPromotionsForTest(promotions)
-			c2, _ := gin.CreateTestContext(httptest.NewRecorder())
-			c2.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
-			info2 := &relaycommon.RelayInfo{
-				OriginModelName: modelName, UsingGroup: "vip", UserGroup: "vip",
-				StartTime: shanghaiTime(t, "2026-09-01 12:00"),
-			}
-			promoted, err := ModelPriceHelper(c2, info2, 1_000_000, &types.TokenCountMeta{MaxTokens: 0})
-			require.NoError(t, err)
+				billing_setting.SwapPromotionsForTest(promotions)
+				c2, _ := gin.CreateTestContext(httptest.NewRecorder())
+				c2.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+				info2 := &relaycommon.RelayInfo{
+					OriginModelName: modelName, UsingGroup: "vip", UserGroup: "vip",
+					StartTime: shanghaiTime(t, "2026-09-01 12:00"),
+				}
+				promoted, err := ModelPriceHelper(c2, info2, 1_000_000, &types.TokenCountMeta{MaxTokens: 0})
+				require.NoError(t, err)
 
-			assert.Equal(t, 0.5, promoted.GroupRatioInfo.PromotionRatio)
-			assert.Equal(t, "开学季", promoted.GroupRatioInfo.PromotionName)
-			assert.Equal(t, regular.GroupRatioInfo.GroupRatio*0.5, promoted.GroupRatioInfo.GroupRatio,
-				"活动倍率必须只乘一次")
-		})
+				assert.Equal(t, promotionRatio, promoted.GroupRatioInfo.PromotionRatio)
+				assert.Equal(t, "开学季", promoted.GroupRatioInfo.PromotionName)
+				assert.Equal(t, regular.GroupRatioInfo.GroupRatio*promotionRatio, promoted.GroupRatioInfo.GroupRatio,
+					"活动倍率必须只乘一次")
+				if promotionRatio == 0 {
+					assert.Zero(t, promoted.QuotaToPreConsume)
+				}
+			})
+		}
 	}
 }
 

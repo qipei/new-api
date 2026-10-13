@@ -125,14 +125,17 @@ func GetModelPromotionsCopy() map[string][]ModelPromotion {
 // Validation
 // ---------------------------------------------------------------------------
 
-// ValidateModelPromotionsJSON 在写库前校验。倍率必须落在 (0, 1]：大于 1 就是借
+// ValidateModelPromotionsJSON 在写库前校验。倍率必须落在 [0, 1]，0 表示免费：大于 1 就是借
 // 活动之名涨价，配错了没人会发现，直接挡掉。
 func ValidateModelPromotionsJSON(value string) error {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" || trimmed == "{}" {
 		return nil
 	}
-	var parsed map[string][]ModelPromotion
+	var parsed map[string][]struct {
+		ModelPromotion
+		Ratio *float64 `json:"ratio"`
+	}
 	if err := common.UnmarshalJsonStr(trimmed, &parsed); err != nil {
 		return fmt.Errorf("限时活动配置不是合法的 JSON: %w", err)
 	}
@@ -144,7 +147,11 @@ func ValidateModelPromotionsJSON(value string) error {
 			return fmt.Errorf("模型 %s 的活动条数超过上限 %d", model, promotionMaxPerModel)
 		}
 		for i, promotion := range promotions {
-			if err := validatePromotion(promotion); err != nil {
+			if promotion.Ratio == nil {
+				return fmt.Errorf("模型 %s 的第 %d 条活动缺少倍率", model, i+1)
+			}
+			promotion.ModelPromotion.Ratio = *promotion.Ratio
+			if err := validatePromotion(promotion.ModelPromotion); err != nil {
 				return fmt.Errorf("模型 %s 的第 %d 条活动配置有误: %w", model, i+1, err)
 			}
 		}
@@ -170,8 +177,8 @@ func validatePromotion(promotion ModelPromotion) error {
 	if _, err := time.LoadLocation(promotion.timezone()); err != nil {
 		return fmt.Errorf("时区 %q 无法识别", promotion.timezone())
 	}
-	if promotion.Ratio <= 0 || promotion.Ratio > 1 {
-		return fmt.Errorf("活动倍率必须大于 0 且不超过 1，当前是 %v", promotion.Ratio)
+	if promotion.Ratio < 0 || promotion.Ratio > 1 {
+		return fmt.Errorf("活动倍率必须在 0 到 1 之间（含边界），当前是 %v", promotion.Ratio)
 	}
 	for _, group := range promotion.Groups {
 		if strings.TrimSpace(group) == "" {

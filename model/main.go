@@ -222,6 +222,9 @@ func InitLogDB() (err error) {
 		LOG_DB = DB
 		common.SetLogDatabaseType(common.MainDatabaseType())
 		initCol()
+		if common.IsMasterNode {
+			err = LOG_DB.AutoMigrate(&RewardLogDelivery{})
+		}
 		return
 	}
 	db, dbType, err := chooseDB("LOG_SQL_DSN", true)
@@ -348,6 +351,7 @@ func migrateDB() error {
 		&AuthzRole{},
 		&CommissionRecord{},
 		&ReferralRewardRecord{},
+		&RewardedAdIdentity{}, &RewardedAdSession{}, &RewardedAdDay{}, &RewardedAdEvent{}, &RewardLogOutbox{},
 		&UserCommissionOverride{},
 	)
 	if err != nil {
@@ -412,6 +416,7 @@ func migrateDBFast() error {
 		{&SystemTaskLock{}, "SystemTaskLock"},
 		{&CommissionRecord{}, "CommissionRecord"},
 		{&ReferralRewardRecord{}, "ReferralRewardRecord"},
+		{&RewardedAdIdentity{}, "RewardedAdIdentity"}, {&RewardedAdSession{}, "RewardedAdSession"}, {&RewardedAdDay{}, "RewardedAdDay"}, {&RewardedAdEvent{}, "RewardedAdEvent"}, {&RewardLogOutbox{}, "RewardLogOutbox"},
 		{&UserCommissionOverride{}, "UserCommissionOverride"},
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
@@ -460,7 +465,7 @@ func migrateLOGDB() error {
 	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
 		return migrateClickHouseLogDB()
 	}
-	return LOG_DB.AutoMigrate(&Log{})
+	return LOG_DB.AutoMigrate(&Log{}, &RewardLogDelivery{})
 }
 
 func migrateClickHouseLogDB() error {

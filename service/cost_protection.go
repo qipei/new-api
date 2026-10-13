@@ -191,6 +191,9 @@ func processCostProtectionJobs(ctx context.Context, jobs []costProtectionJob) {
 		if mapErr != nil {
 			continue
 		}
+		if isFreePromotionLog(other) {
+			continue
+		}
 		billingSource, _ := other["billing_source"].(string)
 		if billingSource != BillingSourceWallet && billingSource != BillingSourceSubscription {
 			continue
@@ -250,12 +253,15 @@ func applyCostProtection(ctx context.Context, cost UpstreamCostInfo) {
 		return
 	}
 	log := logs[0]
+	other, _ := common.StrToMap(log.Other)
+	if isFreePromotionLog(other) {
+		return
+	}
 	// 目标额度 = 上游成本折算到本平台额度单位后的值，补扣到与上游打平。
 	targetQuota := cost.NormalizedUpstreamQuota
 	if targetQuota <= log.Quota {
 		return
 	}
-	other, _ := common.StrToMap(log.Other)
 	if other == nil {
 		other = make(map[string]interface{})
 	}
@@ -277,6 +283,13 @@ func applyCostProtection(ctx context.Context, cost UpstreamCostInfo) {
 	}
 	logger.LogWarn(ctx, fmt.Sprintf("cost protection surcharge: log=%d model=%s channel=%d original_quota=%d final_quota=%d",
 		log.Id, log.ModelName, log.ChannelId, log.Quota, targetQuota))
+}
+
+// 免费活动由请求时记录的名称和显式零倍率识别，活动结束后也不能追补费用。
+func isFreePromotionLog(other map[string]interface{}) bool {
+	name, _ := other["promotion_name"].(string)
+	ratio, ok := other["promotion_ratio"].(float64)
+	return name != "" && ok && ratio == 0
 }
 
 func findCostProtectionAlternative(log *model.Log, requestPath string) (*model.Channel, string, error) {

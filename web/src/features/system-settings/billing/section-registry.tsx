@@ -28,6 +28,7 @@ import { createSectionRegistry } from '../utils/section-registry'
 import { CommissionSettingsSection } from './commission-settings-section'
 import { GroupBillingExprSection } from './group-billing-expr-section'
 import { ModelPromotionSection } from './model-promotion-section'
+import { RewardedAdSection } from './rewarded-ad-section'
 import { VideoPricingSection } from './video-pricing-section'
 
 const getModelDefaults = (settings: BillingSettings) => ({
@@ -261,6 +262,11 @@ const BILLING_SECTIONS = [
         }}
       />
     ),
+  },
+  {
+    id: 'rewarded-ad',
+    titleKey: 'Rewarded Ads',
+    build: () => <RewardedAdSection />,
   },
   {
     id: 'commission',

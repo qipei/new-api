@@ -60,6 +60,9 @@ export const LOG_TYPE_ENUM = {
   ERROR: 5,
   REFUND: 6,
   LOGIN: 7,
+  // Fork-only types use a separate range so future upstream types cannot collide.
+  CHECKIN: 100,
+  REWARDED_AD: 101,
 } as const
 
 /**
@@ -98,6 +101,8 @@ export const LOG_TYPES = [
   { value: 5, label: 'Error', color: 'red' },
   { value: 6, label: 'Refund', color: 'blue' },
   { value: 7, label: 'Login', color: 'teal' },
+  { value: 100, label: 'Check-in Reward', color: 'green' },
+  { value: 101, label: 'Ad Reward', color: 'cyan' },
 ] as const
 
 /**
@@ -346,7 +351,7 @@ export const LOG_CATEGORY_LABELS: Record<LogCategory, string> = {
 /**
  * Log types that are displayable (have detailed info)
  */
-export const DISPLAYABLE_LOG_TYPES = [0, 2, 5, 6] as const
+export const DISPLAYABLE_LOG_TYPES = [0, 2, 5, 6, 100, 101] as const
 
 /**
  * Log types that show timing info

@@ -60,9 +60,15 @@ import { Label } from '@/components/ui/label'
 import { DynamicPricingBreakdown } from '@/features/pricing/components/dynamic-pricing-breakdown'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
-import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
+import {
+  formatLogQuota,
+  formatTokens,
+  formatUseTime,
+  formatTimestampToDate,
+} from '@/lib/format'
 import { cn } from '@/lib/utils'
 
+import { LOG_TYPE_ENUM } from '../../constants'
 import type { UsageLog } from '../../data/schema'
 import {
   parseLogOther,
@@ -499,6 +505,9 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const typeConfig = getLogTypeConfig(props.log.type)
 
   const isViolation = isViolationFeeLog(other)
+  const isReward =
+    props.log.type === LOG_TYPE_ENUM.CHECKIN ||
+    props.log.type === LOG_TYPE_ENUM.REWARDED_AD
   const isRefund = props.log.type === 6
   const isConsume = props.log.type === 2
   const isTopup = props.log.type === 1
@@ -751,6 +760,49 @@ export function DetailsDialog(props: DetailsDialogProps) {
             />
           )}
         </div>
+
+        {isReward && (
+          <DetailSection label={t('Reward Details')}>
+            <DetailRow
+              label={t('Reward Amount')}
+              value={`+${formatLogQuota(props.log.quota)}`}
+              mono
+            />
+            {other?.reward_record_id != null && (
+              <DetailRow
+                label={t('Reward Record ID')}
+                value={String(other.reward_record_id)}
+                mono
+              />
+            )}
+            {other?.checkin_date && (
+              <DetailRow
+                label={t('Check-in Date')}
+                value={other.checkin_date}
+              />
+            )}
+            {props.isAdmin && other?.admin_info?.trans_id && (
+              <DetailRow
+                label={t('Ad Transaction ID')}
+                value={other.admin_info.trans_id}
+                mono
+              />
+            )}
+            {props.isAdmin && other?.admin_info?.adpid && (
+              <DetailRow
+                label={t('Ad Placement ID')}
+                value={other.admin_info.adpid}
+                mono
+              />
+            )}
+            <DetailRow
+              label={t('Credited At')}
+              value={formatTimestampToDate(
+                other?.credited_at ?? props.log.created_at
+              )}
+            />
+          </DetailSection>
+        )}
 
         {/* Request conversion (admin only, not for refund) */}
         {showConversion && (
@@ -1055,21 +1107,23 @@ export function DetailsDialog(props: DetailsDialogProps) {
           />
         )}
 
-        {/* Model mapping */}
-        {other?.is_model_mapped && other?.upstream_model_name && (
-          <DetailSection label={t('Model Mapping')}>
-            <DetailRow
-              label={t('Request Model')}
-              value={props.log.model_name}
-              mono
-            />
-            <DetailRow
-              label={t('Actual Model')}
-              value={other.upstream_model_name}
-              mono
-            />
-          </DetailSection>
-        )}
+        {/* Model mapping (admin only) */}
+        {props.isAdmin &&
+          other?.is_model_mapped &&
+          other?.upstream_model_name && (
+            <DetailSection label={t('Model Mapping')}>
+              <DetailRow
+                label={t('Request Model')}
+                value={props.log.model_name}
+                mono
+              />
+              <DetailRow
+                label={t('Actual Model')}
+                value={other.upstream_model_name}
+                mono
+              />
+            </DetailSection>
+          )}
 
         {/* Token breakdown (for consume/error types with token data) */}
         {isDisplayableType(props.log.type) && other && (

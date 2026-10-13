@@ -40,7 +40,7 @@ export function activePromotionForGroup(
       ? promotion.groups.includes(group)
       : true
     if (!scoped) continue
-    if (!Number.isFinite(promotion.ratio) || promotion.ratio <= 0) continue
+    if (!Number.isFinite(promotion.ratio) || promotion.ratio < 0) continue
     if (!best || promotion.ratio < best.ratio) best = promotion
   }
   return best
@@ -87,10 +87,10 @@ export function bestDiscount(
   let best: BestDiscount | null = null
   for (const group of groups) {
     const base = ratios[group]
-    if (!Number.isFinite(base) || base <= 0) continue
+    if (!Number.isFinite(base) || base < 0) continue
     const promotion = activePromotionForGroup(model, group)
     const ratio = promotion ? base * promotion.ratio : base
-    if (!Number.isFinite(ratio) || ratio <= 0) continue
+    if (!Number.isFinite(ratio) || ratio < 0) continue
     if (!best || ratio < best.ratio) best = { ratio, group, promotion }
   }
   if (!best || best.ratio >= 1) return null

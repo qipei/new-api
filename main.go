@@ -79,6 +79,8 @@ func main() {
 		common.SysError("failed to start usage statistics; gateway startup continues: " + err.Error())
 	}
 	usageRetentionCtx, cancelUsageRetention := context.WithCancel(context.Background())
+	rewardMaintenanceDone := make(chan struct{})
+	go func() { defer close(rewardMaintenanceDone); service.RunRewardedAdMaintenance(usageRetentionCtx) }()
 	usageRetentionDone := make(chan struct{})
 	go func() {
 		defer close(usageRetentionDone)
@@ -89,6 +91,7 @@ func main() {
 	defer func() {
 		cancelUsageRetention()
 		<-usageRetentionDone
+		<-rewardMaintenanceDone
 		flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := model.StopUserUsageWriter(flushCtx); err != nil {

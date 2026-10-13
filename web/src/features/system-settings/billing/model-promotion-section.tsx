@@ -214,7 +214,7 @@ export function ModelPromotionSection(props: ModelPromotionSectionProps) {
       </p>
       <p className='text-muted-foreground text-sm'>
         {t(
-          'Cost protection still applies: if the promoted price falls below the upstream cost, the difference is charged back to break even. A promotion therefore only takes effect while the discounted price stays above what the upstream charges.'
+          'A multiplier of 0 makes the promotion free, with no cost-protection surcharge. For paid promotions, cost protection still charges the difference if the promoted price falls below the upstream cost.'
         )}
       </p>
       <SettingsPageFormActions
@@ -298,7 +298,7 @@ export function ModelPromotionSection(props: ModelPromotionSectionProps) {
                       <Input
                         type='number'
                         step='0.01'
-                        min='0.01'
+                        min='0'
                         max='1'
                         value={promotion.ratio}
                         className='w-24'

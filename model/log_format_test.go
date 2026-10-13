@@ -5,6 +5,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,4 +33,24 @@ func TestFormatUserLogsStripsQuotaSaturation(t *testing.T) {
 	require.False(t, hasAdminInfo, "admin_info (and nested quota_saturation) must be stripped for non-admin views")
 	// Non-admin billing fields remain visible.
 	require.Contains(t, parsed, "model_price")
+}
+
+func TestFormatUserLogsStripsModelMapping(t *testing.T) {
+	logs := []*Log{{
+		ModelName: "public-model",
+		Other: common.MapToJsonStr(map[string]interface{}{
+			"is_model_mapped":     true,
+			"upstream_model_name": "private-upstream-model",
+			"model_ratio":         0.8,
+		}),
+	}}
+
+	formatUserLogs(logs, 0)
+
+	parsed, err := common.StrToMap(logs[0].Other)
+	require.NoError(t, err)
+	assert.NotContains(t, parsed, "is_model_mapped")
+	assert.NotContains(t, parsed, "upstream_model_name")
+	assert.Equal(t, "public-model", logs[0].ModelName)
+	assert.Equal(t, 0.8, parsed["model_ratio"])
 }

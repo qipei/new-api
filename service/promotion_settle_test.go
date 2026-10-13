@@ -66,3 +66,16 @@ func TestTieredSettleKeepsThePromotionRatio(t *testing.T) {
 	assert.Equal(t, regularSnap.EstimatedQuotaAfterGroup/2, snap.EstimatedQuotaAfterGroup,
 		"结算金额应当正好是不打活动时的一半")
 }
+
+func TestTieredSettleKeepsFreePromotionAtZero(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		TieredBillingSnapshot: &billingexpr.BillingSnapshot{
+			BillingMode: billing_setting.BillingModeTieredExpr, ModelName: "free-model",
+			ExprString: `tier("base", p * 3 + c * 9)`, QuotaPerUnit: 500_000, GroupRatio: 0,
+		},
+	}
+	ok, quota, result := TryTieredSettle(info, billingexpr.TokenParams{P: 1000000, C: 1000000})
+	require.True(t, ok)
+	require.NotNil(t, result)
+	assert.Zero(t, quota)
+}

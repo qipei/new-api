@@ -82,14 +82,17 @@ type Log struct {
 
 // don't use iota, avoid change log type value
 const (
-	LogTypeUnknown = 0
-	LogTypeTopup   = 1
-	LogTypeConsume = 2
-	LogTypeManage  = 3
-	LogTypeSystem  = 4
-	LogTypeError   = 5
-	LogTypeRefund  = 6
-	LogTypeLogin   = 7
+	LogTypeUnknown    = 0
+	LogTypeTopup      = 1
+	LogTypeConsume    = 2
+	LogTypeManage     = 3
+	LogTypeSystem     = 4
+	LogTypeError      = 5
+	LogTypeRefund     = 6
+	LogTypeLogin      = 7
+	// Fork-only types use a separate range so future upstream types cannot collide.
+	LogTypeCheckin    = 100
+	LogTypeRewardedAd = 101
 )
 
 func ensureLogRequestId(log *Log) {
@@ -123,6 +126,9 @@ func formatUserLogs(logs []*Log, startIdx int) {
 			delete(otherMap, "admin_info")
 			// Remove operation-audit details (operator/route info), admin-only.
 			delete(otherMap, "audit_info")
+			// Keep upstream model mapping private in user and API key log views.
+			delete(otherMap, "is_model_mapped")
+			delete(otherMap, "upstream_model_name")
 			// delete(otherMap, "reject_reason")
 			// delete(otherMap, "stream_status")
 		}
@@ -526,6 +532,8 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	var tx *gorm.DB
 	if logType == LogTypeUnknown {
 		tx = LOG_DB
+	} else if logType == LogTypeCheckin {
+		tx = LOG_DB.Where("(logs.type = ? OR (logs.type = ? AND logs.content LIKE ?))", LogTypeCheckin, LogTypeSystem, "用户签到，获得额度 %")
 	} else {
 		tx = LOG_DB.Where("logs.type = ?", logType)
 	}
@@ -622,6 +630,8 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 	var tx *gorm.DB
 	if logType == LogTypeUnknown {
 		tx = LOG_DB.Where("logs.user_id = ?", userId)
+	} else if logType == LogTypeCheckin {
+		tx = LOG_DB.Where("logs.user_id = ? AND (logs.type = ? OR (logs.type = ? AND logs.content LIKE ?))", userId, LogTypeCheckin, LogTypeSystem, "用户签到，获得额度 %")
 	} else {
 		tx = LOG_DB.Where("logs.user_id = ? and logs.type = ?", userId, logType)
 	}

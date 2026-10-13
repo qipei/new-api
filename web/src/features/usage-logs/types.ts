@@ -115,7 +115,13 @@ export interface ToolSurchargeItem {
 }
 
 export interface LogOtherData {
+  reward_source?: string
+  reward_record_id?: number | string
+  credited_at?: number
+  checkin_date?: string
   admin_info?: {
+    trans_id?: string
+    adpid?: string
     is_multi_key?: boolean
     multi_key_index?: number
     use_channel?: number[]

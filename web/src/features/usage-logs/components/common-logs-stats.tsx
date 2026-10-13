@@ -25,7 +25,7 @@ import { formatLogQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import { getLogStats, getUserLogStats } from '../api'
-import { DEFAULT_LOG_STATS } from '../constants'
+import { DEFAULT_LOG_STATS, LOG_TYPE_ENUM } from '../constants'
 import { buildApiParams } from '../lib/utils'
 import { useLogsViewScope, useUsageLogsContext } from './usage-logs-provider'
 
@@ -52,9 +52,13 @@ export function CommonLogsStats() {
   const { isAdminView: isAdmin } = useLogsViewScope()
   const searchParams = route.useSearch()
   const { sensitiveVisible } = useUsageLogsContext()
+  const isRewardFilter =
+    searchParams.type?.[0] === String(LOG_TYPE_ENUM.CHECKIN) ||
+    searchParams.type?.[0] === String(LOG_TYPE_ENUM.REWARDED_AD)
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['usage-logs-stats', isAdmin, searchParams],
+    enabled: !isRewardFilter,
     queryFn: async () => {
       const params = buildApiParams({
         page: 1,
@@ -74,6 +78,8 @@ export function CommonLogsStats() {
     },
     placeholderData: (previousData) => previousData,
   })
+
+  if (isRewardFilter) return null
 
   if (isLoading) {
     return (

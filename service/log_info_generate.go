@@ -73,7 +73,7 @@ func appendRequestPath(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other
 // 一个对不上任何分组配置的数字（8.8折 的 0.88 会变成 0.44）。把活动名和倍率一并
 // 记下来，查账时才能解释这个数从哪来。
 func appendPromotionInfo(priceData hosttypes.PriceData, other map[string]interface{}) {
-	if priceData.GroupRatioInfo.PromotionRatio <= 0 {
+	if priceData.GroupRatioInfo.PromotionName == "" {
 		return
 	}
 	other["promotion_ratio"] = priceData.GroupRatioInfo.PromotionRatio

@@ -311,6 +311,17 @@ func UpdateOptionsBulk(values map[string]string) error {
 }
 
 func updateOptionMap(key string, value string) (err error) {
+	if key == operation_setting.RewardedAdOptionKey {
+		var cfg operation_setting.RewardedAdSetting
+		if err := common.UnmarshalJsonStr(value, &cfg); err != nil {
+			return err
+		}
+		if err := cfg.Validate(); err != nil {
+			return err
+		}
+		operation_setting.SetRewardedAdSetting(cfg)
+		return nil
+	}
 	if key == retiredThemeOptionKey {
 		common.OptionMapRWMutex.Lock()
 		delete(common.OptionMap, key)

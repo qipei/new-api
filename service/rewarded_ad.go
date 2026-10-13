@@ -144,11 +144,19 @@ func GetRewardedAdState(userID int, now time.Time) (map[string]any, error) {
 	ready := err == nil
 	// Expired reservations are released by the maintenance task; reads only skip them.
 	var pending model.RewardedAdSession
-	err = model.RewardedAdViewerSessions(model.DB, userID, identity.OpenID).Where("status = ? AND expires_at > ?", "pending", now.Unix()).First(&pending).Error
+	err = model.DB.Where("user_id = ? AND status = ? AND expires_at > ?", userID, "pending", now.Unix()).First(&pending).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
 	hasPending := err == nil
+	blockedByOtherAccount := false
+	if !hasPending && identity.OpenID != "" {
+		var otherPending int64
+		if err := model.RewardedAdViewerSessions(model.DB, userID, identity.OpenID).Where("status = ? AND expires_at > ?", "pending", now.Unix()).Count(&otherPending).Error; err != nil {
+			return nil, err
+		}
+		blockedByOtherAccount = otherPending > 0
+	}
 	var viewerToday int64
 	if err := model.RewardedAdViewerSessions(model.DB, userID, identity.OpenID).Where("day = ? AND (status = ? OR (status = ? AND expires_at > ?))", model.RewardedAdDate(now), "credited", "pending", now.Unix()).Count(&viewerToday).Error; err != nil {
 		return nil, err
@@ -181,7 +189,7 @@ func GetRewardedAdState(userID int, now time.Time) (map[string]any, error) {
 		reason = "disabled"
 	case !ready:
 		reason = "identity_required"
-	case hasPending:
+	case hasPending || blockedByOtherAccount:
 		reason = "session_pending"
 	case remaining == 0:
 		reason = "daily_limit"

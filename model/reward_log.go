@@ -43,9 +43,9 @@ func DeliverRewardLogs() error {
 	if err := DB.Where("delivered_at = ? AND delivering_until < ?", 0, common.GetTimestamp()).Order("id").Limit(100).Find(&pending).Error; err != nil {
 		return err
 	}
-	if len(pending) == 0 {
-		return nil
-	}
+	// One undeliverable event must not block the events queued behind it: record
+	// the failure, release its lease for the next round and keep going.
+	var failures []error
 	for _, event := range pending {
 		claim := DB.Model(&RewardLogOutbox{}).Where("id = ? AND delivered_at = ? AND delivering_until < ?", event.ID, 0, common.GetTimestamp()).Update("delivering_until", common.GetTimestamp()+300)
 		if claim.Error != nil {
@@ -57,7 +57,8 @@ func DeliverRewardLogs() error {
 		var entry Log
 		if err := common.UnmarshalJsonStr(event.Payload, &entry); err != nil {
 			_ = DB.Model(&RewardLogOutbox{}).Where("id = ?", event.ID).Update("delivering_until", 0).Error
-			return err
+			failures = append(failures, fmt.Errorf("decode reward log %s: %w", event.EventKey, err))
+			continue
 		}
 		var err error
 		if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
@@ -94,13 +95,15 @@ func DeliverRewardLogs() error {
 		}
 		if err != nil {
 			_ = DB.Model(&RewardLogOutbox{}).Where("id = ?", event.ID).Update("delivering_until", 0).Error
-			return fmt.Errorf("deliver reward log %s: %w", event.EventKey, err)
+			failures = append(failures, fmt.Errorf("deliver reward log %s: %w", event.EventKey, err))
+			continue
 		}
+		// A lost acknowledgement is retried after the lease; the receipt prevents a duplicate log.
 		if err := DB.Model(&RewardLogOutbox{}).Where("id = ? AND delivered_at = ?", event.ID, 0).Updates(map[string]interface{}{"delivered_at": common.GetTimestamp(), "delivering_until": 0}).Error; err != nil {
-			return err
+			failures = append(failures, fmt.Errorf("acknowledge reward log %s: %w", event.EventKey, err))
 		}
 	}
-	return nil
+	return errors.Join(failures...)
 }
 
 // rewardLogRetentionSeconds keeps delivered outbox rows and delivery receipts long
@@ -116,5 +119,40 @@ func PruneDeliveredRewardLogs(now int64) error {
 	if common.UsingLogDatabase(common.DatabaseTypeClickHouse) {
 		return nil
 	}
-	return LOG_DB.Where("created_at < ?", cutoff).Delete(&RewardLogDelivery{}).Error
+	// A committed receipt may still have an unacknowledged primary outbox row.
+	// Keep it until that row is delivered; otherwise recovery inserts a second log.
+	cursor := ""
+	for {
+		var receipts []RewardLogDelivery
+		if err := LOG_DB.Where("created_at < ? AND event_key > ?", cutoff, cursor).Order("event_key").Limit(500).Find(&receipts).Error; err != nil {
+			return err
+		}
+		if len(receipts) == 0 {
+			return nil
+		}
+		keys := make([]string, 0, len(receipts))
+		for _, receipt := range receipts {
+			keys = append(keys, receipt.EventKey)
+		}
+		var pending []string
+		if err := DB.Model(&RewardLogOutbox{}).Where("event_key IN ? AND delivered_at = ?", keys, 0).Pluck("event_key", &pending).Error; err != nil {
+			return err
+		}
+		pendingKeys := make(map[string]bool, len(pending))
+		for _, key := range pending {
+			pendingKeys[key] = true
+		}
+		deletable := make([]string, 0, len(keys))
+		for _, key := range keys {
+			if !pendingKeys[key] {
+				deletable = append(deletable, key)
+			}
+		}
+		if len(deletable) > 0 {
+			if err := LOG_DB.Where("event_key IN ? AND created_at < ?", deletable, cutoff).Delete(&RewardLogDelivery{}).Error; err != nil {
+				return err
+			}
+		}
+		cursor = receipts[len(receipts)-1].EventKey
+	}
 }

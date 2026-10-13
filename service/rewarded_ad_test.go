@@ -4,11 +4,17 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/glebarez/sqlite"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	"net/http/httptest"
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -76,4 +82,25 @@ func TestRewardedAdSharedS2SCallbackAuthentication(t *testing.T) {
 	request.URL.RawQuery = values.Encode()
 	_, err = ValidateRewardedAdCallback(request, cfg, now)
 	require.Error(t, err)
+}
+
+func TestRewardedAdStateDoesNotExposeOtherAccountPendingSession(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	previousDB := model.DB
+	model.DB = db
+	t.Cleanup(func() { model.DB = previousDB })
+	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.RewardedAdIdentity{}, &model.RewardedAdSession{}, &model.RewardedAdDay{}))
+	now := time.Now()
+	cfg := operation_setting.RewardedAdSetting{Enabled: true, RewardQuota: 50, DailyLimit: 3, DailyBudgetQuota: 100, Adpid: "ad", Secret: "secret", CallbackAuthKey: strings.Repeat("k", 32), WechatAppID: "wx-app", WechatAppSecret: "wx-secret", DCloudAppID: "__UNI__app", BridgeURL: "https://bridge.example", BridgeAuthKey: "bridge"}
+	raw, err := common.Marshal(cfg)
+	require.NoError(t, err)
+	require.NoError(t, db.Create(&model.Option{Key: operation_setting.RewardedAdOptionKey, Value: string(raw)}).Error)
+	require.NoError(t, db.Create(&model.RewardedAdIdentity{UserID: 2, OpenID: "shared-wechat", AppID: cfg.WechatAppID, ConfigFingerprint: cfg.IdentityFingerprint(), ExpiresAt: now.Unix() + 3600}).Error)
+	require.NoError(t, db.Create(&model.RewardedAdSession{ID: "other-account-session", UserID: 1, OpenID: "shared-wechat", RequestID: "original-view", Day: model.RewardedAdDate(now), Status: "pending", ExpiresAt: now.Unix() + 900}).Error)
+	state, err := GetRewardedAdState(2, now)
+	require.NoError(t, err)
+	assert.Equal(t, "session_pending", state["reason"])
+	assert.Equal(t, false, state["can_watch"])
+	assert.Nil(t, state["pending_session"], "a session owned by another account cannot be resumed by this user")
 }

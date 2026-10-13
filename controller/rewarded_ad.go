@@ -84,6 +84,8 @@ func rewardedAdError(c *gin.Context, err error) {
 				response["data"] = gin.H{"retry_after": state["cooldown_seconds"]}
 			} else if pending, ok := state["pending_session"].(map[string]any); ok {
 				response["data"] = gin.H{"session_id": pending["session_id"]}
+			} else if state["reason"] == "session_pending" {
+				response["message"] = "同一微信账号在其他账号下有未结束的观看，请等待该会话结束"
 			}
 		}
 	}

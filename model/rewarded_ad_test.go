@@ -109,8 +109,8 @@ func TestRewardedAdDatabaseContract(t *testing.T) {
 			DB = db
 			common.SetDatabaseTypes(tc.kind, logType)
 			t.Cleanup(func() { sqlDB, _ := db.DB(); _ = sqlDB.Close(); DB = prior; common.SetDatabaseTypes(mainType, logType) })
-			require.NoError(t, db.AutoMigrate(&User{}, &Option{}, &RewardedAdIdentity{}, &RewardedAdSession{}, &RewardedAdDay{}, &RewardedAdEvent{}, &RewardLogOutbox{}))
-			for _, table := range []any{&RewardLogOutbox{}, &RewardedAdEvent{}, &RewardedAdSession{}, &RewardedAdDay{}, &RewardedAdIdentity{}, &Option{}, &User{}} {
+			require.NoError(t, db.AutoMigrate(&User{}, &Option{}, &RewardedAdIdentity{}, &RewardedAdSession{}, &RewardedAdDay{}, &RewardedAdEvent{}, &RewardLogOutbox{}, &RewardLogDelivery{}, &Log{}))
+			for _, table := range []any{&RewardLogDelivery{}, &Log{}, &RewardLogOutbox{}, &RewardedAdEvent{}, &RewardedAdSession{}, &RewardedAdDay{}, &RewardedAdIdentity{}, &Option{}, &User{}} {
 				require.NoError(t, db.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(table).Error)
 			}
 			now := time.Unix(1791777600, 0)
@@ -160,6 +160,24 @@ func TestRewardedAdDatabaseContract(t *testing.T) {
 			var events int64
 			require.NoError(t, db.Model(&RewardedAdEvent{}).Count(&events).Error)
 			assert.EqualValues(t, 1, events)
+			// Exercise log delivery and retention on the same real database dialect.
+			previousLogDB := LOG_DB
+			LOG_DB = db
+			common.SetLogDatabaseType(tc.kind)
+			t.Cleanup(func() { LOG_DB = previousLogDB })
+			require.NoError(t, db.AutoMigrate(&Log{}, &RewardLogDelivery{}))
+			require.NoError(t, DeliverRewardLogs())
+			key := "ad:" + winner.ID
+			require.NoError(t, db.Model(&RewardLogOutbox{}).Where("event_key = ?", key).Update("delivered_at", 0).Error)
+			currentTime := common.GetTimestamp()
+			require.NoError(t, db.Model(&RewardLogDelivery{}).Where("event_key = ?", key).Update("created_at", currentTime-8*24*3600).Error)
+			require.NoError(t, PruneDeliveredRewardLogs(currentTime))
+			require.NoError(t, DeliverRewardLogs())
+			logs, total, err := GetUserLogs(winner.UserID, LogTypeRewardedAd, 0, 0, "", "", 0, 20, "", "", "")
+			require.NoError(t, err)
+			require.Len(t, logs, 1)
+			assert.EqualValues(t, 1, total)
+			assert.Equal(t, 50, logs[0].Quota)
 		})
 	}
 }

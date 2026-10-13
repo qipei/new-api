@@ -208,3 +208,33 @@ func TestPruneDeliveredRewardLogsKeepsPendingAndRecentEntries(t *testing.T) {
 	require.NoError(t, LOG_DB.Model(&RewardLogDelivery{}).Pluck("event_key", &receipts).Error)
 	assert.Equal(t, []string{"delivered-recent"}, receipts)
 }
+
+func TestRewardLogPruningPreservesUnacknowledgedDelivery(t *testing.T) {
+	setupRewardLogDBs(t)
+	require.NoError(t, EnqueueRewardLog(DB, &Log{Type: LogTypeRewardedAd, UserId: 1, Quota: 100}, "ad:pending-ack"))
+	require.NoError(t, DeliverRewardLogs())
+	// The log committed but acknowledgement to the primary DB was lost.
+	require.NoError(t, DB.Model(&RewardLogOutbox{}).Where("event_key = ?", "ad:pending-ack").Update("delivered_at", 0).Error)
+	now := common.GetTimestamp()
+	require.NoError(t, LOG_DB.Model(&RewardLogDelivery{}).Where("event_key = ?", "ad:pending-ack").Update("created_at", now-8*24*3600).Error)
+	require.NoError(t, PruneDeliveredRewardLogs(now))
+	require.NoError(t, DeliverRewardLogs())
+	var count int64
+	require.NoError(t, LOG_DB.Model(&Log{}).Where("request_id = ?", "ad:pending-ack").Count(&count).Error)
+	assert.EqualValues(t, 1, count, "pruning must not allow a pending delivery to insert the same log twice")
+}
+
+func TestRewardLogUndeliverableEventDoesNotBlockLaterEvents(t *testing.T) {
+	setupRewardLogDBs(t)
+	require.NoError(t, DB.Create(&RewardLogOutbox{EventKey: "ad:corrupt", Payload: "not-json"}).Error)
+	require.NoError(t, EnqueueRewardLog(DB, &Log{Type: LogTypeRewardedAd, UserId: 1, Quota: 100}, "ad:valid"))
+
+	require.ErrorContains(t, DeliverRewardLogs(), "ad:corrupt")
+
+	var count int64
+	require.NoError(t, LOG_DB.Model(&Log{}).Where("request_id = ?", "ad:valid").Count(&count).Error)
+	assert.EqualValues(t, 1, count)
+	var corrupt RewardLogOutbox
+	require.NoError(t, DB.Where("event_key = ?", "ad:corrupt").First(&corrupt).Error)
+	assert.Zero(t, corrupt.DeliveredAt, "the failed event stays pending for a later retry")
+}

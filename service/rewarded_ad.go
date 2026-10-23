@@ -12,16 +12,16 @@ import (
 	"gorm.io/gorm"
 	"net/http"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// ValidateRewardedAdCallback requires both a DCloud event signature and the
-// configured S2S authentication. SIGN covers all decoded query parameters;
-// CONNECTCODE authenticates the sender. Missing S2S fails closed.
-func ValidateRewardedAdCallback(request *http.Request, cfg operation_setting.RewardedAdSetting, now time.Time) (model.RewardedAdCallback, error) {
+// ValidateRewardedAdCallback verifies DCloud's official secret:trans_id signature.
+// uni-open-bridge S2S credentials authenticate bridge requests, not ad callbacks.
+// The signature covers only trans_id; settlement separately checks the opaque
+// session, its owner/ad slot, transaction uniqueness and reward limits.
+func ValidateRewardedAdCallback(request *http.Request, cfg operation_setting.RewardedAdSetting, _ time.Time) (model.RewardedAdCallback, error) {
 	event := model.RewardedAdCallback{}
 	if request.Method != "GET" || len(request.URL.RawQuery) > 8192 {
 		return event, errors.New("invalid_request")
@@ -30,12 +30,10 @@ func ValidateRewardedAdCallback(request *http.Request, cfg operation_setting.Rew
 	if err != nil {
 		return event, errors.New("invalid_request")
 	}
-	keys := make([]string, 0, len(query))
 	for key, values := range query {
 		if len(values) != 1 || len(key) > 128 || len(values[0]) > 1024 || strings.ContainsAny(key, "&=\r\n") || strings.ContainsAny(values[0], "&\r\n") {
 			return event, errors.New("invalid_request")
 		}
-		keys = append(keys, key)
 	}
 	for _, field := range []string{"adpid", "platform", "provider", "trans_id", "user_id", "extra", "sign"} {
 		if query.Get(field) == "" {
@@ -45,48 +43,11 @@ func ValidateRewardedAdCallback(request *http.Request, cfg operation_setting.Rew
 	if query.Get("adpid") != cfg.Adpid || query.Get("platform") != "weixin-mp" || (query.Get("provider") != "china" && query.Get("provider") != "global") || len(query.Get("trans_id")) > 128 || len(query.Get("extra")) > 64 || len(query.Get("user_id")) > 20 {
 		return event, errors.New("invalid_request")
 	}
-	if cfg.Secret == "" || cfg.EffectiveCallbackAuthKey() == "" {
-		return event, errors.New("invalid_signature")
-	}
-	var provided []byte
-	switch cfg.EffectiveCallbackAuthMode() {
-	case "sign":
-		if len(cfg.EffectiveCallbackAuthKey()) < 32 {
-			return event, errors.New("invalid_signature")
-		}
-		if len(request.Header.Values("Unicloud-S2s-Timestamp")) != 1 || len(request.Header.Values("Unicloud-S2s-Signature")) != 1 {
-			return event, errors.New("invalid_signature")
-		}
-		timestamp := request.Header.Get("Unicloud-S2s-Timestamp")
-		ms, err := strconv.ParseInt(timestamp, 10, 64)
-		// Compare bounded intervals rather than subtracting attacker-controlled ints.
-		if err != nil || ms < now.Add(-time.Minute).UnixMilli() || ms > now.Add(time.Minute).UnixMilli() {
-			return event, errors.New("invalid_signature")
-		}
-		sort.Strings(keys)
-		parts := make([]string, 0, len(keys))
-		for _, key := range keys {
-			parts = append(parts, key+"="+query.Get(key))
-		}
-		mac := hmac.New(sha256.New, []byte(cfg.EffectiveCallbackAuthKey()))
-		mac.Write([]byte(timestamp + "\n" + strings.Join(parts, "&")))
-		signatureParts := strings.Fields(request.Header.Get("Unicloud-S2s-Signature"))
-		if len(signatureParts) != 2 || signatureParts[0] != "hmac-sha256" {
-			return event, errors.New("invalid_signature")
-		}
-		provided, err = hex.DecodeString(signatureParts[1])
-		if err != nil || !hmac.Equal(mac.Sum(nil), provided) {
-			return event, errors.New("invalid_signature")
-		}
-	case "connectCode":
-		if len(request.Header.Values("Unicloud-S2s-Authorization")) != 1 || !hmac.Equal([]byte(request.Header.Get("Unicloud-S2s-Authorization")), []byte("CONNECTCODE "+cfg.EffectiveCallbackAuthKey())) {
-			return event, errors.New("invalid_signature")
-		}
-	default:
+	if cfg.Secret == "" {
 		return event, errors.New("invalid_signature")
 	}
 	hash := sha256.Sum256([]byte(cfg.Secret + ":" + query.Get("trans_id")))
-	provided, err = hex.DecodeString(query.Get("sign"))
+	provided, err := hex.DecodeString(query.Get("sign"))
 	if err != nil || !hmac.Equal(hash[:], provided) {
 		return event, errors.New("invalid_signature")
 	}

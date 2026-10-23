@@ -94,6 +94,9 @@ export function MiniAppQR(props: MiniAppQRProps) {
             <span className='text-muted-foreground text-xs leading-relaxed'>
               {t('Balance, usage and daily check-ins')}
             </span>
+            <span className='text-muted-foreground text-xs leading-relaxed'>
+              {t('Watch ads to earn tokens')}
+            </span>
             <span className='mt-1 inline-flex items-center gap-1 text-[11px] text-amber-800 dark:text-amber-300'>
               <Maximize2 className='size-3' aria-hidden='true' />
               {t('Enlarge mini program QR code')}

@@ -368,7 +368,7 @@ function RewardedAdForm(props: { initialValues: RewardedAdConfig }) {
         <FieldGroup>
           <p className='text-muted-foreground text-sm'>
             {t(
-              'Verify that real DCloud callbacks include the uniCloud S2S signature headers before enabling. Unauthenticated callbacks never grant rewards.'
+              'DCloud ad callbacks use the ad slot secret to verify sign. Rewards also require a matching user and viewing session; client playback completion never grants rewards.'
             )}
           </p>
           <p className='text-muted-foreground text-sm'>
@@ -444,7 +444,7 @@ function RewardedAdForm(props: { initialValues: RewardedAdConfig }) {
                   />
                   <FieldDescription id='rewarded-ad-bridge-auth-mode-help'>
                     {t(
-                      'S2S uses uni-cloud-s2s/config.json for bridge requests and callback authentication. The callback sender must provide matching headers; verify with a real callback. Keep credentials on servers only.'
+                      'S2S credentials authenticate server requests to uni-open-bridge and match uni-cloud-s2s/config.json. Ad callbacks use the separate DCloud callback secret. Keep credentials on servers only.'
                     )}
                   </FieldDescription>
                 </div>

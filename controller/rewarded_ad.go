@@ -163,6 +163,33 @@ func GetRewardedAdSession(c *gin.Context) {
 	}
 	common.ApiSuccess(c, data)
 }
+
+// FinishRewardedAdSession ends only the authenticated viewer's reservation.
+func FinishRewardedAdSession(c *gin.Context) {
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if err := common.DecodeJson(http.MaxBytesReader(c.Writer, c.Request.Body, 2048), &req); err != nil {
+		rewardedAdError(c, errors.New("invalid_request"))
+		return
+	}
+	session, err := model.FinishRewardedAdSession(c.GetInt("id"), c.Param("id"), req.Reason)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(404, gin.H{"success": false, "code": "session_not_found", "message": "观看会话不存在"})
+		return
+	}
+	if err != nil {
+		rewardedAdError(c, err)
+		return
+	}
+	data, err := service.RewardedAdSessionView(session, false)
+	if err != nil {
+		rewardedAdError(c, err)
+		return
+	}
+	common.ApiSuccess(c, data)
+}
+
 func RewardedAdCallback(c *gin.Context) {
 	cfg, err := model.GetRewardedAdSettingFromDB()
 	if err != nil {

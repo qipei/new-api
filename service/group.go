@@ -12,6 +12,20 @@ import (
 )
 
 func GetUserUsableGroups(userGroup string) map[string]string {
+	groups := GetUserSelectableGroups(userGroup)
+	// Keep existing keys and routing that use the owner's group working even
+	// when that group is hidden from the API key picker.
+	if userGroup != "" {
+		if _, ok := groups[userGroup]; !ok {
+			groups[userGroup] = "用户分组"
+		}
+	}
+	return groups
+}
+
+// GetUserSelectableGroups lists explicitly configured API key choices without
+// automatically exposing the user's own billing identity group.
+func GetUserSelectableGroups(userGroup string) map[string]string {
 	groupsCopy := setting.GetUserUsableGroupsCopy()
 	if userGroup != "" {
 		specialSettings, b := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Get(userGroup)
@@ -31,10 +45,6 @@ func GetUserUsableGroups(userGroup string) map[string]string {
 					groupsCopy[specialGroup] = desc
 				}
 			}
-		}
-		// 如果userGroup不在UserUsableGroups中，返回UserUsableGroups + userGroup
-		if _, ok := groupsCopy[userGroup]; !ok {
-			groupsCopy[userGroup] = "用户分组"
 		}
 	}
 	return groupsCopy

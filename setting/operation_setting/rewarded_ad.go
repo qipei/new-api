@@ -11,7 +11,9 @@ import (
 )
 
 const RewardedAdOptionKey = "RewardedAdSettings"
-const RewardedAdSessionTTL = 900
+
+// RewardedAdSessionTTL releases abandoned viewing reservations after three minutes.
+const RewardedAdSessionTTL = 180
 
 // RewardedAdLateCreditWindow is how long after a session expires a verified ad
 // callback may still be credited automatically, subject to that day's limits.
@@ -54,7 +56,7 @@ func SetRewardedAdSetting(s RewardedAdSetting) {
 	rewardedAdSetting = s
 }
 func (s RewardedAdSetting) Configured() bool {
-	return s.Validate() == nil && s.Adpid != "" && s.Secret != "" && s.EffectiveCallbackAuthKey() != "" && s.WechatAppID != "" && s.WechatAppSecret != "" && s.DCloudAppID != "" && s.BridgeURL != "" && s.EffectiveBridgeAuthKey() != ""
+	return s.Validate() == nil && s.Adpid != "" && s.Secret != "" && s.WechatAppID != "" && s.WechatAppSecret != "" && s.DCloudAppID != "" && s.BridgeURL != "" && s.EffectiveBridgeAuthKey() != ""
 }
 func (s RewardedAdSetting) Validate() error {
 	if mode := s.EffectiveBridgeAuthMode(); mode != "sign" && mode != "connectCode" {
@@ -79,7 +81,7 @@ func (s RewardedAdSetting) Validate() error {
 			return errors.New("桥接地址必须是固定 HTTPS 地址")
 		}
 	}
-	if s.Enabled && (s.DailyBudgetQuota <= 0 || s.Adpid == "" || s.Secret == "" || s.EffectiveCallbackAuthKey() == "" || (s.EffectiveCallbackAuthMode() == "sign" && len(s.EffectiveCallbackAuthKey()) < 32) || s.WechatAppID == "" || s.WechatAppSecret == "" || s.DCloudAppID == "" || s.BridgeURL == "" || s.EffectiveBridgeAuthKey() == "") {
+	if s.Enabled && (s.DailyBudgetQuota <= 0 || s.Adpid == "" || s.Secret == "" || (s.EffectiveBridgeAuthMode() == "sign" && len(s.EffectiveBridgeAuthKey()) < 32) || s.WechatAppID == "" || s.WechatAppSecret == "" || s.DCloudAppID == "" || s.BridgeURL == "" || s.EffectiveBridgeAuthKey() == "") {
 		return errors.New("启用前需完整配置奖励预算、广告位、应用凭据及服务器认证（signKey 至少32字节）")
 	}
 	return nil

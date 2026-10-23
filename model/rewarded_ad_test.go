@@ -76,12 +76,15 @@ func TestRewardedAdReservesBudgetAndReleasesExpiredOnce(t *testing.T) {
 	require.NoError(t, err)
 	_, err = CreateRewardedAdSession(1, "request-2", cfg, now)
 	require.ErrorContains(t, err, "session_pending")
-	require.NoError(t, ExpireRewardedAdSessions(now.Add(16*time.Minute)))
-	require.NoError(t, ExpireRewardedAdSessions(now.Add(17*time.Minute)))
-	_, err = CreateRewardedAdSession(1, "request-2", cfg, now.Add(17*time.Minute))
+	require.NoError(t, ExpireRewardedAdSessions(now.Add(179*time.Second)))
+	_, err = CreateRewardedAdSession(1, "request-2", cfg, now.Add(179*time.Second))
+	require.ErrorContains(t, err, "session_pending")
+	require.NoError(t, ExpireRewardedAdSessions(now.Add(180*time.Second)))
+	require.NoError(t, ExpireRewardedAdSessions(now.Add(181*time.Second)))
+	_, err = CreateRewardedAdSession(1, "request-2", cfg, now.Add(181*time.Second))
 	require.NoError(t, err)
 	event := RewardedAdCallback{TransID: "late", UserID: "1", Extra: s.ID, Adpid: cfg.Adpid, Platform: "weixin-mp", Provider: "china"}
-	require.ErrorContains(t, SettleRewardedAd(event, now.Add(18*time.Minute)), "review_required")
+	require.ErrorContains(t, SettleRewardedAd(event, now.Add(182*time.Second)), "review_required")
 	var user User
 	require.NoError(t, DB.First(&user, 1).Error)
 	assert.Equal(t, 100, user.Quota)
@@ -150,6 +153,33 @@ func TestRewardedAdDatabaseContract(t *testing.T) {
 			}
 			require.NotNil(t, winner)
 			event := RewardedAdCallback{TransID: "db-transaction", UserID: strconv.Itoa(winner.UserID), Extra: winner.ID, Adpid: "ad-1", Platform: "weixin-mp", Provider: "china"}
+			// Ending a view and accepting its trusted notification must serialize:
+			// neither order may lose the reward or release a reservation twice.
+			raw, err := common.Marshal(cfg)
+			require.NoError(t, err)
+			require.NoError(t, db.Create(&Option{Key: operation_setting.RewardedAdOptionKey, Value: string(raw)}).Error)
+			finishGate := make(chan struct{})
+			finishResults := make(chan error, 2)
+			go func() {
+				<-finishGate
+				_, err := FinishRewardedAdSession(winner.UserID, winner.ID, "closed")
+				finishResults <- err
+			}()
+			go func() {
+				<-finishGate
+				finishResults <- SettleRewardedAd(event, now.Add(time.Minute))
+			}()
+			close(finishGate)
+			for range 2 {
+				require.NoError(t, <-finishResults)
+			}
+			for _, id := range []int{0, winner.UserID} {
+				var day RewardedAdDay
+				require.NoError(t, db.Where("day = ? AND user_id = ?", winner.Day, id).First(&day).Error)
+				assert.Zero(t, day.Reserved)
+				assert.Zero(t, day.ReservedQuota)
+				assert.Equal(t, 1, day.Credited)
+			}
 			require.NoError(t, SettleRewardedAd(event, now.Add(time.Minute)))
 			require.NoError(t, SettleRewardedAd(event, now.Add(2*time.Minute)))
 			var user User

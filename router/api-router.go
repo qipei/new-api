@@ -105,6 +105,7 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/self/rewarded-ad/wechat-session", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.InitializeRewardedAdIdentity)
 				selfRoute.POST("/self/rewarded-ad/sessions", middleware.UserCriticalRateLimit("rewarded-ad"), middleware.DisableCache(), controller.CreateRewardedAdSession)
 				selfRoute.GET("/self/rewarded-ad/sessions/:id", middleware.DisableCache(), controller.GetRewardedAdSession)
+				selfRoute.POST("/self/rewarded-ad/sessions/:id/finish", middleware.UserCriticalRateLimit("rewarded-ad-finish"), middleware.DisableCache(), controller.FinishRewardedAdSession)
 				selfRoute.GET("/self/quota/overview", middleware.DisableCache(), controller.GetUserQuotaOverview)
 				selfRoute.GET("/self/usage/overview", middleware.UserUsageRateLimit(), middleware.DisableCache(), controller.GetUserUsageOverview)
 				selfRoute.GET("/self/usage/records", middleware.UserUsageRateLimit(), middleware.DisableCache(), controller.GetUserUsageRecords)

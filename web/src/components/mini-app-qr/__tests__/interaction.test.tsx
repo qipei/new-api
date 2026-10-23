@@ -66,7 +66,7 @@ test('opens the configured QR image with the keyboard and returns focus after cl
   const trigger = await screen.findByRole('button', {
     name: 'Enlarge mini program QR code',
   })
-  expect(screen.queryByText('Watch ads to earn tokens')).not.toBeInTheDocument()
+  expect(within(trigger).getByText('Watch ads to earn tokens')).toBeInTheDocument()
   trigger.focus()
   await user.keyboard('{Enter}')
   const dialog = await screen.findByRole('dialog', {

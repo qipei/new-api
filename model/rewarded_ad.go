@@ -311,7 +311,7 @@ func SettleRewardedAd(event RewardedAdCallback, now time.Time) error {
 		if err := tx.Create(&record).Error; err != nil {
 			return err
 		}
-		if err := tx.Model(&session).Updates(map[string]any{"status": "credited", "credited_at": now.Unix()}).Error; err != nil {
+		if err := tx.Model(&session).Updates(map[string]any{"status": "credited", "credited_at": now.Unix(), "reason": ""}).Error; err != nil {
 			return err
 		}
 		for _, id := range []int{0, session.UserID} {

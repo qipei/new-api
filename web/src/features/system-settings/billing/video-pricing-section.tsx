@@ -118,6 +118,13 @@ type PricingEditorMode = 'visual' | 'json'
 
 export function VideoPricingSection(props: { defaultValue: string }) {
   const { t } = useTranslation()
+  // 下拉框需要传入选项列表，选中后才会显示中文名称而不是原始取值；
+  // 空值在下拉里对应 any。
+  const selectItems = (labelKeys: Record<string, string>) =>
+    Object.entries(labelKeys).map(([value, labelKey]) => ({
+      value: value || 'any',
+      label: t(labelKey),
+    }))
   const updateOption = useUpdateOption()
 
   const [tables, setTables] = useState<EditableVideoTable[]>(() =>
@@ -357,6 +364,7 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                       onValueChange={(value) => {
                         if (value) patchTable(tableIndex, { unit: value })
                       }}
+                      items={selectItems(UNIT_LABEL_KEYS)}
                     >
                       <SelectTrigger className='w-44'>
                         <SelectValue />
@@ -463,6 +471,12 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                         <div className='ml-auto flex items-center gap-1'>
                           <Select
                             value={table.resolutionTemplate || null}
+                            items={Object.entries(
+                              IMAGE_RESOLUTION_TEMPLATES
+                            ).map(([value, template]) => ({
+                              value,
+                              label: t(template.labelKey),
+                            }))}
                             onValueChange={(value) => {
                               if (typeof value !== 'string') return
                               const template = IMAGE_RESOLUTION_TEMPLATES[value]
@@ -626,6 +640,9 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                                   mode: value && value !== 'any' ? value : '',
                                 })
                               }
+                              items={selectItems(
+                                modeLabelKeysForUnit(table.unit)
+                              )}
                             >
                               <SelectTrigger className='w-36'>
                                 <SelectValue />
@@ -698,6 +715,7 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                                       value && value !== 'any' ? value : '',
                                   })
                                 }
+                                items={selectItems(AUDIO_LABEL_KEYS)}
                               >
                                 <SelectTrigger className='w-36'>
                                   <SelectValue />

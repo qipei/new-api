@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
 
-import type { PricingData } from './types'
+import type { ModelVoiceCatalog, PricingData } from './types'
 
 // ----------------------------------------------------------------------------
 // Pricing APIs
@@ -28,4 +28,21 @@ import type { PricingData } from './types'
 export async function getPricing(): Promise<PricingData> {
   const res = await api.get('/api/pricing')
   return res.data
+}
+
+// CUSTOM: 模型的预置音色目录（fork 扩展）。不是语音模型时后端返回 404，这里返回 null。
+export async function getModelVoices(
+  model: string
+): Promise<ModelVoiceCatalog | null> {
+  const res = await api.get<{ success: boolean; data: ModelVoiceCatalog }>(
+    '/api/pricing/voices',
+    {
+      params: { model },
+      skipBusinessError: true,
+      skipErrorHandler: true,
+      validateStatus: (status: number) => status === 200 || status === 404,
+    }
+  )
+  if (res.status === 404 || !res.data.success) return null
+  return res.data.data
 }

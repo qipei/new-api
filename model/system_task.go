@@ -21,6 +21,8 @@ const (
 	SystemTaskTypeModelUpdate    = "model_update"
 	SystemTaskTypeMidjourneyPoll = "midjourney_poll"
 	SystemTaskTypeAsyncTaskPoll  = "async_task_poll"
+	// CUSTOM: 火山预置音色同步（fork 扩展）
+	SystemTaskTypeVoiceCatalogSync = "voice_catalog_sync"
 )
 
 var ErrSystemTaskLockLost = errors.New("system task lock lost")

@@ -25,6 +25,8 @@ import { GeminiSettingsCard } from './gemini-settings-card'
 import { GlobalSettingsCard } from './global-settings-card'
 import { GrokSettingsCard } from './grok-settings-card'
 import { RoutingReliabilitySection } from './routing-reliability-section'
+// CUSTOM: 火山预置音色同步（fork 扩展）
+import { VoiceCatalogSection } from './voice-catalog-section'
 
 function formatJsonForEditor(value: string, fallback: string) {
   const raw = (value ?? '').toString().trim()
@@ -146,6 +148,11 @@ const MODELS_SECTIONS = [
         }}
       />
     ),
+  },
+  {
+    id: 'voice-catalog',
+    titleKey: 'Voice Catalog',
+    build: () => <VoiceCatalogSection />,
   },
   {
     id: 'channel-affinity',

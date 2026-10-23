@@ -37,6 +37,8 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
 		apiRouter.GET("/home/rankings", controller.GetRankings)
 		apiRouter.GET("/pricing", middleware.HeaderNavModuleAuth("pricing"), controller.GetPricing)
+		// CUSTOM: 模型广场的预置音色目录（fork 扩展）
+		apiRouter.GET("/pricing/voices", middleware.HeaderNavModuleAuth("pricing"), controller.GetModelVoices)
 		perfMetricsRoute := apiRouter.Group("/perf-metrics")
 		perfMetricsRoute.Use(middleware.HeaderNavModulePublicOrUserAuth("pricing"))
 		{
@@ -233,6 +235,9 @@ func SetApiRouter(router *gin.Engine) {
 			optionRoute.GET("/", controller.GetOptions)
 			optionRoute.GET("/miniapp-qr-code", controller.GetMiniAppQRCode)
 			optionRoute.PUT("/miniapp-qr-code", controller.SaveMiniAppQRCodeSettings)
+			optionRoute.GET("/voice-catalog", controller.GetVoiceCatalogSettings)
+			optionRoute.PUT("/voice-catalog", controller.SaveVoiceCatalogSettings)
+			optionRoute.POST("/voice-catalog/sync", controller.SyncVoiceCatalog)
 			optionRoute.GET("/customer-service", controller.GetCustomerServiceSettings)
 			optionRoute.PUT("/customer-service", controller.SaveCustomerServiceSettings)
 			optionRoute.PUT("/", controller.UpdateOption)

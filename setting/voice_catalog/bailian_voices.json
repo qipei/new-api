@@ -1,0 +1,1776 @@
+{
+  "source_url": "https://docs.bailian.console.aliyun.com/zh/model-studio/qwen-audio-tts-voice-list",
+  "updated_at": "2026-10-23",
+  "note": "按官方音色文档整理，每个音色都已在对应模型上实测合成通过。",
+  "voices": [
+    {
+      "model": "qwen-audio-3.1-tts-plus",
+      "category": "旗舰音色",
+      "name": "龙安灵心",
+      "voice": "longanlingxin_v3.1",
+      "gender": "female",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "试听 1",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/zh/audios/6a4b3c2d1e0f9279.wav",
+          "text": "你好呀，我是龙安灵心。在这个快节奏的世界里，我想做你耳畔最温柔的守候。无论是深夜的失眠还是清晨的微光，只要你需要，我都会在这里，用声音拥抱你的每一个情绪瞬间。"
+        },
+        {
+          "label": "试听 2",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/zh/audios/6a4b3c2d1e0f9278.wav",
+          "text": "今天过得怎么样？有没有遇到什么开心的小事，或者让你眉头紧锁的烦恼？别担心，慢慢说给我听。我会安静地陪伴着你，帮你梳理思绪，让心情像雨后的天空一样，重新变得清澈明亮。"
+        },
+        {
+          "label": "试听 3",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/zh/audios/6a4b3c2d1e0f927f.wav",
+          "text": "月亮已经爬上了树梢，星星在眨着眼睛。闭上眼睛，想象自己躺在柔软的云朵上，随着微风轻轻飘荡。所有的疲惫都随风散去，现在，请安心入睡，愿你在甜美的梦乡中，遇见最美的风景。"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-plus",
+      "category": "旗舰音色",
+      "name": "许南川",
+      "voice": "xunanchuan_v3.1",
+      "gender": "male",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "试听 1",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/zh/audios/6a4b3c2d1e0f927e.wav",
+          "text": "遇见你之前，我的世界是黑白单调的；遇见你之后，色彩斑斓如雨后彩虹。我想牵着你的手，走过春夏秋冬，看遍世间繁华。无论风雨如何变幻，只要你在身边，便是人间最美风景。"
+        },
+        {
+          "label": "试听 2",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/zh/audios/6a4b3c2d1e0f927d.wav",
+          "text": "我是许南川，一个喜欢用声音讲述故事的人。我的声音或许不够华丽，但足够真诚。希望能通过这磁性的语调，带你走进不同的世界，感受文字背后的温度与力量，期待与你相遇。"
+        },
+        {
+          "label": "试听 3",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/zh/audios/6a4b3c2d1e0f927c.wav",
+          "text": "在这个喧嚣的时代，保持清醒是一种奢侈。我喜欢在安静的午后，泡一杯茶，读一本好书。那种心灵的宁静，比任何物质的享受都来得珍贵。你呢？是否也渴望这样片刻的安宁？"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-plus",
+      "category": "旗舰音色",
+      "name": "龙安欢",
+      "voice": "longanhuan_v3.1",
+      "gender": "female",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "试听 1",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/zh/audios/6a4b3c2d1e0f9273.wav",
+          "text": "嗨，大家好！我是龙安欢。我喜欢笑，喜欢热闹，更喜欢看到大家快乐的样子。有什么烦心事尽管找我，保证让你笑着走出阴霾。让我们一起快乐起来吧！"
+        },
+        {
+          "label": "试听 2",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/zh/audios/6a4b3c2d1e0f9272.wav",
+          "text": "买衣服不要只看款式，更要看面料和剪裁。这件大衣版型正，羊毛含量高，穿在身上既保暖又有型。性价比超高，闭眼入都不会错。信我的准没错，赶紧入手一件过冬吧！"
+        },
+        {
+          "label": "试听 3",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/zh/audios/6a4b3c2d1e0f9271.wav",
+          "text": "天哪，今天的天气简直太糟糕了！出门忘带伞，结果淋成落汤鸡。不过没关系，回家喝杯热姜茶，洗个热水澡，又是一条好汉！你们今天过得怎么样？有没有什么趣事跟我分享呀？"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-plus",
+      "category": "旗舰音色",
+      "name": "龙安风悦",
+      "voice": "longanfengyue_v3.1",
+      "gender": "female",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "试听 1",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/zh/audios/6a4b3c2d1e0f9270.wav",
+          "text": "明天白天多云转晴，气温适宜，最高二十度，最低十五度。风力不大，非常适合户外活动。不过早晚温差较大，建议大家适当增减衣物，预防感冒。出行前记得查看实时路况哦。"
+        },
+        {
+          "label": "试听 2",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/zh/audios/6a4b3c2d1e0f9277.wav",
+          "text": "最近我在看一部老电影，里面的配乐特别经典，听得我忍不住单曲循环。你平时喜欢听什么类型的音乐？是轻快的流行乐，还是安静的纯音乐？推荐几首给我呗，我想换换口味。"
+        },
+        {
+          "label": "试听 3",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/zh/audios/6a4b3c2d1e0f9276.wav",
+          "text": "外婆坐在藤椅上，手里织着那条没完工的围巾，针脚细密而整齐。夕阳透过窗棂洒在她银白的发丝上，泛着柔和的光晕。她抬起头，笑着对我说：‘天凉了，快戴上吧。’那一刻，时光仿佛静止。"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "多语种与方言音色",
+      "name": "龙安欢",
+      "voice": "longanhuan_v3.1",
+      "gender": "female",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "重庆话",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9ced.wav"
+        },
+        {
+          "label": "宁波话",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cec.wav"
+        },
+        {
+          "label": "韩语",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9ce3.wav"
+        },
+        {
+          "label": "印尼语",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9ce2.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "多语种与方言音色",
+      "name": "龙安灵心",
+      "voice": "longanlingxin_v3.1",
+      "gender": "female",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "云南话",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9ce1.wav"
+        },
+        {
+          "label": "陕西话",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9ce0.wav"
+        },
+        {
+          "label": "上海话",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9ce7.wav"
+        },
+        {
+          "label": "法语",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9ce6.wav"
+        },
+        {
+          "label": "意大利语",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9ce5.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "多语种与方言音色",
+      "name": "龙安风悦",
+      "voice": "longanfengyue_v3.1",
+      "gender": "female",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "东北话",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9ce4.wav"
+        },
+        {
+          "label": "越南语",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cfb.wav"
+        },
+        {
+          "label": "日语",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cfa.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "多语种与方言音色",
+      "name": "许南川",
+      "voice": "xunanchuan_v3.1",
+      "gender": "male",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "甘肃话",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cf9.wav"
+        },
+        {
+          "label": "东北话",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cf8.wav"
+        },
+        {
+          "label": "法语",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cff.wav"
+        },
+        {
+          "label": "葡萄牙语",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cfe.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "于小云",
+      "voice": "yuxiaoyun_v3.1",
+      "gender": "female",
+      "traits": [
+        "元气",
+        "亲切",
+        "自然"
+      ],
+      "scenes": [
+        "广告营销",
+        "广播",
+        "客服助手",
+        "旁白"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cfd.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "乔小娇",
+      "voice": "qiaoxiaojiao_v3.1",
+      "gender": "female",
+      "traits": [
+        "俏丽",
+        "可爱"
+      ],
+      "scenes": [
+        "广告营销",
+        "客服助手",
+        "有声书"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cfc.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "夏小晨",
+      "voice": "xiaxiaochen_v3.1",
+      "gender": "female",
+      "traits": [
+        "元气",
+        "明亮"
+      ],
+      "scenes": [
+        "广告营销",
+        "有声书"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cf2.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "安明远",
+      "voice": "anmingyuan_v3.1",
+      "gender": "male",
+      "traits": [
+        "清亮",
+        "自然"
+      ],
+      "scenes": [
+        "广告营销",
+        "有声书",
+        "旁白"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cf1.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "温怀清",
+      "voice": "wenhuaiqing_v3.1",
+      "gender": "female",
+      "traits": [
+        "清亮",
+        "柔和"
+      ],
+      "scenes": [
+        "儿童故事",
+        "客服助手",
+        "广告营销",
+        "新闻播报"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cf0.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "安小岚",
+      "voice": "anxiaolan_v3.1",
+      "gender": "female",
+      "traits": [
+        "清甜",
+        "纯净"
+      ],
+      "scenes": [
+        "有声书",
+        "客服助手",
+        "旁白",
+        "新闻播报",
+        "广告营销"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cf7.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "谢舒柔",
+      "voice": "xieshurou_v3.1",
+      "gender": "female",
+      "traits": [
+        "柔和",
+        "自然",
+        "知性"
+      ],
+      "scenes": [
+        "有声书",
+        "客服助手",
+        "旁白"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9cf5.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "白清岚",
+      "voice": "baiqinglan_v3.1",
+      "gender": "female",
+      "traits": [
+        "明亮",
+        "清纯"
+      ],
+      "scenes": [
+        "语音助手",
+        "客服助手"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c0b.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "许玉远",
+      "voice": "xuyuyuan_v3.1",
+      "gender": "female",
+      "traits": [
+        "知性",
+        "成熟",
+        "质感"
+      ],
+      "scenes": [
+        "广告营销",
+        "新闻播报",
+        "旁白",
+        "客服助手",
+        "有声书"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c0a.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "安若柔",
+      "voice": "anruorou_v3.1",
+      "gender": "female",
+      "traits": [
+        "气声",
+        "知性"
+      ],
+      "scenes": [
+        "旁白",
+        "语音助手"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c09.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "闻怀之",
+      "voice": "wenhuaizhi_v3.1",
+      "gender": "female",
+      "traits": [
+        "稳重",
+        "成熟"
+      ],
+      "scenes": [
+        "有声书",
+        "新闻播报",
+        "广告营销",
+        "客服助手",
+        "旁白"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c08.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "萧行之",
+      "voice": "xiaoxingzhi_v3.1",
+      "gender": "female",
+      "traits": [
+        "端庄",
+        "贵气"
+      ],
+      "scenes": [
+        "新闻播报",
+        "有声书",
+        "旁白",
+        "客服助手"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c0f.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "顾云舒",
+      "voice": "guyunshu_v3.1",
+      "gender": "female",
+      "traits": [
+        "成熟",
+        "稳重"
+      ],
+      "scenes": [
+        "音乐电台",
+        "客服助手",
+        "有声书",
+        "旁白"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c0e.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "霍拙石",
+      "voice": "huozhuoshi_v3.1",
+      "gender": "male",
+      "traits": [
+        "清亮"
+      ],
+      "scenes": [
+        "有声书",
+        "广告营销",
+        "旁白"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c0d.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "叶清禾",
+      "voice": "yeqinghe_v3.1",
+      "gender": "female",
+      "traits": [
+        "亲切",
+        "温柔"
+      ],
+      "scenes": [
+        "有声书",
+        "广告营销",
+        "旁白",
+        "客服助手"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c0c.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "云欢欢",
+      "voice": "yunhuanhuan_v3.1",
+      "gender": "female",
+      "traits": [
+        "高亢",
+        "热情"
+      ],
+      "scenes": [
+        "有声书",
+        "旁白",
+        "客服助手"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c03.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "徐小俏",
+      "voice": "xuxiaoqiao_v3.1",
+      "gender": "female",
+      "traits": [
+        "自然",
+        "俏皮"
+      ],
+      "scenes": [
+        "有声书",
+        "旁白",
+        "客服助手"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c02.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "白安然",
+      "voice": "baianran_v3.1",
+      "gender": "female",
+      "traits": [
+        "低沉",
+        "浑厚",
+        "气声"
+      ],
+      "scenes": [
+        "配音讲解",
+        "有声书",
+        "旁白"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c01.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "许言初",
+      "voice": "xuyanchu_v3.1",
+      "gender": "female",
+      "traits": [
+        "沉稳",
+        "磁性"
+      ],
+      "scenes": [
+        "新闻播报",
+        "有声书"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c00.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "叶知晴",
+      "voice": "yezhiqing_v3.1",
+      "gender": "female",
+      "traits": [
+        "轻快",
+        "自然"
+      ],
+      "scenes": [
+        "儿童故事",
+        "客服助手",
+        "语音助手"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c05.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "安迪",
+      "voice": "andi_v3.1",
+      "gender": "male",
+      "traits": [
+        "ABC口音"
+      ],
+      "scenes": [
+        "语音助手"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c1b.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品中文音色",
+      "name": "安语晴",
+      "voice": "anyuqing_v3.1",
+      "gender": "female",
+      "traits": [
+        "甜妹"
+      ],
+      "scenes": [
+        "语音助手",
+        "旁白",
+        "新闻播报"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c1a.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Emily",
+      "voice": "Emily_v3.1",
+      "gender": "female",
+      "accent": "英式女声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c19.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Luna",
+      "voice": "Luna_v3.1",
+      "gender": "female",
+      "accent": "英式女声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c18.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Eric",
+      "voice": "Eric_v3.1",
+      "gender": "male",
+      "accent": "英式男声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c1f.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Luca",
+      "voice": "Luca_v3.1",
+      "gender": "male",
+      "accent": "英式男声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c1e.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Abby",
+      "voice": "Abby_v3.1",
+      "gender": "female",
+      "accent": "美式女声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c1d.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Annie",
+      "voice": "Annie_v3.1",
+      "gender": "female",
+      "accent": "美式女声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c1c.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Ava",
+      "voice": "Ava_v3.1",
+      "gender": "female",
+      "accent": "美式女声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c13.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Beth",
+      "voice": "Beth_v3.1",
+      "gender": "female",
+      "accent": "美式女声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c12.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Betty",
+      "voice": "Betty_v3.1",
+      "gender": "female",
+      "accent": "美式女声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c11.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Cally",
+      "voice": "Cally_v3.1",
+      "gender": "female",
+      "accent": "美式女声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c10.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Cindy",
+      "voice": "Cindy_v3.1",
+      "gender": "female",
+      "accent": "美式女声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c17.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Donna",
+      "voice": "Donna_v3.1",
+      "gender": "female",
+      "accent": "美式女声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c16.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Andy",
+      "voice": "Andy_v3.1",
+      "gender": "male",
+      "accent": "美式男声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c15.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "Brian",
+      "voice": "Brian_v3.1",
+      "gender": "male",
+      "accent": "美式男声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c14.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "精品英文音色",
+      "name": "David",
+      "voice": "David_v3.1",
+      "gender": "male",
+      "accent": "美式男声",
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c2b.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙安元妃",
+      "voice": "longanyuanfei_v3.1",
+      "gender": "female",
+      "traits": [
+        "高傲妃子音"
+      ],
+      "scenes": [
+        "社交陪伴"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c2a.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙杰力豆",
+      "voice": "longjielidou_v3.1",
+      "gender": "male",
+      "traits": [
+        "天真男童音"
+      ],
+      "scenes": [
+        "儿童陪伴"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c29.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙安灵希",
+      "voice": "longanlingxi_v3.1",
+      "gender": "female",
+      "traits": [
+        "可爱甜美音"
+      ],
+      "scenes": [
+        "社交陪伴（精品中文）"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c2f.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙火火",
+      "voice": "longhuohuo_v3.1",
+      "gender": "male",
+      "traits": [
+        "顽皮少年音"
+      ],
+      "scenes": [
+        "角色音"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c28.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙应桃",
+      "voice": "longyingtao_v3.1",
+      "gender": "female",
+      "traits": [
+        "温柔淡定女"
+      ],
+      "scenes": [
+        "客服"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c2e.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙安雅",
+      "voice": "longanya_v3.1",
+      "gender": "female",
+      "traits": [
+        "高雅气质女"
+      ],
+      "scenes": [
+        "社交陪伴"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c2d.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙婉",
+      "voice": "longwan_v3.1",
+      "gender": "female",
+      "traits": [
+        "细腻柔声女"
+      ],
+      "scenes": [
+        "社交陪伴"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c2c.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙星",
+      "voice": "longxing_v3.1",
+      "gender": "female",
+      "traits": [
+        "温婉邻家女"
+      ],
+      "scenes": [
+        "社交陪伴"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c23.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙华",
+      "voice": "longhua_v3.1",
+      "gender": "female",
+      "traits": [
+        "元气甜美女"
+      ],
+      "scenes": [
+        "社交陪伴"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c22.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙寒",
+      "voice": "longhan_v3.1",
+      "gender": "male",
+      "traits": [
+        "温暖痴情男"
+      ],
+      "scenes": [
+        "社交陪伴"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c21.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙安智",
+      "voice": "longanzhi_v3.1",
+      "gender": "male",
+      "traits": [
+        "睿智轻熟男"
+      ],
+      "scenes": [
+        "社交陪伴"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c20.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙哲",
+      "voice": "longzhe_v3.1",
+      "gender": "male",
+      "traits": [
+        "呆板大暖男"
+      ],
+      "scenes": [
+        "社交陪伴"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c27.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙安洋",
+      "voice": "longanyang_v3.1",
+      "gender": "male",
+      "traits": [
+        "阳光大男孩"
+      ],
+      "scenes": [
+        "社交陪伴（标杆音色）"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c26.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "李白",
+      "voice": "libai_v3.1",
+      "gender": "male",
+      "traits": [
+        "古代诗仙男"
+      ],
+      "scenes": [
+        "诗词朗诵"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c25.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙铃",
+      "voice": "longling_v3.1",
+      "gender": "female",
+      "traits": [
+        "稚气呆板女"
+      ],
+      "scenes": [
+        "童声"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c24.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙牛牛",
+      "voice": "longniuniu_v3.1",
+      "gender": "male",
+      "traits": [
+        "阳光男童声"
+      ],
+      "scenes": [
+        "消费电子-儿童有声书"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c3b.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙闪闪",
+      "voice": "longshanshan_v3.1",
+      "gender": "male",
+      "traits": [
+        "戏剧化童声"
+      ],
+      "scenes": [
+        "消费电子-儿童有声书"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c3a.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙泡泡",
+      "voice": "longpaopao_v3.1",
+      "gender": "female",
+      "traits": [
+        "飞天泡泡音"
+      ],
+      "scenes": [
+        "消费电子-儿童陪伴"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c39.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "loongstella",
+      "voice": "loongstella_v3.1",
+      "gender": "female",
+      "traits": [
+        "飒爽利落女"
+      ],
+      "scenes": [
+        "新闻播报"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c38.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙媛",
+      "voice": "longyuan_v3.1",
+      "gender": "female",
+      "traits": [
+        "温暖治愈女"
+      ],
+      "scenes": [
+        "有声书"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c3f.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙妙",
+      "voice": "longmiao_v3.1",
+      "gender": "female",
+      "traits": [
+        "抑扬顿挫女"
+      ],
+      "scenes": [
+        "有声书"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c3e.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙三叔",
+      "voice": "longsanshu_v3.1",
+      "gender": "male",
+      "traits": [
+        "沉稳质感男"
+      ],
+      "scenes": [
+        "有声书"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c3d.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙安莉",
+      "voice": "longanli_v3.1",
+      "gender": "female",
+      "traits": [
+        "利落从容女"
+      ],
+      "scenes": [
+        "语音助手"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c3c.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙安温",
+      "voice": "longanwen_v3.1",
+      "gender": "female",
+      "traits": [
+        "优雅知性女"
+      ],
+      "scenes": [
+        "语音助手"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c33.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙安朗",
+      "voice": "longanlang_v3.1",
+      "gender": "male",
+      "traits": [
+        "清爽利落男"
+      ],
+      "scenes": [
+        "语音助手"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c32.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙小夏",
+      "voice": "longxiaoxia_v3.1",
+      "gender": "female",
+      "traits": [
+        "沉稳权威女"
+      ],
+      "scenes": [
+        "语音助手"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c31.wav"
+        }
+      ]
+    },
+    {
+      "model": "qwen-audio-3.1-tts-flash",
+      "category": "其他系统音色",
+      "name": "龙安冲",
+      "voice": "longanchong_v3.1",
+      "gender": "male",
+      "traits": [
+        "激情推销男"
+      ],
+      "scenes": [
+        "直播带货"
+      ],
+      "features": {
+        "ssml": true,
+        "instruction": true,
+        "timestamp": true
+      },
+      "samples": [
+        {
+          "label": "",
+          "url": "https://g-adoc.alcasset.com/media/maas_docs/sfm-cn/common/audios/6a4b3c2d1e0f9c30.wav"
+        }
+      ]
+    }
+  ]
+}

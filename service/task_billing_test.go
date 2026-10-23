@@ -50,6 +50,7 @@ func TestMain(m *testing.M) {
 		&model.UserSubscription{},
 		&model.SystemTask{},
 		&model.SystemTaskLock{},
+		&model.VoiceCatalogEntry{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}

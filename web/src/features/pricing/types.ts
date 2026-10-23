@@ -149,3 +149,39 @@ export interface ModelPromotionInfo {
   ratio: number
   groups?: string[]
 }
+
+// CUSTOM: 预置音色目录（fork 扩展），与后端 setting/voice_catalog.Voice 对应
+export type VoiceSample = {
+  label?: string
+  text?: string
+  url: string
+}
+
+export type CatalogVoice = {
+  voice: string
+  name: string
+  gender?: string
+  age?: string
+  category?: string
+  accent?: string
+  traits?: string[]
+  scenes?: string[]
+  labels?: string[]
+  languages?: string[]
+  emotions?: { label: string; value: string }[]
+  features?: { ssml: boolean; instruction: boolean; timestamp: boolean }
+  samples?: VoiceSample[]
+  description?: string
+  avatar?: string
+}
+
+export type ModelVoiceCatalog = {
+  model: string
+  provider: 'bailian' | 'volcengine'
+  kind: 'voices' | 'reference_audio' | 'cloned_voices'
+  docs_url: string
+  /** 额外提示的 i18n key，例如 seed-audio 只支持大部分豆包 2.0 音色。 */
+  note_key?: string
+  updated_at?: string
+  voices: CatalogVoice[]
+}

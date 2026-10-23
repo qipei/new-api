@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
+	"github.com/QuantumNous/new-api/setting/voice_catalog"
 
 	"github.com/gin-gonic/gin"
 )
@@ -94,7 +96,8 @@ func GetOptions(c *gin.Context) {
 			continue
 		}
 		value := common.Interface2String(v)
-		isSensitiveKey := strings.HasSuffix(k, "Token") ||
+		isSensitiveKey := slices.Contains(voice_catalog.SensitiveOptionKeys, k) ||
+			strings.HasSuffix(k, "Token") ||
 			strings.HasSuffix(k, "Secret") ||
 			strings.HasSuffix(k, "Key") ||
 			strings.HasSuffix(k, "secret") ||

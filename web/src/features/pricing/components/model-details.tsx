@@ -29,8 +29,9 @@ import {
   Maximize2,
   Sparkles,
   Timer,
+  AudioLines,
 } from 'lucide-react'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
@@ -58,6 +59,7 @@ import {
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 
+import { getModelVoices } from '../api'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import { usePricingData } from '../hooks/use-pricing-data'
 import {
@@ -86,6 +88,7 @@ import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelDetailsApi } from './model-details-api'
 import { ModelDetailsPerformance } from './model-details-performance'
+import { ModelVoices } from './model-voices'
 import { PromotionBadge } from './promotion-badge'
 import { VideoPriceSection } from './video-price-section'
 
@@ -1185,7 +1188,8 @@ function GroupPricingSection(props: {
   )
 }
 
-const TAB_VALUES = ['overview', 'performance', 'api'] as const
+// CUSTOM: voices 标签页只对有音色目录的语音模型显示（fork 扩展）
+const TAB_VALUES = ['overview', 'performance', 'api', 'voices'] as const
 type TabValue = (typeof TAB_VALUES)[number]
 
 const TAB_META: Record<
@@ -1195,6 +1199,7 @@ const TAB_META: Record<
   overview: { icon: Info, labelKey: 'Overview' },
   performance: { icon: HeartPulse, labelKey: 'Performance' },
   api: { icon: Code2, labelKey: 'API' },
+  voices: { icon: AudioLines, labelKey: 'Voices' },
 }
 
 export interface ModelDetailsContentProps {
@@ -1235,13 +1240,36 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
   const showDynamicBreakdown =
     isDynamic && (!collapseBasePricing || hasDynamicRequestRules(props.model))
 
+  // CUSTOM: 预置音色目录（fork 扩展）。不是语音模型时接口返回 null，不显示标签页。
+  const [activeTab, setActiveTab] = useState<TabValue>('overview')
+  const { data: voiceCatalog } = useQuery({
+    queryKey: ['model-voices', props.model.model_name],
+    queryFn: () => getModelVoices(props.model.model_name),
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  })
+  const visibleTabs = TAB_VALUES.filter(
+    (value) => value !== 'voices' || Boolean(voiceCatalog)
+  )
+  const hasVoiceList =
+    voiceCatalog?.kind === 'voices' && voiceCatalog.voices.length > 0
+
   return (
     <div className='@container/details space-y-4'>
       <ModelHeader model={props.model} />
 
-      <Tabs defaultValue='overview' className='gap-4'>
-        <TabsList className='bg-muted/60 grid w-full grid-cols-3 gap-1 rounded-lg p-1 group-data-horizontal/tabs:h-auto'>
-          {TAB_VALUES.map((value) => {
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as TabValue)}
+        className='gap-4'
+      >
+        <TabsList
+          className={cn(
+            'bg-muted/60 grid w-full gap-1 rounded-lg p-1 group-data-horizontal/tabs:h-auto',
+            visibleTabs.length === 4 ? 'grid-cols-4' : 'grid-cols-3'
+          )}
+        >
+          {visibleTabs.map((value) => {
             const Icon = TAB_META[value].icon
             return (
               <TabsTrigger
@@ -1306,12 +1334,30 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
           <ModelDetailsPerformance model={props.model} />
         </TabsContent>
 
-        <TabsContent value='api' className='outline-none'>
+        <TabsContent value='api' className='space-y-4 outline-none'>
+          {hasVoiceList && (
+            <p className='bg-muted/30 rounded-lg border px-3 py-2 text-xs'>
+              {t('Pass a preset voice ID as voice.')}{' '}
+              <button
+                type='button'
+                className='text-primary hover:underline'
+                onClick={() => setActiveTab('voices')}
+              >
+                {t('Browse voices')}
+              </button>
+            </p>
+          )}
           <ModelDetailsApi
             model={props.model}
             endpointMap={props.endpointMap}
           />
         </TabsContent>
+
+        {voiceCatalog && (
+          <TabsContent value='voices' className='outline-none'>
+            <ModelVoices catalog={voiceCatalog} />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   )

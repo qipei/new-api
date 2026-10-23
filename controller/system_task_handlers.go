@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/voice_catalog"
 )
 
 // RegisterScheduledSystemTasks wires the periodic channel test, upstream model
@@ -22,6 +23,31 @@ func RegisterScheduledSystemTasks() {
 	service.RegisterSystemTaskHandler(modelUpdateHandler{})
 	service.RegisterSystemTaskHandler(midjourneyPollHandler{})
 	service.RegisterSystemTaskHandler(asyncTaskPollHandler{})
+	service.RegisterSystemTaskHandler(voiceCatalogSyncHandler{})
+}
+
+// voiceCatalogSyncHandler 定时把火山预置音色同步到音色目录；配置了 AK/SK 才启用。
+type voiceCatalogSyncHandler struct{}
+
+func (voiceCatalogSyncHandler) Type() string { return model.SystemTaskTypeVoiceCatalogSync }
+
+func (voiceCatalogSyncHandler) Enabled() bool {
+	return voice_catalog.GetSettings().VolcConfigured()
+}
+
+func (voiceCatalogSyncHandler) Interval() time.Duration {
+	return time.Duration(voice_catalog.GetSettings().SyncIntervalHoursOrDefault()) * time.Hour
+}
+
+func (voiceCatalogSyncHandler) NewPayload() any { return nil }
+
+func (voiceCatalogSyncHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+	result, err := service.SyncVolcVoiceCatalog(ctx)
+	if err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, result, err)
+		return
+	}
+	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, result, nil)
 }
 
 // channelTestHandler runs the scheduled "test all channels" job. Enablement and

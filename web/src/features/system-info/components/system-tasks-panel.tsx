@@ -82,6 +82,7 @@ const TYPE_LABEL: Record<string, string> = {
   log_cleanup: 'Log cleanup',
   channel_test: 'Batch channel test',
   model_update: 'Batch upstream model update',
+  voice_catalog_sync: 'Voice catalog sync',
   midjourney_poll: 'Drawing task polling',
   async_task_poll: 'Async task polling',
 }

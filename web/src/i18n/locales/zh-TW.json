@@ -6063,6 +6063,9 @@
     "Save the access key first to enable syncing.": "先儲存存取金鑰才能同步。",
     "Succeeded": "成功",
     "Voice catalog sync": "音色目錄同步",
-    "These are the Doubao 2.0 voices. Most of them work with this model, but a few are not supported; confirm with a test call.": "這裡列出的是豆包 2.0 音色。大部分可用於該模型，個別音色不支援，使用前請先呼叫確認。"
+    "These are the Doubao 2.0 voices. Most of them work with this model, but a few are not supported; confirm with a test call.": "這裡列出的是豆包 2.0 音色。大部分可用於該模型，個別音色不支援，使用前請先呼叫確認。",
+    "Speech": "語音",
+    "Refine models by provider, tags and group.": "按供應商、標籤和分組細化模型。",
+    "Filter models by provider, tags and group.": "按供應商、標籤和分組篩選模型。"
   }
 }

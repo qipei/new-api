@@ -16,6 +16,8 @@ const (
 	EndpointTypeImageGeneration       EndpointType = "image-generation"
 	EndpointTypeEmbeddings            EndpointType = "embeddings"
 	EndpointTypeOpenAIVideo           EndpointType = "openai-video"
+	// EndpointTypeAudioSpeech 语音合成与音频生成（/v1/audio/speech 及其扩展接口）。
+	EndpointTypeAudioSpeech EndpointType = "audio-speech"
 )
 
 // Finish reasons shared by the OpenAI-compatible response formats.

@@ -4,6 +4,10 @@ import "github.com/QuantumNous/new-api/constant"
 
 // GetEndpointTypesByChannelType 获取渠道最优先端点类型（所有的渠道都支持 OpenAI 端点）
 func GetEndpointTypesByChannelType(channelType int, modelName string) []constant.EndpointType {
+	// CUSTOM: 语音模型只走音频接口，不能再按渠道默认标成对话端点（fork 扩展）。
+	if IsAudioSpeechModel(modelName) {
+		return []constant.EndpointType{constant.EndpointTypeAudioSpeech}
+	}
 	var endpointTypes []constant.EndpointType
 	switch channelType {
 	case constant.ChannelTypeJina:

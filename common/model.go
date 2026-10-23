@@ -1,6 +1,9 @@
 package common
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 var (
 	// OpenAIResponseOnlyModels is a list of models that are only available for OpenAI responses.
@@ -25,6 +28,14 @@ var (
 		"chatgpt",
 	}
 )
+
+// CUSTOM: 语音合成与音频生成模型（fork 扩展）。这些模型挂在火山、阿里等渠道下，
+// 按渠道推断会被误标成对话端点，模型广场需要按「语音」单独归类。
+var audioSpeechModelPattern = regexp.MustCompile(`^(seed-(audio|tts|icl)-|tts-1(-hd)?$|tts-1-hd-|gpt-4o(-mini)?-tts|qwen-audio-[\d.]+-tts|qwen3?-tts|cosyvoice-|sambert-)`)
+
+func IsAudioSpeechModel(modelName string) bool {
+	return audioSpeechModelPattern.MatchString(strings.ToLower(strings.TrimSpace(modelName)))
+}
 
 func IsOpenAIResponseOnlyModel(modelName string) bool {
 	for _, m := range OpenAIResponseOnlyModels {

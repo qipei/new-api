@@ -417,6 +417,82 @@ function buildImageSample(lang: Lang, ctx: SampleContext): string {
   ].join('\n')
 }
 
+// CUSTOM: 语音合成示例（fork 扩展）。返回的是音频文件，示例演示保存到本地。
+function buildSpeechSample(lang: Lang, ctx: SampleContext): string {
+  const url = `${ctx.baseUrl}${ctx.endpointPath}`
+  const input = 'Hello! Welcome to our platform.'
+
+  if (lang === 'curl') {
+    const body = JSON.stringify(
+      { model: ctx.modelName, input, voice: 'alloy', response_format: 'mp3' },
+      null,
+      2
+    )
+    return [
+      `curl ${url} \\`,
+      `  -H "Authorization: Bearer $${ctx.apiKeyEnv}" \\`,
+      `  -H "Content-Type: application/json" \\`,
+      `  -d '${body.replaceAll('\n', '\n     ')}' \\`,
+      `  --output speech.mp3`,
+    ].join('\n')
+  }
+  if (lang === 'python') {
+    return [
+      'from openai import OpenAI',
+      '',
+      `client = OpenAI(base_url="${ctx.baseUrl}/v1", api_key="<YOUR_API_KEY>")`,
+      '',
+      'response = client.audio.speech.create(',
+      `    model="${ctx.modelName}",`,
+      `    input="${input}",`,
+      `    voice="alloy",`,
+      `    response_format="mp3",`,
+      ')',
+      '',
+      'response.write_to_file("speech.mp3")',
+    ].join('\n')
+  }
+  if (lang === 'typescript') {
+    return [
+      `import fs from 'node:fs'`,
+      `import OpenAI from 'openai'`,
+      '',
+      `const client = new OpenAI({`,
+      `  baseURL: '${ctx.baseUrl}/v1',`,
+      `  apiKey: process.env.${ctx.apiKeyEnv},`,
+      `})`,
+      '',
+      `const response = await client.audio.speech.create({`,
+      `  model: '${ctx.modelName}',`,
+      `  input: '${input}',`,
+      `  voice: 'alloy',`,
+      `  response_format: 'mp3',`,
+      `})`,
+      '',
+      `fs.writeFileSync('speech.mp3', Buffer.from(await response.arrayBuffer()))`,
+    ].join('\n')
+  }
+  return [
+    `import fs from 'node:fs'`,
+    '',
+    `const response = await fetch('${url}', {`,
+    `  method: 'POST',`,
+    `  headers: {`,
+    `    Authorization: \`Bearer \${process.env.${ctx.apiKeyEnv}}\`,`,
+    `    'Content-Type': 'application/json',`,
+    `  },`,
+    `  body: JSON.stringify({`,
+    `    model: '${ctx.modelName}',`,
+    `    input: '${input}',`,
+    `    voice: 'alloy',`,
+    `    response_format: 'mp3',`,
+    `  }),`,
+    `})`,
+    '',
+    `fs.writeFileSync('speech.mp3', Buffer.from(await response.arrayBuffer()))`,
+  ].join('\n')
+}
+
 function buildSample(
   lang: Lang,
   endpointType: string,
@@ -427,6 +503,7 @@ function buildSample(
   if (endpointType === 'embeddings' || endpointType === 'jina-rerank')
     return buildEmbeddingSample(lang, ctx)
   if (endpointType === 'image-generation') return buildImageSample(lang, ctx)
+  if (endpointType === 'audio-speech') return buildSpeechSample(lang, ctx)
   return buildChatSample(lang, ctx)
 }
 

@@ -6063,6 +6063,9 @@
     "Save the access key first to enable syncing.": "同期するには先にアクセスキーを保存してください。",
     "Succeeded": "成功",
     "Voice catalog sync": "ボイスカタログ同期",
-    "These are the Doubao 2.0 voices. Most of them work with this model, but a few are not supported; confirm with a test call.": "ここに表示しているのは Doubao 2.0 のボイスです。ほとんどはこのモデルで使えますが、一部は対応していないため、事前にテスト呼び出しで確認してください。"
+    "These are the Doubao 2.0 voices. Most of them work with this model, but a few are not supported; confirm with a test call.": "ここに表示しているのは Doubao 2.0 のボイスです。ほとんどはこのモデルで使えますが、一部は対応していないため、事前にテスト呼び出しで確認してください。",
+    "Speech": "音声",
+    "Refine models by provider, tags and group.": "プロバイダー、タグ、グループでモデルを絞り込みます。",
+    "Filter models by provider, tags and group.": "プロバイダー、タグ、グループでモデルを絞り込みます。"
   }
 }

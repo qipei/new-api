@@ -47,3 +47,40 @@ func TestGetAndValidAudioRequestAudioGenerationBounds(t *testing.T) {
 		})
 	}
 }
+
+// 百炼的原生请求把参数放在 input 下：音频生成用 text_prompt，语音合成用 text。
+func TestGetAndValidAudioRequestQwenAudioShapes(t *testing.T) {
+	tests := []struct {
+		name      string
+		body      string
+		wantInput string
+		wantErr   string
+	}{
+		{"generation prompt", `{"model":"qwen-audio-3.1-tts-next","input":{"text_prompt":"你好","references":[{"audio_url":"https://a"}]}}`, "你好", ""},
+		{"synthesis text", `{"model":"qwen-audio-3.1-tts-plus","input":{"text":"你好","voice":"v"}}`, "你好", ""},
+		{"missing input text", `{"model":"qwen-audio-3.1-tts-next","input":{}}`, "", "input.text_prompt is required"},
+		{"generation prompt over limit", `{"model":"qwen-audio-3.1-tts-next","input":{"text_prompt":"` + strings.Repeat("字", relaycommon.MaxAudioGenerationPromptChars+1) + `"}}`, "", "input.text_prompt must be at most 3000"},
+		{"synthesis text over limit", `{"model":"qwen-audio-3.1-tts-plus","input":{"text":"` + strings.Repeat("a", relaycommon.MaxSpeechSynthesisTextChars+1) + `"}}`, "", "input.text must be at most 20000"},
+		{"too many references", `{"model":"qwen-audio-3.1-tts-next","input":{"text_prompt":"x","references":[{},{},{},{}]}}`, "", "at most 3 entries"},
+		{"text and prompt together", `{"model":"qwen-audio-3.1-tts-next","input":{"text":"a","text_prompt":"b"}}`, "", "mutually exclusive"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/audio/generations", strings.NewReader(tt.body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			request, err := GetAndValidAudioRequest(c, relayconstant.RelayModeAudioGeneration)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				assert.Equal(t, tt.wantInput, request.Input)
+				return
+			}
+			var apiErr *types.NewAPIError
+			require.ErrorAs(t, err, &apiErr)
+			assert.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}

@@ -241,4 +241,77 @@ describe('model API specs', () => {
       assert.ok(seedTTS.has(name), `seed-tts missing ${name}`)
     }
   })
+
+  test('routes Bailian speech models to their own families', () => {
+    assert.equal(
+      findModelApiSpec('qwen-audio-3.1-tts-plus')?.family,
+      'qwen-audio-tts'
+    )
+    assert.equal(
+      findModelApiSpec('qwen-audio-3.1-tts-flash')?.family,
+      'qwen-audio-tts'
+    )
+    assert.equal(
+      findModelApiSpec('qwen-audio-3.0-tts-plus')?.family,
+      'qwen-audio-tts'
+    )
+    assert.equal(
+      findModelApiSpec('qwen-audio-3.1-tts-next')?.family,
+      'qwen-audio-next'
+    )
+    assert.equal(findModelApiSpec('qwen3-tts-flash'), undefined)
+  })
+
+  // 上游文档与实测确认的字段都必须出现在参数表里。
+  test('documents every upstream field of the Bailian speech APIs', () => {
+    const documented = (family: string) =>
+      new Set(
+        MODEL_API_SPECS.find((spec) => spec.family === family)?.params.map(
+          (param) => param.name
+        )
+      )
+    const tts = documented('qwen-audio-tts')
+    for (const name of [
+      'model',
+      'input.text',
+      'input.voice',
+      'input.instruction',
+      'input.format',
+      'input.sample_rate',
+      'input.volume',
+      'input.rate',
+      'input.pitch',
+      'input.bit_rate',
+      'input.seed',
+      'input.language_hints',
+      'input.enable_ssml',
+      'input.enable_aigc_tag',
+      'input.aigc_propagator',
+      'input.aigc_propagate_id',
+      'input.hot_fix.pronunciation',
+      'input.hot_fix.replace',
+    ]) {
+      assert.ok(tts.has(name), `qwen-audio-tts missing ${name}`)
+    }
+    const next = documented('qwen-audio-next')
+    for (const name of [
+      'model',
+      'input.text_prompt',
+      'input.references',
+      'input.references[].audio_url',
+      'input.references[].audio_data',
+      'input.format',
+      'input.sample_rate',
+      'input.channels',
+      'input.volume',
+      'input.rate',
+      'input.enable_cbr',
+      'input.bit_rate',
+      'input.quality',
+      'input.seed',
+      'input.enable_aigc_tag',
+    ]) {
+      assert.ok(next.has(name), `qwen-audio-next missing ${name}`)
+    }
+  })
 })

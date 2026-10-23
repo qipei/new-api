@@ -53,12 +53,14 @@ export type ModelApiParam = Omit<SupportedParameter, 'descriptionKey'> & {
 /**
  * 示例的响应处理方式，决定示例代码在请求之后做什么：
  * json 打印响应；audio-binary 把响应体存成音频文件；audio-base64 解码响应里的
- * audio 字段再存文件；task 提交后轮询查询接口直到任务结束。
+ * audio 字段再存文件；audio-url 下载响应里 output.audio.url 指向的音频；
+ * task 提交后轮询查询接口直到任务结束。
  */
 export type SampleResponseKind =
   | 'json'
   | 'audio-binary'
   | 'audio-base64'
+  | 'audio-url'
   | 'task'
 
 export type ModelApiSample = {
@@ -1554,6 +1556,503 @@ const SEED_TTS_TASK: ModelApiSpec = {
   ],
 }
 
+// ---------------------------------------------------------------------------
+// 百炼 Qwen-Audio-TTS 语音合成 qwen-audio-*-tts-plus / -flash
+// 依据：relay/channel/ali/speech.go、relay/helper/valid_request.go
+// plus 按字符计费（汉字计 2 个），flash 按输入/输出 token 计费。
+// ---------------------------------------------------------------------------
+
+const QWEN_AUDIO_LANGUAGES = [
+  'zh',
+  'en',
+  'fr',
+  'de',
+  'ja',
+  'ko',
+  'ru',
+  'pt',
+  'th',
+  'id',
+  'vi',
+  'es',
+  'it',
+  'ms',
+  'fil',
+  'ar',
+]
+
+const QWEN_AUDIO_TTS_COMPAT_PARAMS: ModelApiParam[] = [
+  {
+    name: 'input',
+    location: 'body',
+    type: 'string',
+    required: true,
+    range: '≤ 20000',
+    descriptionKey: 'Text to synthesize, sent upstream as input.text.',
+  },
+  {
+    name: 'voice',
+    location: 'body',
+    type: 'string',
+    required: true,
+    descriptionKey: 'Voice ID, sent upstream as input.voice.',
+  },
+  {
+    name: 'instructions',
+    location: 'body',
+    type: 'string',
+    descriptionKey: 'Delivery instruction, sent upstream as input.instruction.',
+  },
+  {
+    name: 'response_format',
+    location: 'body',
+    type: 'enum',
+    defaultValue: 'mp3',
+    enumValues: ['mp3', 'wav', 'pcm', 'opus'],
+    descriptionKey:
+      'Audio format of the response body. aac and flac are rejected.',
+  },
+  {
+    name: 'speed',
+    location: 'body',
+    type: 'number',
+    defaultValue: 1,
+    range: '0.5 – 2',
+    descriptionKey:
+      'Speaking speed, sent upstream as input.rate. Values outside 0.5-2 are clamped.',
+  },
+  {
+    name: 'metadata',
+    location: 'metadata',
+    type: 'object',
+    descriptionKey:
+      'Native fields merged into input, such as sample_rate, language_hints and hot_fix. They override the converted values.',
+  },
+]
+
+const QWEN_AUDIO_TTS: ModelApiSpec = {
+  family: 'qwen-audio-tts',
+  match: /^qwen-audio-[\d.]+-tts-(plus|flash)/i,
+  endpointPath: '/v1/audio/generations',
+  response: 'audio-url',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'qwen-audio-3.1-tts-plus is billed per 10,000 characters, with each Chinese character counting as two; qwen-audio-3.1-tts-flash is billed by input and output tokens.',
+    },
+    {
+      name: 'input.text',
+      location: 'body',
+      type: 'string',
+      required: true,
+      range: '≤ 20000',
+      descriptionKey:
+        'Text to synthesize, up to 20,000 characters per request.',
+    },
+    {
+      name: 'input.voice',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'System voice ID such as longanhuan_v3.1, or a cloned or designed voice created for this model.',
+    },
+    {
+      name: 'input.instruction',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Natural-language instruction for dialect, emotion or role, for example: speak happily.',
+    },
+    {
+      name: 'input.format',
+      location: 'body',
+      type: 'enum',
+      defaultValue: 'mp3',
+      enumValues: ['mp3', 'wav', 'pcm', 'opus'],
+      descriptionKey: 'Output audio format.',
+    },
+    {
+      name: 'input.sample_rate',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 22050,
+      enumValues: ['8000', '16000', '22050', '24000', '44100', '48000'],
+      descriptionKey: 'Sample rate in Hz.',
+    },
+    {
+      name: 'input.volume',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 50,
+      range: '0 – 100',
+      descriptionKey: 'Output volume.',
+    },
+    {
+      name: 'input.rate',
+      location: 'body',
+      type: 'number',
+      defaultValue: 1,
+      range: '0.5 – 2',
+      descriptionKey: 'Speaking speed multiplier.',
+    },
+    {
+      name: 'input.pitch',
+      location: 'body',
+      type: 'number',
+      defaultValue: 1,
+      range: '0.5 – 2',
+      descriptionKey: 'Pitch multiplier.',
+    },
+    {
+      name: 'input.bit_rate',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 32,
+      range: '6 – 510',
+      descriptionKey: 'Bit rate in kbps. Only applies to mp3 and opus.',
+    },
+    {
+      name: 'input.seed',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 0,
+      range: '0 – 65535',
+      descriptionKey:
+        'Random seed. The same parameters and seed reproduce the same audio.',
+    },
+    {
+      name: 'input.language_hints',
+      location: 'body',
+      type: 'array',
+      enumValues: QWEN_AUDIO_LANGUAGES,
+      descriptionKey:
+        'Target language. Only the first element is used, so pass a single value.',
+    },
+    {
+      name: 'input.enable_ssml',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Treat input.text as SSML. Tags are not billed, only the text to speak.',
+    },
+    {
+      name: 'input.enable_aigc_tag',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Embeds an invisible AIGC label in the audio. Only wav, mp3 and opus support it.',
+    },
+    {
+      name: 'input.aigc_propagator',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'ContentPropagator written into the AIGC label. Defaults to the Alibaba Cloud account UID; requires enable_aigc_tag.',
+    },
+    {
+      name: 'input.aigc_propagate_id',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'PropagateID written into the AIGC label. Defaults to the request ID; requires enable_aigc_tag.',
+    },
+    {
+      name: 'input.hot_fix.pronunciation',
+      location: 'body',
+      type: 'array',
+      descriptionKey:
+        'Custom pinyin for specific words, as a list of word-to-pinyin objects.',
+    },
+    {
+      name: 'input.hot_fix.replace',
+      location: 'body',
+      type: 'array',
+      descriptionKey:
+        'Text replacements applied before synthesis, as a list of original-to-replacement objects.',
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Speak with a preset voice',
+      body: {
+        model: 'qwen-audio-3.1-tts-plus',
+        input: {
+          text: '你好，欢迎使用阿里云百炼。',
+          voice: 'longanhuan_v3.1',
+          format: 'mp3',
+          sample_rate: 24000,
+        },
+      },
+      outputFile: 'speech.mp3',
+      noteKey:
+        'The response carries output.audio.url, a download link valid for 24 hours, and usage with input_tokens, output_tokens and characters.',
+    },
+    {
+      titleKey: 'Instruction and pronunciation fixes',
+      body: {
+        model: 'qwen-audio-3.1-tts-plus',
+        input: {
+          text: '重庆的火锅真好吃。',
+          voice: 'longanhuan_v3.1',
+          instruction: '用开心的语气说',
+          language_hints: ['zh'],
+          hot_fix: {
+            pronunciation: [{ 重庆: 'chong2 qing4' }],
+            replace: [{ 火锅: '火锅儿' }],
+          },
+          format: 'mp3',
+        },
+      },
+      outputFile: 'speech.mp3',
+    },
+    {
+      titleKey: 'OpenAI-compatible speech',
+      endpointPath: '/v1/audio/speech',
+      response: 'audio-binary',
+      body: {
+        model: 'qwen-audio-3.1-tts-plus',
+        input: '你好，这是兼容 OpenAI 格式的语音合成。',
+        voice: 'longanhuan_v3.1',
+        instructions: '语气温柔',
+        response_format: 'mp3',
+        speed: 1.0,
+        metadata: { sample_rate: 24000 },
+      },
+      outputFile: 'speech.mp3',
+      sampleParams: QWEN_AUDIO_TTS_COMPAT_PARAMS,
+      noteKey:
+        'The OpenAI-compatible endpoint fetches the audio for you and returns the audio bytes directly.',
+    },
+  ],
+}
+
+// ---------------------------------------------------------------------------
+// 百炼音频生成 qwen-audio-*-tts-next（按输入/输出 token 计费）
+// 依据：relay/channel/ali/speech.go。音色只能来自参考音频，传 voice 会被忽略。
+// ---------------------------------------------------------------------------
+
+const QWEN_AUDIO_NEXT_COMPAT_PARAMS: ModelApiParam[] = [
+  {
+    name: 'input',
+    location: 'body',
+    type: 'string',
+    required: true,
+    range: '≤ 3000',
+    descriptionKey:
+      'Prompt or text to speak, sent upstream as input.text_prompt.',
+  },
+  {
+    name: 'voice',
+    location: 'body',
+    type: 'string',
+    descriptionKey:
+      'Ignored: this model takes voices only from reference audio. Required by the OpenAI SDK, so any value works.',
+  },
+  {
+    name: 'response_format',
+    location: 'body',
+    type: 'enum',
+    defaultValue: 'mp3',
+    enumValues: ['mp3', 'wav', 'pcm'],
+    descriptionKey: 'Audio format of the response body. opus is not supported.',
+  },
+  {
+    name: 'speed',
+    location: 'body',
+    type: 'number',
+    defaultValue: 1,
+    range: '0.5 – 2',
+    descriptionKey:
+      'Speaking speed, sent upstream as input.rate. Values outside 0.5-2 are clamped.',
+  },
+  {
+    name: 'metadata',
+    location: 'metadata',
+    type: 'object',
+    descriptionKey:
+      'Native fields merged into input, such as references, sample_rate and channels.',
+  },
+]
+
+const QWEN_AUDIO_NEXT: ModelApiSpec = {
+  family: 'qwen-audio-next',
+  match: /^qwen-audio-[\d.]+-tts-next/i,
+  endpointPath: '/v1/audio/generations',
+  response: 'audio-url',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'Billed by input and output tokens. Reference audio adds many input tokens.',
+    },
+    {
+      name: 'input.text_prompt',
+      location: 'body',
+      type: 'string',
+      required: true,
+      range: '≤ 3000',
+      descriptionKey:
+        'Text to speak or a description of the audio, up to 3000 characters. Refer to reference voices as @voice1 to @voice3 in reference order.',
+    },
+    {
+      name: 'input.references',
+      location: 'body',
+      type: 'array',
+      range: '≤ 3',
+      descriptionKey:
+        'Up to 3 reference voices, each at most 30 seconds and 10 MB, in wav, mp3 or Ogg Opus. Preset voice IDs are not accepted; without references the voice follows the prompt.',
+    },
+    {
+      name: 'input.references[].audio_url',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Public URL of the reference audio. Mutually exclusive with audio_data.',
+    },
+    {
+      name: 'input.references[].audio_data',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Reference audio as a data URI: data:{mime_type};base64,{data}.',
+    },
+    {
+      name: 'input.format',
+      location: 'body',
+      type: 'enum',
+      defaultValue: 'wav',
+      enumValues: ['wav', 'mp3', 'pcm'],
+      descriptionKey: 'Output audio format. Opus output is not supported.',
+    },
+    {
+      name: 'input.sample_rate',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 48000,
+      enumValues: ['8000', '16000', '24000', '44100', '48000'],
+      descriptionKey: 'Sample rate in Hz.',
+    },
+    {
+      name: 'input.channels',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 2,
+      enumValues: ['1', '2'],
+      descriptionKey: 'Number of channels: 1 for mono, 2 for stereo.',
+    },
+    {
+      name: 'input.volume',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 50,
+      range: '0 – 100',
+      descriptionKey: 'Output volume.',
+    },
+    {
+      name: 'input.rate',
+      location: 'body',
+      type: 'number',
+      defaultValue: 1,
+      range: '0.5 – 2',
+      descriptionKey: 'Speaking speed multiplier.',
+    },
+    {
+      name: 'input.enable_cbr',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'MP3 only: true for constant bit rate, false for variable bit rate.',
+    },
+    {
+      name: 'input.bit_rate',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 128,
+      descriptionKey:
+        'MP3 constant bit rate in kbps: 8-64 at 8 kHz, 8-160 at 16 or 24 kHz, 32-320 at 44.1 or 48 kHz. Requires enable_cbr.',
+    },
+    {
+      name: 'input.quality',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 5,
+      range: '0 – 9',
+      descriptionKey: 'MP3 variable bit rate quality; 0 is the best.',
+    },
+    {
+      name: 'input.seed',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 42,
+      descriptionKey:
+        'Random seed. The same parameters and seed reproduce the same audio.',
+    },
+    {
+      name: 'input.enable_aigc_tag',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey: 'Adds an AIGC watermark to the audio.',
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Describe the delivery in the prompt',
+      body: {
+        model: 'qwen-audio-3.1-tts-next',
+        input: {
+          text_prompt: '用温柔、略带笑意的女声说：晚安，祝你好梦。',
+          format: 'mp3',
+          channels: 1,
+        },
+      },
+      outputFile: 'speech.mp3',
+      noteKey:
+        'The response carries output.audio.url, a download link valid for 24 hours, the duration in seconds and token usage. A request can take up to a few minutes.',
+    },
+    {
+      titleKey: 'Two-speaker dialogue from reference voices',
+      body: {
+        model: 'qwen-audio-3.1-tts-next',
+        input: {
+          text_prompt:
+            '@voice1 说：今天天气不错。@voice2 回答：是啊，适合出去走走。',
+          references: [
+            { audio_url: 'https://example.com/speaker1.wav' },
+            { audio_url: 'https://example.com/speaker2.wav' },
+          ],
+          format: 'mp3',
+        },
+      },
+      outputFile: 'dialogue.mp3',
+    },
+    {
+      titleKey: 'OpenAI-compatible speech',
+      endpointPath: '/v1/audio/speech',
+      response: 'audio-binary',
+      body: {
+        model: 'qwen-audio-3.1-tts-next',
+        input: '用低沉的男声说：欢迎收听今天的节目。',
+        voice: 'default',
+        response_format: 'mp3',
+      },
+      outputFile: 'speech.mp3',
+      sampleParams: QWEN_AUDIO_NEXT_COMPAT_PARAMS,
+    },
+  ],
+}
+
 const SPECS: ModelApiSpec[] = [
   MINIMAX_VIDEO,
   KLING_VIDEO,
@@ -1565,6 +2064,8 @@ const SPECS: ModelApiSpec[] = [
   IMAGE_GENERATION,
   SEED_AUDIO,
   SEED_TTS_TASK,
+  QWEN_AUDIO_TTS,
+  QWEN_AUDIO_NEXT,
 ]
 
 /** 返回命中的族定义；没有专属定义时返回 undefined，由调用方回落到通用逻辑。 */

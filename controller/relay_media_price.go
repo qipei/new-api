@@ -12,6 +12,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/relay/channel/ali"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -101,9 +103,9 @@ func countImageRequestInputImages(request *dto.ImageRequest) int {
 	return count
 }
 
-// resolveAudioMatrixPriceData 音频合成的价格矩阵计价（豆包语音）。
-// 按秒计费时先按单次时长上限预扣，适配器拿到上游的原始输出时长后替换 seconds 乘数；
-// 按字计费时字符数在请求里就已确定，直接作为 chars_10k 乘数。
+// resolveAudioMatrixPriceData 音频合成的价格矩阵计价（豆包语音、百炼语音）。
+// 按秒计费时先按单次时长上限预扣，适配器拿到上游的实际时长后替换 seconds 乘数；
+// 按字计费时按请求文本估算 chars_10k 乘数，上游回报计费字符数的适配器再替换为实际值。
 // 未配置矩阵或单位不适用于音频时回退到原有计价逻辑。
 func resolveAudioMatrixPriceData(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta, request *dto.AudioRequest) (hosttypes.PriceData, error) {
 	if info.RelayMode != relayconstant.RelayModeAudioSpeech && info.RelayMode != relayconstant.RelayModeAudioGeneration {
@@ -128,7 +130,13 @@ func resolveAudioMatrixPriceData(c *gin.Context, info *relaycommon.RelayInfo, pr
 	if table.Unit == video_billing.UnitPerSecond {
 		priceData.AddOtherRatio("seconds", relaycommon.MaxAudioGenerationSeconds)
 	} else {
-		priceData.AddOtherRatio(video_billing.CharsRatioKey, float64(utf8.RuneCountInString(request.Input))/10000)
+		// 各家的字符口径不同：百炼汉字计 2 个字符，其他按字计 1 个。预扣按渠道口径估算，
+		// 结算由适配器换成上游回报的字符数。
+		chars := utf8.RuneCountInString(request.Input)
+		if common.GetContextKeyInt(c, constant.ContextKeyChannelType) == constant.ChannelTypeAli {
+			chars = ali.BillableSpeechChars(request.Input)
+		}
+		priceData.AddOtherRatio(video_billing.CharsRatioKey, float64(chars)/10000)
 	}
 	quota, err := common.QuotaFromFloatStrict(priceData.ApplyOtherRatiosToFloat(price * common.QuotaPerUnit * groupRatioInfo.GroupRatio))
 	if err != nil {

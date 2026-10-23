@@ -145,13 +145,17 @@ func validatePrompt(prompt string) *dto.TaskError {
 // overflow quota calculation into a negative charge.
 const MaxTaskDurationSeconds = 3600
 
-// CUSTOM: 豆包语音的计费边界（fork 扩展），取值来自火山官方文档。
+// CUSTOM: 语音合成与音频生成的计费边界（fork 扩展），取值来自豆包、百炼官方文档与实测。
 const (
 	// MaxAudioGenerationSeconds 音频生成单次输出的时长上限。按秒计费的音频模型
 	// 用它做预扣估算；结算时上游回报的时长也钳制在它以内，异常时长放大不了计费乘数。
 	MaxAudioGenerationSeconds = 120
-	// MaxAudioGenerationPromptChars 音频生成 text_prompt 的字符上限。
+	// MaxAudioGenerationPromptChars 音频生成 text_prompt 的字符上限
+	// （豆包 seed-audio 与百炼 qwen-audio-tts-next 相同）。
 	MaxAudioGenerationPromptChars = 3000
+	// MaxSpeechSynthesisTextChars 百炼 Qwen-Audio-TTS 同步合成单次文本的字符上限
+	// （实测超过即返回 400）。
+	MaxSpeechSynthesisTextChars = 20000
 	// MaxSpeechTaskTextChars 异步长文本语音合成单次输入的字符上限。字符数是按字
 	// 计费的乘数，超限请求在提交前以 400 拒绝。
 	MaxSpeechTaskTextChars = 100000

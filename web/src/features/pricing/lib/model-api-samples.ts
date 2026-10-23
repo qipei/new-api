@@ -36,7 +36,8 @@ export function buildAnnotations(
   for (const param of params) {
     const text = translate(param.descriptionKey)
     // 注释只留第一句，完整说明在参数表里，避免代码块被长句撑开。
-    const firstSentence = text.split(/(?<=[。.！!？?])\s*/)[0] || text
+    // 半角句号后必须跟空白才算句末，否则会把 v3.1 这类版本号截断。
+    const firstSentence = text.split(/(?<=[。！？])|(?<=[.!?])\s+/)[0] || text
     const hint =
       param.enumValues && param.enumValues.length > 0
         ? `${firstSentence} [${param.enumValues.join(' | ')}]`
@@ -155,6 +156,12 @@ export function buildScenarioSample(
         `# ${ctx.translate('The audio field of the response is Base64; decode it to get the audio file.')}`
       )
     }
+    if (response === 'audio-url') {
+      lines.push(
+        '',
+        `# ${ctx.translate('Download the audio from output.audio.url in the response; the link is valid for 24 hours.')}`
+      )
+    }
     if (response === 'task') {
       lines.push(
         '',
@@ -172,6 +179,7 @@ export function buildScenarioSample(
       json: 'import os, requests',
       'audio-binary': 'import os, requests',
       'audio-base64': 'import base64, os, requests',
+      'audio-url': 'import os, requests',
       task: 'import os, time, requests',
     }[response]
     const tail = {
@@ -186,6 +194,12 @@ export function buildScenarioSample(
         `with open("${outputFile}", "wb") as f:`,
         '    f.write(base64.b64decode(data["audio"]))',
         'print(data["original_duration"], data.get("subtitle"))',
+      ],
+      'audio-url': [
+        'data = resp.json()',
+        `with open("${outputFile}", "wb") as f:`,
+        '    f.write(requests.get(data["output"]["audio"]["url"]).content)',
+        'print(data["usage"])',
       ],
       task: [
         'task_id = resp.json()["task_id"]',
@@ -232,6 +246,12 @@ export function buildScenarioSample(
       `fs.writeFileSync("${outputFile}", Buffer.from(data.audio, "base64"))`,
       'console.log(data.original_duration, data.subtitle)',
     ],
+    'audio-url': [
+      'const data = await resp.json()',
+      'const audio = await fetch(data.output.audio.url)',
+      `fs.writeFileSync("${outputFile}", Buffer.from(await audio.arrayBuffer()))`,
+      'console.log(data.usage)',
+    ],
     task: [
       'const { task_id } = await resp.json()',
       `// ${ctx.translate(POLL_HINT)}`,
@@ -243,7 +263,10 @@ export function buildScenarioSample(
       'console.log(result.audio_url, result.error)',
     ],
   }[response]
-  const needsFs = response === 'audio-binary' || response === 'audio-base64'
+  const needsFs =
+    response === 'audio-binary' ||
+    response === 'audio-base64' ||
+    response === 'audio-url'
   return [
     ...(needsFs ? ['import fs from "node:fs"', ''] : []),
     `// ${ctx.scenarioTitle}`,

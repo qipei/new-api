@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
@@ -146,6 +147,35 @@ func TestResolveRelayPriceDataAudioMatrix(t *testing.T) {
 			assert.InDelta(t, tt.price, priceData.ModelPrice, 1e-12)
 			assert.Equal(t, map[string]float64{tt.ratioKey: tt.ratio}, priceData.OtherRatios())
 			assert.Equal(t, common.QuotaFromFloat(tt.price*tt.ratio*common.QuotaPerUnit), priceData.QuotaToPreConsume)
+		})
+	}
+}
+
+// 百炼的计费字符口径是汉字计 2 个；预扣按渠道口径估算，避免按字计价的预扣明显偏低。
+func TestResolveRelayPriceDataAudioCharsFollowChannelRule(t *testing.T) {
+	withImageTables(t, map[string]video_billing.ModelPriceTable{
+		"qwen-audio-3.1-tts-plus": {Unit: video_billing.UnitPer10kChars, Tiers: []video_billing.PriceTier{{Price: 0.2}}},
+	})
+	tests := []struct {
+		name        string
+		channelType int
+		wantChars   float64
+	}{
+		{"bailian counts han twice", constant.ChannelTypeAli, 34},
+		{"other channels count characters", constant.ChannelTypeVolcEngine, 23},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := imageTestContext(t)
+			common.SetContextKey(c, constant.ContextKeyChannelType, tt.channelType)
+			info := &relaycommon.RelayInfo{TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
+			info.RelayMode = relayconstant.RelayModeAudioSpeech
+			info.OriginModelName = "qwen-audio-3.1-tts-plus"
+			info.UsingGroup = "nonexistent-group-ratio-defaults-to-1"
+
+			priceData, err := resolveRelayPriceData(c, info, 10, nil, &dto.AudioRequest{Input: "你好，欢迎使用阿里云百炼。Hello 123!"})
+			require.NoError(t, err)
+			assert.InDelta(t, tt.wantChars/10000, priceData.OtherRatios()[video_billing.CharsRatioKey], 1e-12)
 		})
 	}
 }

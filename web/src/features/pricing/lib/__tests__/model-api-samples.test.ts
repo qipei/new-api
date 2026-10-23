@@ -159,4 +159,41 @@ describe('scenario samples', () => {
       )
     )
   })
+
+  // 百炼原生接口返回的是音频下载地址，示例要演示把它下载成文件。
+  test('downloads audio from output.audio.url', () => {
+    const urlCtx = {
+      ...ctx,
+      response: 'audio-url' as const,
+      outputFile: 'a.mp3',
+    }
+    assert.ok(
+      buildScenarioSample('python', urlCtx).includes(
+        'f.write(requests.get(data["output"]["audio"]["url"]).content)'
+      )
+    )
+    const js = buildScenarioSample('javascript', urlCtx)
+    assert.ok(js.startsWith('import fs from "node:fs"'))
+    assert.ok(js.includes('await fetch(data.output.audio.url)'))
+  })
+
+  test('does not cut the comment at a version number', () => {
+    const python = buildScenarioSample('python', {
+      ...ctx,
+      body: { model: 'qwen-audio-3.1-tts-plus' },
+      params: [
+        {
+          name: 'model',
+          location: 'body',
+          type: 'string',
+          descriptionKey:
+            'qwen-audio-3.1-tts-plus is billed per character. More text.',
+        },
+      ],
+    })
+    assert.ok(
+      python.includes('# qwen-audio-3.1-tts-plus is billed per character.')
+    )
+    assert.ok(!python.includes('More text'))
+  })
 })

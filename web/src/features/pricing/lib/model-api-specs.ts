@@ -50,10 +50,33 @@ export type ModelApiParam = Omit<SupportedParameter, 'descriptionKey'> & {
   partialRoutes?: boolean
 }
 
+/**
+ * 示例的响应处理方式，决定示例代码在请求之后做什么：
+ * json 打印响应；audio-binary 把响应体存成音频文件；audio-base64 解码响应里的
+ * audio 字段再存文件；task 提交后轮询查询接口直到任务结束。
+ */
+export type SampleResponseKind =
+  | 'json'
+  | 'audio-binary'
+  | 'audio-base64'
+  | 'task'
+
 export type ModelApiSample = {
   /** 场景名，例如「文生视频」「首帧图生视频」。 */
   titleKey: string
   body: Record<string, unknown>
+  /** 该场景走的端点与族默认端点不同时填写（例如 OpenAI 兼容入口）。 */
+  endpointPath?: string
+  response?: SampleResponseKind
+  /** 音频示例保存的文件名，扩展名应与请求的格式一致。 */
+  outputFile?: string
+  /**
+   * 该场景独有字段的说明（不在族参数表里，例如兼容入口的 input/voice），
+   * 只用于示例里的行内注释。
+   */
+  sampleParams?: ModelApiParam[]
+  /** 示例下方的补充说明。 */
+  noteKey?: string
 }
 
 export type ModelApiSpec = {
@@ -62,6 +85,10 @@ export type ModelApiSpec = {
   /** 命中该族的模型名（平台侧名称，大小写不敏感）。 */
   match: RegExp
   endpointPath: string
+  /** 族默认的响应处理方式，场景可以覆盖；缺省为 json。 */
+  response?: SampleResponseKind
+  /** 异步任务的查询端点前缀，task_id 拼在其后。 */
+  fetchPath?: string
   /** 静态参数；分辨率等由价格矩阵推导后合并进来。 */
   params: ModelApiParam[]
   samples: ModelApiSample[]
@@ -1013,6 +1040,520 @@ const WAN3_VIDEO: ModelApiSpec = {
   applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
 }
 
+// ---------------------------------------------------------------------------
+// 豆包音频生成 seed-audio（同步，按模型原始输出时长计费）
+// 依据：relay/channel/volcengine/seed_audio.go、relay/helper/valid_request.go
+// 原生端点原样透传全部字段；网关只校验 text_prompt 长度与参考条数，
+// 参考资源的组合规则由上游校验。
+// ---------------------------------------------------------------------------
+
+const SEED_AUDIO_COMPAT_PARAMS: ModelApiParam[] = [
+  {
+    name: 'input',
+    location: 'body',
+    type: 'string',
+    required: true,
+    range: '≤ 3000',
+    descriptionKey:
+      'Text to speak, sent upstream as text_prompt. Up to 3000 characters.',
+  },
+  {
+    name: 'voice',
+    location: 'body',
+    type: 'string',
+    descriptionKey: 'Voice ID, sent upstream as references[0].speaker.',
+  },
+  {
+    name: 'response_format',
+    location: 'body',
+    type: 'enum',
+    defaultValue: 'mp3',
+    enumValues: ['mp3', 'wav', 'pcm', 'opus'],
+    descriptionKey:
+      'Audio format of the response body. opus is returned as Ogg Opus; aac and flac are rejected.',
+  },
+  {
+    name: 'speed',
+    location: 'body',
+    type: 'number',
+    defaultValue: 1,
+    range: '0.5 – 2',
+    descriptionKey:
+      'Playback speed, converted to speech_rate. Values outside 0.5-2 are clamped. Billing uses the original duration, so speeding up does not lower the cost.',
+  },
+  {
+    name: 'metadata',
+    location: 'metadata',
+    type: 'object',
+    descriptionKey:
+      'Native seed-audio fields such as references, audio_config and watermark. They override the converted values; audio_config is merged field by field.',
+  },
+]
+
+const SEED_AUDIO: ModelApiSpec = {
+  family: 'seed-audio',
+  match: /^seed-audio/i,
+  endpointPath: '/v1/audio/generations',
+  response: 'audio-base64',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey: 'Model name, e.g. seed-audio-1.0.',
+    },
+    {
+      name: 'text_prompt',
+      location: 'body',
+      type: 'string',
+      required: true,
+      range: '≤ 3000',
+      descriptionKey:
+        'Text to speak or a natural-language description of the audio. You can describe the voice, emotion, pace, total length and when the speaker talks. Up to 3000 characters.',
+    },
+    {
+      name: 'references',
+      location: 'body',
+      type: 'array',
+      range: '≤ 3',
+      descriptionKey:
+        'Reference resources, up to 3 entries: voice IDs or audio clips, or a single image. Image and audio references cannot be mixed, and each entry sets exactly one field.',
+    },
+    {
+      name: 'references[].speaker',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Voice ID from the Doubao voice library. Use it to speak with a preset voice.',
+    },
+    {
+      name: 'references[].audio_url',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Reference audio URL used to imitate a voice. Up to 30 seconds and 10 MB, in wav, mp3, pcm or ogg_opus.',
+    },
+    {
+      name: 'references[].audio_data',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Reference audio as Base64, with the same limits as audio_url.',
+    },
+    {
+      name: 'references[].image_url',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Reference image URL; the audio is generated to match the picture. Up to 10 MB, in jpeg, png or webp.',
+    },
+    {
+      name: 'references[].image_data',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Reference image as Base64, with the same limits as image_url.',
+    },
+    {
+      name: 'audio_config.format',
+      location: 'body',
+      type: 'enum',
+      defaultValue: 'wav',
+      enumValues: ['wav', 'mp3', 'pcm', 'ogg_opus'],
+      descriptionKey: 'Output audio format.',
+    },
+    {
+      name: 'audio_config.sample_rate',
+      location: 'body',
+      type: 'integer',
+      enumValues: [
+        '8000',
+        '16000',
+        '24000',
+        '32000',
+        '40000',
+        '44100',
+        '48000',
+      ],
+      descriptionKey:
+        'Sample rate in Hz. wav and pcm default to 40000, mp3 defaults to 44100, and ogg_opus only supports 48000.',
+    },
+    {
+      name: 'audio_config.speech_rate',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 0,
+      range: '-50 – 100',
+      descriptionKey:
+        'Speaking speed: -50 is 0.5x and 100 is 2x. Billing uses the original duration, so speeding up does not lower the cost.',
+    },
+    {
+      name: 'audio_config.loudness_rate',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 0,
+      range: '-50 – 100',
+      descriptionKey: 'Volume: -50 is half volume and 100 is double.',
+    },
+    {
+      name: 'audio_config.pitch_rate',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 0,
+      range: '-12 – 12',
+      descriptionKey: 'Pitch shift in semitones.',
+    },
+    {
+      name: 'audio_config.enable_subtitle',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Returns subtitle with sentence and word timestamps in milliseconds.',
+    },
+    {
+      name: 'watermark.aigc_watermark',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Explicit watermark: appends an audible AIGC marker at the end of the audio.',
+    },
+    {
+      name: 'watermark.aigc_metadata.enable',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Implicit watermark: writes AIGC metadata into the audio file header.',
+    },
+    {
+      name: 'content_producer',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'AIGC labelling: name or code of the content producer. Used with produce_id, content_propagator and propagate_id.',
+    },
+    {
+      name: 'produce_id',
+      location: 'body',
+      type: 'string',
+      descriptionKey: 'AIGC labelling: content production ID.',
+    },
+    {
+      name: 'content_propagator',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'AIGC labelling: name or code of the content distributor.',
+    },
+    {
+      name: 'propagate_id',
+      location: 'body',
+      type: 'string',
+      descriptionKey: 'AIGC labelling: content distribution ID.',
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Speak with a preset voice',
+      body: {
+        model: 'seed-audio-1.0',
+        text_prompt: '欢迎来到我们的平台，祝你使用愉快。',
+        references: [{ speaker: 'zh_female_vv_uranus_bigtts' }],
+        audio_config: { format: 'mp3', enable_subtitle: true },
+      },
+      outputFile: 'speech.mp3',
+      noteKey:
+        'The response carries the audio as Base64 in audio, a download url valid for 2 hours, duration and original_duration in seconds, and subtitle when enabled. Billing uses original_duration, up to 120 seconds per request.',
+    },
+    {
+      titleKey: 'Describe the delivery in the prompt',
+      body: {
+        model: 'seed-audio-1.0',
+        text_prompt:
+          '用温柔、略带笑意的年轻女声，语速稍慢地说：今天辛苦了，早点休息吧。',
+        audio_config: { format: 'wav', sample_rate: 24000 },
+      },
+      outputFile: 'speech.wav',
+    },
+    {
+      titleKey: 'Imitate a reference voice',
+      body: {
+        model: 'seed-audio-1.0',
+        text_prompt: '这是一段用参考音色朗读的示例。',
+        references: [{ audio_url: 'https://example.com/reference.wav' }],
+        audio_config: { format: 'mp3', speech_rate: 10 },
+      },
+      outputFile: 'speech.mp3',
+    },
+    {
+      titleKey: 'Generate audio for an image',
+      body: {
+        model: 'seed-audio-1.0',
+        text_prompt: '为这张图配一段旁白，描述画面中的场景。',
+        references: [{ image_url: 'https://example.com/scene.png' }],
+        audio_config: { format: 'mp3' },
+        watermark: { aigc_watermark: true },
+      },
+      outputFile: 'speech.mp3',
+    },
+    {
+      titleKey: 'OpenAI-compatible speech',
+      endpointPath: '/v1/audio/speech',
+      response: 'audio-binary',
+      body: {
+        model: 'seed-audio-1.0',
+        input: '你好，这是兼容 OpenAI 格式的语音合成。',
+        voice: 'zh_female_vv_uranus_bigtts',
+        response_format: 'mp3',
+        speed: 1.0,
+      },
+      outputFile: 'speech.mp3',
+      sampleParams: SEED_AUDIO_COMPAT_PARAMS,
+      noteKey:
+        'The OpenAI-compatible endpoint returns the audio bytes directly, without subtitles or duration. Use /v1/audio/generations when you need them.',
+    },
+  ],
+}
+
+// ---------------------------------------------------------------------------
+// 豆包异步长文本语音合成 seed-tts-2.0 / seed-icl-2.0（按字符数计费）
+// 依据：relay/channel/task/doubaotts/adaptor.go
+// req_params 原样透传；additions 与 post_process 可以传对象，由网关转成上游
+// 要求的 JSON 字符串；audio_params.format 缺省补 mp3。
+// ---------------------------------------------------------------------------
+
+const SEED_TTS_TASK: ModelApiSpec = {
+  family: 'seed-tts-task',
+  match: /^seed-(tts|icl)-/i,
+  endpointPath: '/v1/audio/speech/tasks',
+  fetchPath: '/v1/audio/speech/tasks',
+  response: 'task',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'seed-tts-2.0 synthesizes with the Doubao 2.0 voices; seed-icl-2.0 uses voices you cloned.',
+    },
+    {
+      name: 'user.uid',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Your end-user identifier, passed upstream. Defaults to new-api when omitted.',
+    },
+    {
+      name: 'req_params.text',
+      location: 'body',
+      type: 'string',
+      required: true,
+      range: '≤ 100000',
+      descriptionKey:
+        'Text to synthesize, up to 100,000 characters. Billed per character: Chinese characters, letters, punctuation, spaces and line breaks each count as one.',
+    },
+    {
+      name: 'req_params.speaker',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'Voice ID from the voice library, or the ID of a voice you cloned.',
+    },
+    {
+      name: 'req_params.model',
+      location: 'body',
+      type: 'string',
+      defaultValue: 'seed-tts-2.0-standard',
+      descriptionKey:
+        'Model version. Only needed when speaker is a cloned voice.',
+    },
+    {
+      name: 'req_params.ssml',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'SSML markup to synthesize. Only Chinese and English voices support it, and additions.disable_markdown_filter must stay false. Tags are billed as characters.',
+    },
+    {
+      name: 'req_params.audio_params.format',
+      location: 'body',
+      type: 'enum',
+      defaultValue: 'mp3',
+      enumValues: ['mp3', 'pcm', 'ogg_opus'],
+      descriptionKey: 'Output audio format.',
+    },
+    {
+      name: 'req_params.audio_params.sample_rate',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 24000,
+      enumValues: [
+        '8000',
+        '16000',
+        '22050',
+        '24000',
+        '32000',
+        '44100',
+        '48000',
+      ],
+      descriptionKey: 'Sample rate in Hz. ogg_opus only supports 48000.',
+    },
+    {
+      name: 'req_params.audio_params.bit_rate',
+      location: 'body',
+      type: 'integer',
+      enumValues: ['64000', '160000'],
+      descriptionKey:
+        'Bit rate in bps for mp3 and ogg_opus; mp3 defaults to 64000. Not supported for pcm.',
+    },
+    {
+      name: 'req_params.audio_params.speech_rate',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 0,
+      range: '-50 – 100',
+      descriptionKey: 'Speaking speed: -50 is 0.5x and 100 is 2x.',
+    },
+    {
+      name: 'req_params.audio_params.loudness_rate',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 0,
+      range: '-50 – 100',
+      descriptionKey: 'Volume: -50 is half volume and 100 is double.',
+    },
+    {
+      name: 'req_params.audio_params.enable_timestamp',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Returns sentence and word timestamps, in seconds, in the query result.',
+    },
+    {
+      name: 'req_params.additions',
+      location: 'body',
+      type: 'object',
+      descriptionKey:
+        'Extra synthesis options. Send an object; the gateway converts it to the JSON string the upstream expects.',
+    },
+    {
+      name: 'req_params.additions.silence_duration',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 0,
+      range: '0 – 30000',
+      descriptionKey: 'Silence appended after the text, in milliseconds.',
+    },
+    {
+      name: 'req_params.additions.disable_markdown_filter',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'When true, Markdown syntax is stripped instead of read aloud.',
+    },
+    {
+      name: 'req_params.additions.disable_emoji_filter',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey: 'When true, emoji are removed from the text.',
+    },
+    {
+      name: 'req_params.additions.latex_parser',
+      location: 'body',
+      type: 'enum',
+      enumValues: ['v2'],
+      descriptionKey:
+        'Reads LaTeX formulas aloud, useful for education. Requires disable_markdown_filter set to true and adds latency.',
+    },
+    {
+      name: 'req_params.additions.explicit_language',
+      location: 'body',
+      type: 'enum',
+      enumValues: ['zh-cn', 'en', 'es-mx', 'id', 'pt-br'],
+      descriptionKey:
+        'Language to read. Text in other languages is skipped or fails, so the text must contain this language.',
+    },
+    {
+      name: 'req_params.additions.max_length_to_filter_parenthesis',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 0,
+      range: '0 – 100',
+      descriptionKey:
+        'Text inside parentheses is skipped unless it is longer than this many characters. 0 keeps all parentheses.',
+    },
+    {
+      name: 'req_params.additions.aigc_watermark',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey: 'Appends an audible AIGC marker at the end of the audio.',
+    },
+    {
+      name: 'req_params.additions.pronunciation_dict.tone',
+      location: 'body',
+      type: 'array',
+      range: '≤ 5000',
+      descriptionKey:
+        'Pronunciation dictionary entries in the form word/replacement, for example 北京/(bei3)(jing1) or omg/oh my god. Each word is at most 9 characters; the longest match wins. Only Chinese and English voices of the 2.0 models support it, and it cannot be combined with SSML on the same text.',
+    },
+    {
+      name: 'req_params.post_process.pitch',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 0,
+      range: '-12 – 12',
+      descriptionKey:
+        'Pitch shift; higher sounds brighter, lower sounds deeper. post_process accepts an object and is converted like additions.',
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Long text synthesis',
+      body: {
+        model: 'seed-tts-2.0',
+        req_params: {
+          text: '第一章。清晨的阳光洒进窗台，新的一天开始了。',
+          speaker: 'zh_female_vv_uranus_bigtts',
+          audio_params: {
+            format: 'mp3',
+            sample_rate: 24000,
+            enable_timestamp: true,
+          },
+        },
+      },
+      noteKey:
+        'Submitting returns a task_id. Poll the query endpoint until status is succeeded or failed. audio_url is valid for 1 hour and is refreshed on each query; the audio is kept for 7 days. A failed task is refunded in full.',
+    },
+    {
+      titleKey: 'Pronunciation dictionary and pitch',
+      body: {
+        model: 'seed-tts-2.0',
+        req_params: {
+          text: '我在北京用 mobile 说 omg。',
+          speaker: 'zh_female_vv_uranus_bigtts',
+          audio_params: { format: 'mp3', speech_rate: 10 },
+          additions: {
+            silence_duration: 500,
+            pronunciation_dict: {
+              tone: ['北京/(bei3)(jing1)', 'omg/oh my god'],
+            },
+          },
+          post_process: { pitch: 2 },
+        },
+      },
+    },
+  ],
+}
+
 const SPECS: ModelApiSpec[] = [
   MINIMAX_VIDEO,
   KLING_VIDEO,
@@ -1022,6 +1563,8 @@ const SPECS: ModelApiSpec[] = [
   HAPPYHORSE_VIDEO,
   WAN3_VIDEO,
   IMAGE_GENERATION,
+  SEED_AUDIO,
+  SEED_TTS_TASK,
 ]
 
 /** 返回命中的族定义；没有专属定义时返回 undefined，由调用方回落到通用逻辑。 */

@@ -4,6 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -70,7 +73,21 @@ func AudioHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	if usage.(*dto.Usage).CompletionTokenDetails.AudioTokens > 0 || usage.(*dto.Usage).PromptTokensDetails.AudioTokens > 0 {
 		service.PostAudioConsumeQuota(c, info, usage.(*dto.Usage), "")
 	} else {
-		service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), nil)
+		// CUSTOM: 按秒/按字计价的音频把乘数写进日志，否则看不出额度怎么算出来的。
+		var extraContent []string
+		if ratios := info.PriceData.OtherRatios(); info.PriceData.UsePrice && len(ratios) > 0 {
+			keys := make([]string, 0, len(ratios))
+			for key := range ratios {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			params := make([]string, 0, len(keys))
+			for _, key := range keys {
+				params = append(params, fmt.Sprintf("%s: %s", key, strconv.FormatFloat(ratios[key], 'f', -1, 64)))
+			}
+			extraContent = append(extraContent, "计算参数："+strings.Join(params, ", "))
+		}
+		service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), extraContent)
 	}
 
 	return nil

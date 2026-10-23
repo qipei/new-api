@@ -5,6 +5,13 @@ type TaskPlatform string
 const (
 	TaskPlatformSuno       TaskPlatform = "suno"
 	TaskPlatformMidjourney              = "mj"
+	// CUSTOM: 豆包语音异步长文本合成（fork 扩展）。由路由显式指定，
+	// 不随渠道类型推导，否则会和同为火山渠道的视频任务撞在一起。
+	TaskPlatformDoubaoTTS TaskPlatform = "doubao-tts"
+)
+
+const (
+	TaskActionSpeech = "speech"
 )
 
 const (

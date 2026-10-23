@@ -76,6 +76,8 @@ export type VideoPricingJsonDraftResult =
 export const VIDEO_UNIT_PER_SECOND = 'per_second'
 export const VIDEO_UNIT_PER_MILLION_TOKENS = 'per_million_tokens'
 export const VIDEO_UNIT_PER_IMAGE = 'per_image'
+// 按字计价（语音合成）：原价为 USD/万字符，只用默认档。
+export const VIDEO_UNIT_PER_10K_CHARS = 'per_10k_chars'
 
 let editableTierSeq = 0
 let editableBucketSeq = 0
@@ -370,7 +372,8 @@ export function validateVideoPricingTables(
     if (
       table.unit !== VIDEO_UNIT_PER_SECOND &&
       table.unit !== VIDEO_UNIT_PER_MILLION_TOKENS &&
-      table.unit !== VIDEO_UNIT_PER_IMAGE
+      table.unit !== VIDEO_UNIT_PER_IMAGE &&
+      table.unit !== VIDEO_UNIT_PER_10K_CHARS
     ) {
       issues.push({ model, reason: 'unit' })
     }

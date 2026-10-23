@@ -48,6 +48,9 @@ func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayIn
 }
 
 func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.AudioRequest) (io.Reader, error) {
+	if usesSeedAudio(info) {
+		return convertSeedAudioRequest(c, info, request)
+	}
 	if info.RelayMode != constant.RelayModeAudioSpeech {
 		return nil, errors.New("unsupported audio relay mode")
 	}
@@ -264,6 +267,9 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		baseUrl = channelconstant.ChannelBaseURLs[channelconstant.ChannelTypeVolcEngine]
 	}
 	specialPlan, hasSpecialPlan := channelconstant.ChannelSpecialBases[baseUrl]
+	if usesSeedAudio(info) {
+		return ResolveSpeechBaseURL(info.ChannelBaseUrl) + "/api/v3/tts/create", nil
+	}
 
 	switch info.RelayFormat {
 	case types.RelayFormatClaude:
@@ -309,6 +315,10 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, req)
 
+	if usesSeedAudio(info) {
+		SetupSpeechRequestHeader(req, info.ApiKey)
+		return nil
+	}
 	if info.RelayMode == constant.RelayModeAudioSpeech {
 		parts := strings.Split(info.ApiKey, "|")
 		if len(parts) == 2 {
@@ -352,7 +362,7 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
-	if info.RelayMode == constant.RelayModeAudioSpeech {
+	if info.RelayMode == constant.RelayModeAudioSpeech && !usesSeedAudio(info) {
 		baseUrl := info.ChannelBaseUrl
 		if baseUrl == "" {
 			baseUrl = channelconstant.ChannelBaseURLs[channelconstant.ChannelTypeVolcEngine]
@@ -375,6 +385,9 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		}
 	}
 
+	if usesSeedAudio(info) {
+		return handleSeedAudioResponse(c, resp, info)
+	}
 	if info.RelayMode == constant.RelayModeAudioSpeech {
 		encoding := mapEncoding(c.GetString(contextKeyResponseFormat))
 		if info.IsStream {

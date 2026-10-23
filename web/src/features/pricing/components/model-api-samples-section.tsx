@@ -76,12 +76,15 @@ export function ModelApiSamplesSection(props: { model: PricingModel }) {
   const active = spec.samples[Math.min(scenario, spec.samples.length - 1)]
   const code = buildScenarioSample(lang, {
     baseUrl,
-    endpointPath: spec.endpointPath,
+    endpointPath: active.endpointPath ?? spec.endpointPath,
     // 示例里的模型名统一换成当前查看的模型，方便直接复制运行。
     body: { ...active.body, model: props.model.model_name },
-    params,
+    params: active.sampleParams ? [...params, ...active.sampleParams] : params,
     translate: t,
     scenarioTitle: t(active.titleKey),
+    response: active.response ?? spec.response,
+    fetchPath: spec.fetchPath,
+    outputFile: active.outputFile,
   })
 
   return (
@@ -132,6 +135,11 @@ export function ModelApiSamplesSection(props: { model: PricingModel }) {
         </CodeBlock>
       </div>
 
+      {active.noteKey && (
+        <p className='text-muted-foreground mt-2 text-xs'>
+          {t(active.noteKey)}
+        </p>
+      )}
       <p className='text-muted-foreground mt-2 text-xs'>
         {t(
           'Set NEW_API_KEY to a key from your token settings before running the sample.'

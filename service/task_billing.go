@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -28,7 +29,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 			var contents []string
 			for key, ra := range otherRatios {
 				if 1.0 != ra {
-					contents = append(contents, fmt.Sprintf("%s: %.2f", key, ra))
+					contents = append(contents, fmt.Sprintf("%s: %s", key, strconv.FormatFloat(ra, 'f', -1, 64)))
 				}
 			}
 			if len(contents) > 0 {

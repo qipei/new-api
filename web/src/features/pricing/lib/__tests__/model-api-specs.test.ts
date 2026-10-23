@@ -169,4 +169,76 @@ describe('model API specs', () => {
       }
     }
   })
+
+  test('routes Doubao speech models to their own families', () => {
+    assert.equal(findModelApiSpec('seed-audio-1.0')?.family, 'seed-audio')
+    assert.equal(findModelApiSpec('seed-tts-2.0')?.family, 'seed-tts-task')
+    assert.equal(findModelApiSpec('seed-icl-2.0')?.family, 'seed-tts-task')
+    assert.equal(
+      findModelApiSpec('doubao-seedance-2-0-260128')?.family,
+      'seedance-video'
+    )
+  })
+
+  // 用户要求接入时不漏参数：上游文档列出的字段都必须出现在参数表里。
+  test('documents every upstream field of the Doubao speech APIs', () => {
+    const documented = (family: string) =>
+      new Set(
+        MODEL_API_SPECS.find((spec) => spec.family === family)?.params.map(
+          (param) => param.name
+        )
+      )
+    const seedAudio = documented('seed-audio')
+    for (const name of [
+      'model',
+      'text_prompt',
+      'references',
+      'references[].speaker',
+      'references[].audio_data',
+      'references[].audio_url',
+      'references[].image_data',
+      'references[].image_url',
+      'audio_config.format',
+      'audio_config.sample_rate',
+      'audio_config.speech_rate',
+      'audio_config.loudness_rate',
+      'audio_config.pitch_rate',
+      'audio_config.enable_subtitle',
+      'watermark.aigc_watermark',
+      'watermark.aigc_metadata.enable',
+      'content_producer',
+      'produce_id',
+      'content_propagator',
+      'propagate_id',
+    ]) {
+      assert.ok(seedAudio.has(name), `seed-audio missing ${name}`)
+    }
+    const seedTTS = documented('seed-tts-task')
+    for (const name of [
+      'model',
+      'user.uid',
+      'req_params.text',
+      'req_params.speaker',
+      'req_params.model',
+      'req_params.ssml',
+      'req_params.audio_params.format',
+      'req_params.audio_params.sample_rate',
+      'req_params.audio_params.bit_rate',
+      'req_params.audio_params.speech_rate',
+      'req_params.audio_params.loudness_rate',
+      'req_params.audio_params.enable_timestamp',
+      'req_params.additions',
+      'req_params.additions.silence_duration',
+      'req_params.additions.disable_markdown_filter',
+      'req_params.additions.disable_emoji_filter',
+      'req_params.additions.latex_parser',
+      'req_params.additions.explicit_language',
+      'req_params.additions.max_length_to_filter_parenthesis',
+      'req_params.additions.aigc_watermark',
+      'req_params.additions.pronunciation_dict.tone',
+      'req_params.post_process.pitch',
+    ]) {
+      assert.ok(seedTTS.has(name), `seed-tts missing ${name}`)
+    }
+  })
 })

@@ -113,3 +113,39 @@ func TestCountImageRequestInputImages(t *testing.T) {
 	assert.Equal(t, 3, countImageRequestInputImages(&dto.ImageRequest{Image: []byte(`["a","b"]`), Images: []byte(`["c"]`)}))
 	assert.Equal(t, 0, countImageRequestInputImages(&dto.ImageRequest{Image: []byte(`""`)}))
 }
+
+// 音频矩阵计费契约（豆包语音）：按秒计价按单次时长上限预扣，结算由适配器替换实际时长；
+// 按字计价的字符数在请求里已确定，乘数为 字符数/1万。
+func TestResolveRelayPriceDataAudioMatrix(t *testing.T) {
+	withImageTables(t, map[string]video_billing.ModelPriceTable{
+		"seed-audio-1.0": {Unit: video_billing.UnitPerSecond, Tiers: []video_billing.PriceTier{{Price: 0.0023}}},
+		"tts-chars":      {Unit: video_billing.UnitPer10kChars, Tiers: []video_billing.PriceTier{{Price: 0.42}}},
+	})
+	tests := []struct {
+		name      string
+		model     string
+		relayMode int
+		input     string
+		ratioKey  string
+		ratio     float64
+		price     float64
+	}{
+		{"per second", "seed-audio-1.0", relayconstant.RelayModeAudioGeneration, "你好", "seconds", relaycommon.MaxAudioGenerationSeconds, 0.0023},
+		{"per 10k chars", "tts-chars", relayconstant.RelayModeAudioSpeech, "提交第一条合成语音，Hello world!", video_billing.CharsRatioKey, 22.0 / 10000, 0.42},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info := &relaycommon.RelayInfo{TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
+			info.RelayMode = tt.relayMode
+			info.OriginModelName = tt.model
+			info.UsingGroup = "nonexistent-group-ratio-defaults-to-1"
+
+			priceData, err := resolveRelayPriceData(imageTestContext(t), info, 10, nil, &dto.AudioRequest{Model: tt.model, Input: tt.input})
+			require.NoError(t, err)
+			require.True(t, priceData.UsePrice)
+			assert.InDelta(t, tt.price, priceData.ModelPrice, 1e-12)
+			assert.Equal(t, map[string]float64{tt.ratioKey: tt.ratio}, priceData.OtherRatios())
+			assert.Equal(t, common.QuotaFromFloat(tt.price*tt.ratio*common.QuotaPerUnit), priceData.QuotaToPreConsume)
+		})
+	}
+}

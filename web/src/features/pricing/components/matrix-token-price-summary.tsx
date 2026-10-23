@@ -18,7 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 
-import { getMatrixTokenPriceSummary } from '../lib/price'
+import {
+  getMatrixTokenPriceSummary,
+  getMatrixUnitPriceSummary,
+} from '../lib/price'
 import type { PricingModel } from '../types'
 
 type MatrixTokenPriceSummaryProps = {
@@ -93,6 +96,46 @@ export function MatrixTokenPriceSummary(props: MatrixTokenPriceSummaryProps) {
           {t('Prompt')} {summary.prompt} / {t('1M video tokens')}
         </div>
       ) : null}
+    </div>
+  )
+}
+
+const MATRIX_UNIT_LABEL_KEYS: Record<string, string> = {
+  per_second: 'second',
+  per_10k_chars: '10K characters',
+}
+
+/**
+ * Single unit price for matrix tables without dimensions (audio per second or
+ * per 10K characters). Returns null when the model is not priced that way.
+ */
+export function MatrixUnitPrice(props: MatrixTokenPriceSummaryProps) {
+  const { t } = useTranslation()
+  const summary = getMatrixUnitPriceSummary(
+    props.model,
+    props.showRechargePrice,
+    props.priceRate,
+    props.usdExchangeRate,
+    props.selectedGroup
+  )
+  if (!summary) return null
+  const unitLabel = t(MATRIX_UNIT_LABEL_KEYS[summary.unit])
+
+  if (props.layout === 'card') {
+    return (
+      <span className='text-muted-foreground whitespace-nowrap'>
+        {t('Price')} <PriceRange minimum={summary.price} />{' '}
+        <span className='text-muted-foreground/60 text-xs'>/ {unitLabel}</span>
+      </span>
+    )
+  }
+
+  return (
+    <div className='max-w-full min-w-0'>
+      <div className='text-sm'>
+        <PriceRange minimum={summary.price} />
+      </div>
+      <div className='text-muted-foreground/50 text-[10px]'>/ {unitLabel}</div>
     </div>
   )
 }

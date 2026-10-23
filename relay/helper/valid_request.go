@@ -1,15 +1,19 @@
 package helper
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -68,6 +72,20 @@ func GetAndValidAudioRequest(c *gin.Context, relayMode int) (*dto.AudioRequest, 
 		if audioRequest.Model == "" {
 			return nil, errors.New("model is required")
 		}
+	case relayconstant.RelayModeAudioGeneration:
+		if audioRequest.Model == "" {
+			return nil, errors.New("model is required")
+		}
+		var generation audioGenerationRequest
+		if err := common.UnmarshalBodyReusable(c, &generation); err != nil {
+			return nil, err
+		}
+		if err := generation.validate(); err != nil {
+			return nil, types.NewErrorWithStatusCode(err, types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+		}
+		// 原生请求体原样透传给上游；这里只把提示词放进 Input，
+		// 供敏感词检查、token 估算与按字计费使用。
+		audioRequest.Input = generation.TextPrompt
 	default:
 		if audioRequest.Model == "" {
 			return nil, errors.New("model is required")
@@ -77,6 +95,27 @@ func GetAndValidAudioRequest(c *gin.Context, relayMode int) (*dto.AudioRequest, 
 		}
 	}
 	return audioRequest, nil
+}
+
+// audioGenerationRequest 是豆包音频生成原生请求里需要在网关侧校验的字段。
+// 只校验计费相关的边界；参考资源的组合规则（音色/音频/图片互斥等）由上游校验，
+// 上游还接受文档未列出的类型（如 video_url），网关重复校验只会误拒。
+type audioGenerationRequest struct {
+	TextPrompt string            `json:"text_prompt"`
+	References []json.RawMessage `json:"references"`
+}
+
+func (r *audioGenerationRequest) validate() error {
+	if strings.TrimSpace(r.TextPrompt) == "" {
+		return errors.New("text_prompt is required")
+	}
+	if n := utf8.RuneCountInString(r.TextPrompt); n > relaycommon.MaxAudioGenerationPromptChars {
+		return fmt.Errorf("text_prompt must be at most %d characters, got %d", relaycommon.MaxAudioGenerationPromptChars, n)
+	}
+	if len(r.References) > 3 {
+		return fmt.Errorf("references accepts at most 3 entries, got %d", len(r.References))
+	}
+	return nil
 }
 
 func GetAndValidateRerankRequest(c *gin.Context) (*dto.RerankRequest, error) {

@@ -9,6 +9,7 @@ package controller
 
 import (
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -25,6 +26,9 @@ import (
 // resolveRelayPriceData 同步中转的价格解析：图片价格矩阵优先，
 // 其余情况回退到原有的 ModelPriceHelper 逻辑。
 func resolveRelayPriceData(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta, request any) (hosttypes.PriceData, error) {
+	if audioRequest, isAudio := request.(*dto.AudioRequest); isAudio {
+		return resolveAudioMatrixPriceData(c, info, promptTokens, meta, audioRequest)
+	}
 	imageRequest, isImage := request.(*dto.ImageRequest)
 	if !isImage {
 		return helper.ModelPriceHelper(c, info, promptTokens, meta)
@@ -95,4 +99,42 @@ func countImageRequestInputImages(request *dto.ImageRequest) int {
 		}
 	}
 	return count
+}
+
+// resolveAudioMatrixPriceData 音频合成的价格矩阵计价（豆包语音）。
+// 按秒计费时先按单次时长上限预扣，适配器拿到上游的原始输出时长后替换 seconds 乘数；
+// 按字计费时字符数在请求里就已确定，直接作为 chars_10k 乘数。
+// 未配置矩阵或单位不适用于音频时回退到原有计价逻辑。
+func resolveAudioMatrixPriceData(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta, request *dto.AudioRequest) (hosttypes.PriceData, error) {
+	if info.RelayMode != relayconstant.RelayModeAudioSpeech && info.RelayMode != relayconstant.RelayModeAudioGeneration {
+		return helper.ModelPriceHelper(c, info, promptTokens, meta)
+	}
+	table, ok := video_billing.GetPriceTable(info.OriginModelName)
+	if !ok || (table.Unit != video_billing.UnitPerSecond && table.Unit != video_billing.UnitPer10kChars) {
+		return helper.ModelPriceHelper(c, info, promptTokens, meta)
+	}
+	price, _, matched := video_billing.GetPrice(info.OriginModelName, "", "", "")
+	if !matched {
+		return hosttypes.PriceData{}, fmt.Errorf(
+			"audio pricing for model %s has no default tier; add one in Video Pricing settings", info.OriginModelName)
+	}
+
+	groupRatioInfo := helper.HandleGroupRatio(c, info)
+	priceData := hosttypes.PriceData{
+		UsePrice:       true,
+		ModelPrice:     price,
+		GroupRatioInfo: groupRatioInfo,
+	}
+	if table.Unit == video_billing.UnitPerSecond {
+		priceData.AddOtherRatio("seconds", relaycommon.MaxAudioGenerationSeconds)
+	} else {
+		priceData.AddOtherRatio(video_billing.CharsRatioKey, float64(utf8.RuneCountInString(request.Input))/10000)
+	}
+	quota, err := common.QuotaFromFloatStrict(priceData.ApplyOtherRatiosToFloat(price * common.QuotaPerUnit * groupRatioInfo.GroupRatio))
+	if err != nil {
+		return hosttypes.PriceData{}, err
+	}
+	priceData.QuotaToPreConsume = quota
+	info.PriceData = priceData
+	return priceData, nil
 }

@@ -8,12 +8,15 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel"
+	taskdoubaotts "github.com/QuantumNous/new-api/relay/channel/task/doubaotts"
 	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
@@ -297,6 +300,8 @@ var fetchRespBuilders = map[int]func(c *gin.Context) (respBody []byte, taskResp 
 	relayconstant.RelayModeSunoFetchByID:  sunoFetchByIDRespBodyBuilder,
 	relayconstant.RelayModeSunoFetch:      sunoFetchRespBodyBuilder,
 	relayconstant.RelayModeVideoFetchByID: videoFetchByIDRespBodyBuilder,
+	// CUSTOM: 豆包语音异步长文本合成（fork 扩展）
+	relayconstant.RelayModeAudioTaskFetchByID: speechTaskFetchRespBodyBuilder,
 }
 
 func RelayTaskFetch(c *gin.Context, relayMode int) (taskResp *dto.TaskError) {
@@ -428,6 +433,59 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 		taskResp = service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
 	}
 	return
+}
+
+// speechTaskFetchRespBodyBuilder 查询语音合成任务。成功任务的音频地址过期时
+// 实时向上游重新查询，拿到新的下载地址（上游音频保留 7 天）；查询失败时回退到
+// 轮询保存的结果。
+func speechTaskFetchRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *dto.TaskError) {
+	task, exist, err := model.GetByTaskId(c.GetInt("id"), c.Param("task_id"))
+	if err != nil {
+		return nil, service.TaskErrorWrapper(err, "get_task_failed", http.StatusInternalServerError)
+	}
+	if !exist || task.Platform != constant.TaskPlatformDoubaoTTS {
+		return nil, service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusNotFound)
+	}
+
+	var upstream []byte
+	if task.Status == model.TaskStatusSuccess && taskdoubaotts.AudioURLExpired(task, time.Now().Unix()) {
+		upstream = fetchSpeechTaskFromUpstream(c, task)
+	}
+	respBody, err = taskdoubaotts.BuildTaskResponse(task, upstream)
+	if err != nil {
+		return nil, service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
+	}
+	return respBody, nil
+}
+
+func fetchSpeechTaskFromUpstream(c *gin.Context, task *model.Task) []byte {
+	ch, err := model.GetChannelById(task.ChannelId, true)
+	if err != nil {
+		logger.LogWarn(c, fmt.Sprintf("speech task %s channel %d not found: %v", task.TaskID, task.ChannelId, err))
+		return nil
+	}
+	baseURL := constant.ChannelBaseURLs[ch.Type]
+	if ch.GetBaseURL() != "" {
+		baseURL = ch.GetBaseURL()
+	}
+	key := ch.Key
+	if task.PrivateData.Key != "" {
+		key = task.PrivateData.Key
+	}
+	resp, err := (&taskdoubaotts.TaskAdaptor{}).FetchTask(baseURL, key, map[string]any{
+		"task_id": task.GetUpstreamTaskID(),
+		"model":   task.Properties.UpstreamModelName,
+	}, ch.GetSetting().Proxy)
+	if err != nil {
+		logger.LogWarn(c, fmt.Sprintf("speech task %s realtime fetch failed: %v", task.TaskID, err))
+		return nil
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+	return body
 }
 
 // tryRealtimeFetch 尝试从上游实时拉取 Gemini/Vertex 任务状态。

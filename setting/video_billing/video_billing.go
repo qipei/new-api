@@ -3,6 +3,9 @@
 // 配置了价格表的模型不再使用"模型定价"中的价格：
 //   - 每秒计费：扣费 = 档位原价(USD/秒) × 秒数 × QuotaPerUnit × 分组倍率
 //   - 按 token 计费：结算 = 实际 tokens × 档位原价(USD/百万token)/1M × QuotaPerUnit × 分组倍率
+//   - 按字计费：扣费 = 档位原价(USD/万字符) × 字符数/1万 × QuotaPerUnit × 分组倍率
+//
+// 每秒计费同样用于音频生成（按模型原始输出时长），按字计费用于语音合成。
 //
 // 价格单位与"模型定价"的按次价格一致（美元）。
 package video_billing
@@ -40,7 +43,12 @@ const (
 	UnitPerSecond       = "per_second"         // 原价按 USD/秒
 	UnitPerMillionToken = "per_million_tokens" // 原价按 USD/百万 token
 	UnitPerImage        = "per_image"          // 原价按 USD/张（图片，矩阵 v2）
+	UnitPer10kChars     = "per_10k_chars"      // 原价按 USD/万字符（语音合成）
 )
+
+// CharsRatioKey 按字计费时 OtherRatios 里的乘数名，值为 字符数/1万。
+// 与上游刊例的计价口径一致，日志里看到的乘数可以直接和账单对上。
+const CharsRatioKey = "chars_10k"
 
 // PriceTier 一档价格。Mode/Resolution/Audio 为空串表示"任意"，
 // 查价时取匹配维度最多（最具体）的一档；全空维度的档位是默认档（兜底）。
@@ -110,7 +118,7 @@ func GetPriceTable(modelName string) (ModelPriceTable, bool) {
 	if !ok {
 		return ModelPriceTable{}, false
 	}
-	if table.Unit != UnitPerSecond && table.Unit != UnitPerMillionToken && table.Unit != UnitPerImage {
+	if table.Unit != UnitPerSecond && table.Unit != UnitPerMillionToken && table.Unit != UnitPerImage && table.Unit != UnitPer10kChars {
 		return ModelPriceTable{}, false
 	}
 	if len(table.Tiers) == 0 {

@@ -40,6 +40,9 @@ export function ModelBillingModeBadge(props: ModelBillingModeBadgeProps) {
   } else if (props.model.matrix_price_unit === 'per_second') {
     label = t('Per second')
     variant = 'success'
+  } else if (props.model.matrix_price_unit === 'per_10k_chars') {
+    label = t('Per 10K characters')
+    variant = 'success'
   } else if (props.model.matrix_price_unit === 'per_million_tokens') {
     label = t('Per 1M video tokens')
     variant = 'success'

@@ -99,6 +99,7 @@ const UNIT_LABEL_KEYS: Record<string, string> = {
   per_second: 'Per second',
   per_million_tokens: 'Per million tokens',
   per_image: 'Per image',
+  per_10k_chars: 'Per 10K characters',
 }
 
 const ISSUE_LABEL_KEYS: Record<string, string> = {
@@ -390,6 +391,13 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                     'Prices are original prices in USD (same convention as Model Pricing). A tier with no dimensions is the default tier; billing multiplies the matched tier price by the group ratio only.'
                   )}
                 </p>
+                {table.unit === 'per_10k_chars' && (
+                  <p className='text-muted-foreground text-xs'>
+                    {t(
+                      'Speech synthesis is charged by input characters: every character, including Chinese characters, letters, punctuation, spaces and line breaks, counts as one. Configure only the default tier.'
+                    )}
+                  </p>
+                )}
                 {(table.unit === 'per_image' ||
                   table.unit === 'per_second') && (
                   <div className='space-y-4'>

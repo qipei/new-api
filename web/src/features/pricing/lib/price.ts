@@ -217,6 +217,57 @@ export function getMatrixTokenPriceSummary(
   return summary
 }
 
+export type MatrixUnitPriceSummary = {
+  price: string
+  unit: 'per_second' | 'per_10k_chars'
+}
+
+/**
+ * Summarize a matrix table that only has the default tier, such as audio
+ * models priced per second of output or per 10K input characters. Unlike video
+ * tables, the default tier is then the one and only price, so it is shown.
+ */
+export function getMatrixUnitPriceSummary(
+  model: PricingModel,
+  showWithRecharge = false,
+  priceRate = 1,
+  usdExchangeRate = 1,
+  selectedGroup?: string
+): MatrixUnitPriceSummary | null {
+  const table = model.matrix_price_table
+  const unit = table?.unit
+  if (unit !== 'per_second' && unit !== 'per_10k_chars') return null
+  const tiers = table?.tiers ?? []
+  const hasDimensions = tiers.some(
+    (tier) =>
+      tier.mode ||
+      tier.resolution ||
+      tier.audio ||
+      tier.min_pixels ||
+      tier.max_pixels
+  )
+  if (tiers.length === 0 || hasDimensions) return null
+  const price = Number(tiers[0].price)
+  if (!Number.isFinite(price) || price <= 0) return null
+
+  const displayPrice = applyRechargeRate(
+    price * displayGroupRatio(model, selectedGroup),
+    showWithRecharge,
+    priceRate,
+    usdExchangeRate
+  )
+  return {
+    price: stripTrailingZeros(
+      formatCurrencyFromUSD(displayPrice, {
+        digitsLarge: 4,
+        digitsSmall: 6,
+        abbreviate: false,
+      })
+    ),
+    unit,
+  }
+}
+
 /**
  * Format token-based price for display
  */

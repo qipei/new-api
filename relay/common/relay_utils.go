@@ -145,6 +145,18 @@ func validatePrompt(prompt string) *dto.TaskError {
 // overflow quota calculation into a negative charge.
 const MaxTaskDurationSeconds = 3600
 
+// CUSTOM: 豆包语音的计费边界（fork 扩展），取值来自火山官方文档。
+const (
+	// MaxAudioGenerationSeconds 音频生成单次输出的时长上限。按秒计费的音频模型
+	// 用它做预扣估算；结算时上游回报的时长也钳制在它以内，异常时长放大不了计费乘数。
+	MaxAudioGenerationSeconds = 120
+	// MaxAudioGenerationPromptChars 音频生成 text_prompt 的字符上限。
+	MaxAudioGenerationPromptChars = 3000
+	// MaxSpeechTaskTextChars 异步长文本语音合成单次输入的字符上限。字符数是按字
+	// 计费的乘数，超限请求在提交前以 400 拒绝。
+	MaxSpeechTaskTextChars = 100000
+)
+
 // smartDurationModels 是把 duration=-1 当作「智能时长」的模型。通用校验默认把
 // 负数挡在门外——时长是计费乘数，无上限的值可能把额度算成负数——所以支持这个语义
 // 的模型要在这里点名。

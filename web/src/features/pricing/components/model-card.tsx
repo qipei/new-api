@@ -34,10 +34,17 @@ import { parseTags } from '../lib/filters'
 import { resolveDisplayGroup } from '../lib/group-price-rank'
 import { isTokenBasedModel } from '../lib/model-helpers'
 import { bestDiscount } from '../lib/model-promotion'
-import { formatPrice, formatRequestPrice } from '../lib/price'
+import {
+  formatPrice,
+  formatRequestPrice,
+  getMatrixUnitPriceSummary,
+} from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
 import { DiscountBadge } from './discount-badge'
-import { MatrixTokenPriceSummary } from './matrix-token-price-summary'
+import {
+  MatrixTokenPriceSummary,
+  MatrixUnitPrice,
+} from './matrix-token-price-summary'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelPerfBadge, type ModelPerfBadgeData } from './model-perf-badge'
 
@@ -103,8 +110,21 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     copyToClipboard(props.model.model_name || '')
   }
 
+  const hasMatrixUnitPricing = getMatrixUnitPriceSummary(props.model) !== null
+
   let priceSummary: ReactNode
-  if (hasMatrixTokenPricing) {
+  if (hasMatrixUnitPricing) {
+    priceSummary = (
+      <MatrixUnitPrice
+        model={props.model}
+        layout='card'
+        showRechargePrice={showRechargePrice}
+        priceRate={priceRate}
+        usdExchangeRate={usdExchangeRate}
+        selectedGroup={props.selectedGroup}
+      />
+    )
+  } else if (hasMatrixTokenPricing) {
     priceSummary = (
       <MatrixTokenPriceSummary
         model={props.model}

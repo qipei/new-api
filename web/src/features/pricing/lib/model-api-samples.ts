@@ -21,7 +21,7 @@ For commercial licensing, please contact support@quantumnous.com
 // 示例是给人直接复制去改的，所以字段旁边要写清楚这个值是什么、能填什么。
 // curl 的 JSON 不支持注释，因此 curl 只给可直接执行的请求体，说明由参数表承担；
 // Python / JavaScript 则逐字段带行内注释。
-import type { ModelApiParam } from './model-api-specs'
+import type { ModelApiParam, SampleResponseKind } from './model-api-specs'
 
 export type SampleLang = 'curl' | 'python' | 'javascript'
 
@@ -46,9 +46,21 @@ export function buildAnnotations(
   return annotations
 }
 
-function quote(value: unknown): string {
-  if (typeof value === 'string') return JSON.stringify(value)
-  return String(value)
+/**
+ * Python 字面量：布尔与空值要写成 True/False/None，数组和嵌套对象逐项转换，
+ * 否则复制出去的示例直接 NameError。
+ */
+function pythonLiteral(value: unknown): string {
+  if (value === null || value === undefined) return 'None'
+  if (typeof value === 'boolean') return value ? 'True' : 'False'
+  if (Array.isArray(value)) return `[${value.map(pythonLiteral).join(', ')}]`
+  if (typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).map(
+      ([key, item]) => `${JSON.stringify(key)}: ${pythonLiteral(item)}`
+    )
+    return `{${entries.join(', ')}}`
+  }
+  return JSON.stringify(value)
 }
 
 /**
@@ -58,11 +70,13 @@ function quote(value: unknown): string {
 function renderAnnotatedObject(
   value: Record<string, unknown>,
   annotations: Annotations,
-  commentToken: string,
+  lang: 'python' | 'javascript',
   indent: number,
   path: string
 ): string[] {
   const pad = ' '.repeat(indent)
+  const commentToken = lang === 'python' ? '#' : '//'
+  const literal = lang === 'python' ? pythonLiteral : JSON.stringify
   const lines: string[] = []
   const entries = Object.entries(value)
 
@@ -76,7 +90,7 @@ function renderAnnotatedObject(
         ...renderAnnotatedObject(
           item as Record<string, unknown>,
           annotations,
-          commentToken,
+          lang,
           indent + 2,
           fullPath
         )
@@ -86,7 +100,7 @@ function renderAnnotatedObject(
     }
 
     const comment = annotations.get(fullPath)
-    const body = `${pad}${JSON.stringify(key)}: ${quote(item)}${comma}`
+    const body = `${pad}${JSON.stringify(key)}: ${literal(item)}${comma}`
     lines.push(comment ? `${body}  ${commentToken} ${comment}` : body)
   })
 
@@ -100,57 +114,147 @@ export type SampleContext = {
   params: ModelApiParam[]
   translate: (key: string) => string
   scenarioTitle: string
+  /** 请求之后怎么处理响应；缺省打印 JSON。 */
+  response?: SampleResponseKind
+  /** 异步任务的查询端点前缀。 */
+  fetchPath?: string
+  /** 音频示例保存的文件名。 */
+  outputFile?: string
 }
+
+const POLL_HINT =
+  'Poll with the task_id from the response until status is succeeded or failed.'
 
 export function buildScenarioSample(
   lang: SampleLang,
   ctx: SampleContext
 ): string {
   const url = `${ctx.baseUrl}${ctx.endpointPath}`
+  const fetchUrl = `${ctx.baseUrl}${ctx.fetchPath ?? ctx.endpointPath}`
+  const response = ctx.response ?? 'json'
+  const outputFile = ctx.outputFile ?? 'speech.mp3'
   const annotations = buildAnnotations(ctx.params, ctx.translate)
 
   if (lang === 'curl') {
     // JSON 不支持注释，保持可直接执行。
     const body = JSON.stringify(ctx.body, null, 2).split('\n').join('\n  ')
-    return [
+    const lines = [
       `# ${ctx.scenarioTitle}`,
       `curl -X POST "${url}" \\`,
       `  -H "Authorization: Bearer $NEW_API_KEY" \\`,
       `  -H "Content-Type: application/json" \\`,
-      `  -d '${body}'`,
-    ].join('\n')
+    ]
+    if (response === 'audio-binary') {
+      lines.push(`  -d '${body}' \\`, `  --output ${outputFile}`)
+      return lines.join('\n')
+    }
+    lines.push(`  -d '${body}'`)
+    if (response === 'audio-base64') {
+      lines.push(
+        '',
+        `# ${ctx.translate('The audio field of the response is Base64; decode it to get the audio file.')}`
+      )
+    }
+    if (response === 'task') {
+      lines.push(
+        '',
+        `# ${ctx.translate(POLL_HINT)}`,
+        `curl "${fetchUrl}/$TASK_ID" \\`,
+        `  -H "Authorization: Bearer $NEW_API_KEY"`
+      )
+    }
+    return lines.join('\n')
   }
 
   if (lang === 'python') {
-    const lines = renderAnnotatedObject(ctx.body, annotations, '#', 4, '')
+    const lines = renderAnnotatedObject(ctx.body, annotations, 'python', 4, '')
+    const imports = {
+      json: 'import os, requests',
+      'audio-binary': 'import os, requests',
+      'audio-base64': 'import base64, os, requests',
+      task: 'import os, time, requests',
+    }[response]
+    const tail = {
+      json: ['print(resp.json())'],
+      'audio-binary': [
+        'resp.raise_for_status()',
+        `with open("${outputFile}", "wb") as f:`,
+        '    f.write(resp.content)',
+      ],
+      'audio-base64': [
+        'data = resp.json()',
+        `with open("${outputFile}", "wb") as f:`,
+        '    f.write(base64.b64decode(data["audio"]))',
+        'print(data["original_duration"], data.get("subtitle"))',
+      ],
+      task: [
+        'task_id = resp.json()["task_id"]',
+        `# ${ctx.translate(POLL_HINT)}`,
+        'while True:',
+        '    time.sleep(3)',
+        `    result = requests.get(f"${fetchUrl}/{task_id}", headers=headers).json()`,
+        '    if result["status"] in ("succeeded", "failed"):',
+        '        break',
+        'print(result.get("audio_url"), result.get("error"))',
+      ],
+    }[response]
     return [
-      'import os, requests',
+      imports,
       '',
       `# ${ctx.scenarioTitle}`,
+      `headers = {"Authorization": f"Bearer {os.environ['NEW_API_KEY']}"}`,
       `resp = requests.post(`,
       `    "${url}",`,
-      `    headers={"Authorization": f"Bearer {os.environ['NEW_API_KEY']}"},`,
+      `    headers=headers,`,
       `    json={`,
       ...lines.map((line) => `    ${line}`),
       `    },`,
       `)`,
-      'print(resp.json())',
+      ...tail,
     ].join('\n')
   }
 
-  const lines = renderAnnotatedObject(ctx.body, annotations, '//', 4, '')
+  const lines = renderAnnotatedObject(
+    ctx.body,
+    annotations,
+    'javascript',
+    4,
+    ''
+  )
+  const tail = {
+    json: ['console.log(await resp.json())'],
+    'audio-binary': [
+      'if (!resp.ok) throw new Error(await resp.text())',
+      `fs.writeFileSync("${outputFile}", Buffer.from(await resp.arrayBuffer()))`,
+    ],
+    'audio-base64': [
+      'const data = await resp.json()',
+      `fs.writeFileSync("${outputFile}", Buffer.from(data.audio, "base64"))`,
+      'console.log(data.original_duration, data.subtitle)',
+    ],
+    task: [
+      'const { task_id } = await resp.json()',
+      `// ${ctx.translate(POLL_HINT)}`,
+      'let result',
+      'do {',
+      '  await new Promise((r) => setTimeout(r, 3000))',
+      `  result = await (await fetch(\`${fetchUrl}/\${task_id}\`, { headers })).json()`,
+      '} while (!["succeeded", "failed"].includes(result.status))',
+      'console.log(result.audio_url, result.error)',
+    ],
+  }[response]
+  const needsFs = response === 'audio-binary' || response === 'audio-base64'
   return [
+    ...(needsFs ? ['import fs from "node:fs"', ''] : []),
     `// ${ctx.scenarioTitle}`,
+    `const headers = { Authorization: \`Bearer \${process.env.NEW_API_KEY}\` }`,
     `const resp = await fetch("${url}", {`,
     `  method: "POST",`,
-    `  headers: {`,
-    `    Authorization: \`Bearer \${process.env.NEW_API_KEY}\`,`,
-    `    "Content-Type": "application/json",`,
-    `  },`,
+    `  headers: { ...headers, "Content-Type": "application/json" },`,
     `  body: JSON.stringify({`,
     ...lines.map((line) => `  ${line}`),
     `  }),`,
     `})`,
-    `console.log(await resp.json())`,
+    ...tail,
   ].join('\n')
 }

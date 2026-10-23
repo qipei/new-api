@@ -33,6 +33,8 @@ import { PromotionBadge } from './promotion-badge'
 // CUSTOM: 视频价格矩阵展示（fork 扩展）。
 // 按生成模式分组展示各档官方价，并按模型可用的每个分组展示折后价；
 // 币种跟随系统"货币显示"设置；全空维度的默认档只参与后台兜底计费，不对外展示。
+// 例外是只有默认档的价格表（例如音频的按秒、按字计价）：默认档就是唯一价格，
+// 按计价单位展示一行。
 
 const MODE_SECTION_KEYS: Array<{ mode: string; labelKey: string }> = [
   { mode: '', labelKey: 'General tiers' },
@@ -73,7 +75,11 @@ export function VideoPriceSection(props: {
   if (!table || !Array.isArray(table.tiers) || table.tiers.length === 0) {
     return null
   }
-  const visibleTiers = table.tiers.filter((tier) => !isDefaultTier(tier))
+  const dimensionalTiers = table.tiers.filter((tier) => !isDefaultTier(tier))
+  const isFlatTable = dimensionalTiers.length === 0
+  const visibleTiers = isFlatTable
+    ? table.tiers.filter(isDefaultTier).slice(0, 1)
+    : dimensionalTiers
   const hasInputImagePrice = Number(table.input_image_price) > 0
   const hasInputTokenPrice = Number(table.input_token_price) > 0
   if (visibleTiers.length === 0 && !hasInputImagePrice && !hasInputTokenPrice) {
@@ -83,9 +89,14 @@ export function VideoPriceSection(props: {
   let unitLabel = t('per second')
   if (table.unit === 'per_million_tokens') unitLabel = t('per 1M tokens')
   if (table.unit === 'per_image') unitLabel = t('per image')
-  const sectionTitleKey =
-    table.unit === 'per_image' ? 'Image Price' : 'Video Price'
-  const showAudioColumn = table.unit !== 'per_image'
+  if (table.unit === 'per_10k_chars') unitLabel = t('per 10K characters')
+  let sectionTitleKey = 'Video Price'
+  if (table.unit === 'per_image') sectionTitleKey = 'Image Price'
+  if (isFlatTable) sectionTitleKey = 'Unit price'
+  const showAudioColumn = table.unit !== 'per_image' && !isFlatTable
+  let dimensionHeaderKey = 'Resolution'
+  if (table.unit === 'per_image') dimensionHeaderKey = 'Resolution / pixels'
+  if (isFlatTable) dimensionHeaderKey = 'Billing unit'
 
   // 多分组时每个分组一列，按倍率从低到高（折扣从优到差）排序，同倍率按名称稳定排序
   const groups = getAvailableGroups(props.model, props.usableGroup || {})
@@ -129,6 +140,7 @@ export function VideoPriceSection(props: {
   }
 
   const formatTierDimension = (tier: VideoPriceTier): string => {
+    if (isFlatTable) return unitLabel
     if (tier.resolution) return tier.resolution
     const minPixels = Number(tier.min_pixels)
     const maxPixels = Number(tier.max_pixels)
@@ -278,9 +290,7 @@ export function VideoPriceSection(props: {
                 <thead>
                   <tr className='text-muted-foreground text-left text-xs'>
                     <th className='py-1 pr-3 font-normal'>
-                      {table.unit === 'per_image'
-                        ? t('Resolution / pixels')
-                        : t('Resolution')}
+                      {t(dimensionHeaderKey)}
                     </th>
                     {showAudioColumn ? (
                       <th className='py-1 pr-3 font-normal'>

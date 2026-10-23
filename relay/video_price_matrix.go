@@ -3,6 +3,7 @@
 //   - 每秒计费：UsePrice=true，Quota = 档价 × QuotaPerUnit × 分组倍率（秒数由 OtherRatios 相乘）
 //   - 按 token 计费：UsePrice=false，预扣按约 0.25M token 粗估，
 //     档价快照进 PriceData.ModelPrice，完成后由适配器按实际 usage 结算
+//   - 按字计费：与每秒计费同构，字符数由适配器以 chars_10k 乘数给出
 package relay
 
 import (
@@ -51,11 +52,16 @@ func klingModeResolution(mode string) string {
 }
 
 func resolveTaskPriceData(c *gin.Context, info *relaycommon.RelayInfo) (hosttypes.PriceData, error) {
-	if _, ok := video_billing.GetPriceTable(info.OriginModelName); !ok {
+	table, ok := video_billing.GetPriceTable(info.OriginModelName)
+	if !ok {
 		return helper.ModelPriceHelperPerCall(c, info)
 	}
 
-	mode, resolution, audio, seconds := taskVideoDims(c, info)
+	// 语音合成没有视频维度，只取默认档；按视频请求去解析它的请求体没有意义。
+	mode, resolution, audio, seconds := "", "", "", 0
+	if table.Unit != video_billing.UnitPer10kChars {
+		mode, resolution, audio, seconds = taskVideoDims(c, info)
+	}
 	price, unit, ok := video_billing.GetPrice(info.OriginModelName, mode, resolution, audio)
 	if !ok {
 		return hosttypes.PriceData{}, &videoPriceNotMatchedError{model: info.OriginModelName, mode: mode, resolution: resolution}
@@ -68,7 +74,7 @@ func resolveTaskPriceData(c *gin.Context, info *relaycommon.RelayInfo) (hosttype
 		ModelPrice:     price,
 	}
 
-	if unit == video_billing.UnitPerSecond {
+	if unit == video_billing.UnitPerSecond || unit == video_billing.UnitPer10kChars {
 		priceData.UsePrice = true
 		quota, err := common.QuotaFromFloatStrict(price * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
 		if err != nil {

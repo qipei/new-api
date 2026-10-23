@@ -41,10 +41,14 @@ import {
   formatPrice,
   formatRequestPrice,
   stripTrailingZeros,
+  getMatrixUnitPriceSummary,
 } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
 import { DiscountBadge } from './discount-badge'
-import { MatrixTokenPriceSummary } from './matrix-token-price-summary'
+import {
+  MatrixTokenPriceSummary,
+  MatrixUnitPrice,
+} from './matrix-token-price-summary'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 
 // ----------------------------------------------------------------------------
@@ -157,6 +161,19 @@ export function usePricingColumns(
                 selectedGroup
               ),
             })
+
+        if (getMatrixUnitPriceSummary(model)) {
+          return (
+            <MatrixUnitPrice
+              model={model}
+              layout='table'
+              showRechargePrice={showRechargePrice}
+              priceRate={priceRate}
+              usdExchangeRate={usdExchangeRate}
+              selectedGroup={selectedGroup}
+            />
+          )
+        }
 
         if (hasMatrixTokenPricing) {
           return (

@@ -85,4 +85,78 @@ describe('scenario samples', () => {
     assert.ok(match, 'curl sample must carry a JSON body')
     assert.deepEqual(JSON.parse(match![1].replace(/\n  /g, '\n')), ctx.body)
   })
+
+  // 复制出去的 Python 示例必须能直接运行：布尔值和数组不能写成 JS 字面量。
+  test('renders Python literals for booleans and arrays', () => {
+    const python = buildScenarioSample('python', {
+      ...ctx,
+      body: {
+        model: 'seed-audio-1.0',
+        references: [{ speaker: 'v', enabled: false }],
+        audio_config: { enable_subtitle: true },
+      },
+    })
+    assert.ok(
+      python.includes('"references": [{"speaker": "v", "enabled": False}]')
+    )
+    assert.ok(python.includes('"enable_subtitle": True'))
+    assert.ok(!python.includes('[object Object]'))
+  })
+
+  test('saves binary audio responses to a file', () => {
+    const audioCtx = {
+      ...ctx,
+      response: 'audio-binary' as const,
+      outputFile: 'out.wav',
+    }
+    assert.ok(
+      buildScenarioSample('curl', audioCtx).endsWith('  --output out.wav')
+    )
+    assert.ok(
+      buildScenarioSample('python', audioCtx).includes('f.write(resp.content)')
+    )
+    assert.ok(
+      buildScenarioSample('javascript', audioCtx).includes(
+        'fs.writeFileSync("out.wav", Buffer.from(await resp.arrayBuffer()))'
+      )
+    )
+  })
+
+  test('decodes Base64 audio from JSON responses', () => {
+    const python = buildScenarioSample('python', {
+      ...ctx,
+      response: 'audio-base64',
+    })
+    assert.ok(python.startsWith('import base64, os, requests'))
+    assert.ok(python.includes('base64.b64decode(data["audio"])'))
+  })
+
+  // 异步任务提交后只拿到 task_id，示例必须演示轮询到终态。
+  test('polls the fetch endpoint for async tasks', () => {
+    const taskCtx = {
+      ...ctx,
+      endpointPath: '/v1/audio/speech/tasks',
+      fetchPath: '/v1/audio/speech/tasks',
+      response: 'task' as const,
+    }
+    assert.ok(
+      buildScenarioSample('curl', taskCtx).includes(
+        'curl "https://api.example.com/v1/audio/speech/tasks/$TASK_ID"'
+      )
+    )
+    const python = buildScenarioSample('python', taskCtx)
+    assert.ok(
+      python.includes(
+        'requests.get(f"https://api.example.com/v1/audio/speech/tasks/{task_id}", headers=headers)'
+      )
+    )
+    assert.ok(
+      python.includes('if result["status"] in ("succeeded", "failed"):')
+    )
+    assert.ok(
+      buildScenarioSample('javascript', taskCtx).includes(
+        '} while (!["succeeded", "failed"].includes(result.status))'
+      )
+    )
+  })
 })

@@ -54,6 +54,11 @@ const (
 	RelayModeResponsesCompact
 
 	RelayModeAlphaSearch
+
+	// CUSTOM: 豆包语音（fork 扩展）。音频生成走同步原生接口，长文本合成走异步任务。
+	RelayModeAudioGeneration
+	RelayModeAudioTaskSubmit
+	RelayModeAudioTaskFetchByID
 )
 
 func Path2RelayMode(path string) int {
@@ -80,8 +85,12 @@ func Path2RelayMode(path string) int {
 		relayMode = RelayModeResponses
 	} else if strings.HasPrefix(path, "/v1/alpha/search") {
 		relayMode = RelayModeAlphaSearch
+	} else if strings.HasPrefix(path, "/v1/audio/speech/tasks") {
+		// 异步语音任务的提交与查询共用路径，由分发中间件按请求方法设置 relay_mode。
 	} else if strings.HasPrefix(path, "/v1/audio/speech") {
 		relayMode = RelayModeAudioSpeech
+	} else if strings.HasPrefix(path, "/v1/audio/generations") {
+		relayMode = RelayModeAudioGeneration
 	} else if strings.HasPrefix(path, "/v1/audio/transcriptions") {
 		relayMode = RelayModeAudioTranscription
 	} else if strings.HasPrefix(path, "/v1/audio/translations") {

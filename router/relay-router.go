@@ -137,6 +137,12 @@ func SetRelayRouter(router *gin.Engine) {
 		httpRouter.POST("/audio/speech", func(c *gin.Context) {
 			controller.Relay(c, types.RelayFormatOpenAIAudio)
 		})
+		// CUSTOM: 豆包语音（fork 扩展）。音频生成的原生接口与异步长文本合成任务。
+		httpRouter.POST("/audio/generations", func(c *gin.Context) {
+			controller.Relay(c, types.RelayFormatOpenAIAudio)
+		})
+		httpRouter.POST("/audio/speech/tasks", controller.RelayTask)
+		httpRouter.GET("/audio/speech/tasks/:task_id", controller.RelayTaskFetch)
 
 		// rerank related routes
 		httpRouter.POST("/rerank", func(c *gin.Context) {

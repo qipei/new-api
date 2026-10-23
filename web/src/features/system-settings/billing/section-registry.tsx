@@ -150,7 +150,7 @@ const BILLING_SECTIONS = [
   // CUSTOM: 视频定价矩阵（fork 扩展）
   {
     id: 'video-pricing',
-    titleKey: 'Video and Image Pricing',
+    titleKey: 'Audio, Video and Image Pricing',
     build: (settings: BillingSettings) => (
       <VideoPricingSection
         defaultValue={settings['video_billing.price_tables']}

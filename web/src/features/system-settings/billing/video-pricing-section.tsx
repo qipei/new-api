@@ -311,7 +311,7 @@ export function VideoPricingSection(props: { defaultValue: string }) {
   }
 
   return (
-    <SettingsSection title={t('Video and Image Pricing')}>
+    <SettingsSection title={t('Audio, Video and Image Pricing')}>
       <p className='text-muted-foreground text-sm'>
         {t(
           'Configure original prices per model by generation mode, resolution or pixel range, and audio track for video models. Models configured here bypass Model Pricing entirely; the charge is the matched tier price multiplied by the group ratio.'
@@ -791,7 +791,7 @@ export function VideoPricingSection(props: { defaultValue: string }) {
             value={jsonDraft}
             onChange={setJsonDraft}
             heightClassName='h-[32rem] min-h-80 max-h-[70vh]'
-            ariaLabel={t('Video and Image Pricing')}
+            ariaLabel={t('Audio, Video and Image Pricing')}
           />
         </TabsContent>
       </Tabs>

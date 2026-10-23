@@ -6066,6 +6066,7 @@
     "These are the Doubao 2.0 voices. Most of them work with this model, but a few are not supported; confirm with a test call.": "Voici les voix Doubao 2.0. La plupart fonctionnent avec ce modèle, mais quelques-unes ne sont pas prises en charge ; vérifiez par un appel de test.",
     "Speech": "Voix",
     "Refine models by provider, tags and group.": "Affinez les modèles par fournisseur, étiquettes et groupe.",
-    "Filter models by provider, tags and group.": "Filtrez les modèles par fournisseur, étiquettes et groupe."
+    "Filter models by provider, tags and group.": "Filtrez les modèles par fournisseur, étiquettes et groupe.",
+    "Audio, Video and Image Pricing": "Tarification audio, vidéo et image"
   }
 }

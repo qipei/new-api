@@ -6066,6 +6066,7 @@
     "These are the Doubao 2.0 voices. Most of them work with this model, but a few are not supported; confirm with a test call.": "这里列出的是豆包 2.0 音色。大部分可用于该模型，个别音色不支持，使用前请先调用确认。",
     "Speech": "语音",
     "Refine models by provider, tags and group.": "按供应商、标签和分组细化模型。",
-    "Filter models by provider, tags and group.": "按供应商、标签和分组筛选模型。"
+    "Filter models by provider, tags and group.": "按供应商、标签和分组筛选模型。",
+    "Audio, Video and Image Pricing": "音视频和图片定价"
   }
 }

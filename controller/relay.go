@@ -618,6 +618,12 @@ func RelayTask(c *gin.Context) {
 	}
 
 	if taskErr != nil {
+		// CUSTOM: 上游拒绝提交也是一次失败，计入性能统计；本地校验错误不算（fork 扩展）
+		if !taskErr.LocalError {
+			gopool.Go(func() {
+				perfmetrics.RecordRelaySample(relayInfo, false, 0)
+			})
+		}
 		respondTaskError(c, taskErr)
 	}
 }

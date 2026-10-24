@@ -66,17 +66,22 @@ describe('auto routing group helpers', () => {
 })
 
 describe('withAutoPriceOption', () => {
-  const options = [
-    { value: 'auto', label: 'auto' },
-    { value: 'default', label: 'default' },
-  ]
-
-  it('inserts right after auto so both routing modes sit together', () => {
-    const result = withAutoPriceOption(options, '低价', '说明')
+  // 两种自动路由固定排在下拉最前：auto_price 第一、auto 第二，其余保持原顺序。
+  it('puts auto_price first and auto second wherever the backend lists auto', () => {
+    const result = withAutoPriceOption(
+      [
+        { value: 'default', label: 'default' },
+        { value: 'vip', label: 'vip' },
+        { value: 'auto', label: 'auto' },
+      ],
+      '低价',
+      '说明'
+    )
     expect(result.map((o) => o.value)).toEqual([
-      'auto',
       AUTO_PRICE_GROUP,
+      'auto',
       'default',
+      'vip',
     ])
   })
 
@@ -89,14 +94,23 @@ describe('withAutoPriceOption', () => {
     expect(result.map((o) => o.value)).toEqual([AUTO_PRICE_GROUP, 'default'])
   })
 
-  // 后端将来若也开始下发这个分组，不能出现两条。
-  it('does not duplicate an option the backend already returned', () => {
-    const withExisting = [
-      ...options,
-      { value: AUTO_PRICE_GROUP, label: '已有' },
-    ]
-    const result = withAutoPriceOption(withExisting, '低价', '说明')
-    expect(result.filter((o) => o.value === AUTO_PRICE_GROUP)).toHaveLength(1)
+  // 后端将来若也开始下发这个分组，不能出现两条，并且沿用后端那一条、照样排第一。
+  it('keeps the backend option once and still moves it to the front', () => {
+    const result = withAutoPriceOption(
+      [
+        { value: 'default', label: 'default' },
+        { value: 'auto', label: 'auto' },
+        { value: AUTO_PRICE_GROUP, label: '已有' },
+      ],
+      '低价',
+      '说明'
+    )
+    expect(result.map((o) => o.value)).toEqual([
+      AUTO_PRICE_GROUP,
+      'auto',
+      'default',
+    ])
+    expect(result[0].label).toBe('已有')
   })
 })
 

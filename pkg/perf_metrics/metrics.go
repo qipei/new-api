@@ -54,6 +54,22 @@ func RecordRelaySample(info *relaycommon.RelayInfo, success bool, outputTokens i
 	})
 }
 
+// CUSTOM: 异步任务（视频、语音合成任务等）在轮询到终态时记一次样本（fork 扩展）。
+// 耗时从提交算到上游给出终态，即用户实际等待的生成时长；样本记在完成时所在的时段。
+func RecordTaskSample(modelName string, group string, submitTime int64, finishTime int64, success bool) {
+	if submitTime <= 0 || finishTime < submitTime {
+		return
+	}
+	latencyMs := (finishTime - submitTime) * 1000
+	Record(Sample{
+		Model:        modelName,
+		Group:        group,
+		LatencyMs:    latencyMs,
+		Success:      success,
+		GenerationMs: latencyMs,
+	})
+}
+
 func Record(sample Sample) {
 	setting := perf_metrics_setting.GetSetting()
 	if !setting.Enabled || sample.Model == "" {

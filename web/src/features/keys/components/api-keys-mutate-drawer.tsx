@@ -95,12 +95,14 @@ type ApiKeyMutateDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   currentRow?: ApiKey
+  presetGroup?: string
 }
 
 export function ApiKeysMutateDrawer({
   open,
   onOpenChange,
   currentRow,
+  presetGroup,
 }: ApiKeyMutateDrawerProps) {
   const { t } = useTranslation()
   const isUpdate = !!currentRow
@@ -163,12 +165,18 @@ export function ApiKeysMutateDrawer({
   const models = modelsData?.data || []
   const groups = useMemo<ApiKeyGroupOption[]>(
     () =>
-      // CUSTOM: 比价路由是合成选项，后端不下发（fork 扩展）
+      // CUSTOM: 比价路由是合成选项，后端不下发；auto 的说明固定为路由方式的
+      // 介绍，不用后台可用分组里配置的描述（fork 扩展）
       withAutoPriceOption(
         Object.entries(groupsData?.data || {}).map(([key, info]) => ({
           value: key,
           label: key,
-          desc: info.desc || key,
+          desc:
+            key === 'auto'
+              ? t(
+                  'Auto group selection (customizable order) · default order prefers lowest price'
+                )
+              : info.desc || key,
           ratio: info.ratio,
         })),
         AUTO_PRICE_GROUP,
@@ -240,13 +248,18 @@ export function ApiKeysMutateDrawer({
         setInitializedTarget(target)
       }
     } else {
+      const defaults = getApiKeyFormDefaultValues(
+        // auto 要后端确实提供才用；auto_price 是前端合成的，始终可用
+        defaultTokenGroup === 'auto' && !backendHasAuto ? '' : defaultTokenGroup
+      )
+      // CUSTOM: 从模型广场分组卡片进入时预选该分组；用户不可用时由下方的分组校正回落（fork 扩展）
       form.reset(
-        getApiKeyFormDefaultValues(
-          // auto 要后端确实提供才用；auto_price 是前端合成的，始终可用
-          defaultTokenGroup === 'auto' && !backendHasAuto
-            ? ''
-            : defaultTokenGroup
-        )
+        presetGroup
+          ? {
+              ...getApiKeyFormDefaultValues(presetGroup),
+              group: presetGroup,
+            }
+          : defaults
       )
       setInitializedTarget(target)
     }
@@ -256,6 +269,7 @@ export function ApiKeysMutateDrawer({
     currentRow,
     form,
     defaultTokenGroup,
+    presetGroup,
     statusLoading,
     backendHasAuto,
     groupsFetched,

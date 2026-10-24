@@ -643,6 +643,11 @@ export const STATIC_I18N_KEYS = [
   'a default tier with no dimensions is required',
   'input prices must be greater than 0 when set',
 
+  // CUSTOM: 模型详情分组卡片的线路状态（fork 扩展）
+  'Normal',
+  'Busy',
+  'Unstable',
+
   // Token01 default home feature strip
   'Transparent billing',
   'Pay as you go with no minimum spend\nPrices are always visible',

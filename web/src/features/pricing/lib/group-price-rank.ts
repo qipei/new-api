@@ -76,7 +76,7 @@ function modelGroups(model: PricingModel): string[] {
  * 按倍率计费的模型没有表达式可比，比较就退化成纯比有效倍率——和改动之前的行为
  * 一致。
  */
-function groupDisplayCost(model: PricingModel, group: string): number {
+export function groupDisplayCost(model: PricingModel, group: string): number {
   const ratio = effectiveGroupRatio(
     model,
     group,

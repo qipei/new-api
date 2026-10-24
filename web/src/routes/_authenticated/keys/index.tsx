@@ -31,6 +31,8 @@ const apiKeySearchSchema = z.object({
     .catch([]),
   filter: z.string().optional().catch(''),
   token: z.string().optional().catch(''),
+  // CUSTOM: 从模型广场的分组卡片跳转过来时，打开创建抽屉并预选该分组（fork 扩展）
+  create_group: z.string().optional().catch(undefined),
 })
 
 export const Route = createFileRoute('/_authenticated/keys/')({

@@ -194,7 +194,7 @@ describe('model marketplace matrix pricing', () => {
     assert.match(markup, />Image Price</)
   })
 
-  test('places image input prices first, omits audio, and shows every enabled group', () => {
+  test('places image input prices first, omits audio, and shows only official prices', () => {
     const groupedModel: PricingModel = {
       ...model,
       enable_groups: ['standard', 'priority'],
@@ -216,11 +216,6 @@ describe('model marketplace matrix pricing', () => {
       pricing,
       <VideoPriceSection
         model={groupedModel}
-        groupRatio={{ standard: 1.5, priority: 0.5 }}
-        usableGroup={{
-          standard: { desc: 'Standard', ratio: 1.5 },
-          priority: { desc: 'Priority', ratio: 0.5 },
-        }}
         priceRate={1}
         usdExchangeRate={1}
         showRechargePrice={false}
@@ -236,10 +231,8 @@ describe('model marketplace matrix pricing', () => {
     assert.match(markup, /≤2,610,000 pixels/)
     assert.match(markup, /&gt;2,610,000 pixels/)
     assert.match(markup, />Official price \/image</)
-    assert.match(markup, /Priority/)
-    assert.match(markup, /×0\.5/)
-    assert.match(markup, /Standard/)
-    assert.match(markup, /×1\.5/)
+    // 分组折算价改由分组卡片展示，这里不再按分组出列。
+    assert.doesNotMatch(markup, /×0\.5/)
     assert.doesNotMatch(markup, /9\.99/)
   })
 
@@ -263,8 +256,6 @@ describe('model marketplace matrix pricing', () => {
       pricing,
       <VideoPriceSection
         model={model}
-        groupRatio={{}}
-        usableGroup={{}}
         priceRate={1}
         usdExchangeRate={1}
         showRechargePrice={false}

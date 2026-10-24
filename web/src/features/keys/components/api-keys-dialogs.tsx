@@ -16,20 +16,41 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { getRouteApi } from '@tanstack/react-router'
+import { useEffect } from 'react'
+
 import { ApiKeysDeleteDialog } from './api-keys-delete-dialog'
 import { ApiKeysMutateDrawer } from './api-keys-mutate-drawer'
 import { useApiKeys } from './api-keys-provider'
 import { CCSwitchDialog } from './dialogs/cc-switch-dialog'
 
+const route = getRouteApi('/_authenticated/keys/')
+
 export function ApiKeysDialogs() {
   const { open, setOpen, currentRow, resolvedKey } = useApiKeys()
+  // CUSTOM: 带 create_group 进入时直接打开创建抽屉，关闭后从地址里去掉该参数（fork 扩展）
+  const presetGroup = route.useSearch().create_group
+  const navigate = route.useNavigate()
+  useEffect(() => {
+    if (presetGroup) setOpen('create')
+  }, [presetGroup, setOpen])
 
   return (
     <>
       <ApiKeysMutateDrawer
         open={open === 'create' || open === 'update'}
-        onOpenChange={(isOpen) => !isOpen && setOpen(null)}
+        onOpenChange={(isOpen) => {
+          if (isOpen) return
+          setOpen(null)
+          if (presetGroup) {
+            void navigate({
+              search: (prev) => ({ ...prev, create_group: undefined }),
+              replace: true,
+            })
+          }
+        }}
         currentRow={open === 'update' ? currentRow || undefined : undefined}
+        presetGroup={open === 'create' ? presetGroup : undefined}
       />
       <ApiKeysDeleteDialog />
       <CCSwitchDialog

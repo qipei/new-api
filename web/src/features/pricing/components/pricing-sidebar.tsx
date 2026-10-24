@@ -77,14 +77,6 @@ function countBy(
   return models.reduce((count, model) => count + (predicate(model) ? 1 : 0), 0)
 }
 
-function formatGroupRatio(ratio: number | undefined): string | undefined {
-  if (ratio == null) return undefined
-  const formatted = Number.isInteger(ratio)
-    ? ratio.toString()
-    : ratio.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
-  return `x${formatted}`
-}
-
 function FilterChip(props: {
   option: FilterOption
   active: boolean
@@ -172,18 +164,6 @@ export function PricingSidebar(props: PricingSidebarProps) {
       .filter((vendor) => vendor.count > 0),
   ]
 
-  const groupOptions: FilterOption[] = [
-    {
-      value: FILTER_ALL,
-      label: t('All Groups'),
-    },
-    ...props.groups.map((group) => ({
-      value: group,
-      label: group,
-      suffix: formatGroupRatio(props.groupRatios?.[group]),
-    })),
-  ]
-
   const tagOptions: FilterOption[] = [
     {
       value: FILTER_ALL,
@@ -207,7 +187,7 @@ export function PricingSidebar(props: PricingSidebarProps) {
         <div>
           <h2 className='text-foreground text-sm font-bold'>{t('Filter')}</h2>
           <p className='text-muted-foreground mt-1 text-xs'>
-            {t('Refine models by provider, tags and group.')}
+            {t('Refine models by provider and tags.')}
           </p>
         </div>
         <Button
@@ -242,13 +222,8 @@ export function PricingSidebar(props: PricingSidebarProps) {
           options={tagOptions}
           onChange={props.onTagChange}
         />
-        {/* CUSTOM: 按运营要求不展示「定价类型」「端点类型」筛选（fork 扩展） */}
-        <FilterSection
-          title={t('Groups')}
-          value={props.groupFilter}
-          options={groupOptions}
-          onChange={props.onGroupChange}
-        />
+        {/* CUSTOM: 按运营要求不展示「定价类型」「端点类型」「分组」筛选（fork 扩展）；
+            分组价格在模型详情里按分组逐一展示 */}
       </div>
     </aside>
   )

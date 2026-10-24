@@ -22,48 +22,22 @@ import { formatCurrencyFromUSD } from '@/lib/currency'
 
 import { usePricingData } from '../hooks/use-pricing-data'
 import {
-  getAvailableGroups,
-  getConfiguredGroupRatio,
-} from '../lib/model-helpers'
-// CUSTOM: 限时活动（fork 扩展）
-import { activePromotionForGroup } from '../lib/model-promotion'
+  MATRIX_AUDIO_LABEL_KEYS,
+  MATRIX_MODE_SECTIONS,
+  formatMatrixTierDimension,
+  isDefaultMatrixTier,
+  matrixUnitLabel,
+} from '../lib/group-price-blocks'
 import type { PricingModel, VideoPriceTier } from '../types'
-import { PromotionBadge } from './promotion-badge'
 
-// CUSTOM: 视频价格矩阵展示（fork 扩展）。
-// 按生成模式分组展示各档官方价，并按模型可用的每个分组展示折后价；
+// CUSTOM: 音视频和图片价格表的官方价（fork 扩展）。
+// 按生成模式分组展示各档官方价，各分组折算后的价格在下方的分组卡片里；
 // 币种跟随系统"货币显示"设置；全空维度的默认档只参与后台兜底计费，不对外展示。
 // 例外是只有默认档的价格表（例如音频的按秒、按字计价）：默认档就是唯一价格，
 // 按计价单位展示一行。
 
-const MODE_SECTION_KEYS: Array<{ mode: string; labelKey: string }> = [
-  { mode: '', labelKey: 'General tiers' },
-  { mode: 't2v', labelKey: 'Text to video' },
-  { mode: 'i2v', labelKey: 'Image to video' },
-  { mode: 'v2v', labelKey: 'Video to video' },
-  { mode: 't2i', labelKey: 'Text to image' },
-  { mode: 'i2i', labelKey: 'Image to image' },
-]
-
-const AUDIO_LABEL_KEYS: Record<string, string> = {
-  on: 'With audio',
-  off: 'Without audio',
-}
-
-function isDefaultTier(tier: VideoPriceTier): boolean {
-  return (
-    !tier.mode &&
-    !tier.resolution &&
-    !tier.audio &&
-    !tier.min_pixels &&
-    !tier.max_pixels
-  )
-}
-
 export function VideoPriceSection(props: {
   model: PricingModel
-  groupRatio: Record<string, number>
-  usableGroup: Record<string, { desc: string; ratio: number }>
   priceRate: number
   usdExchangeRate: number
   showRechargePrice: boolean
@@ -75,10 +49,12 @@ export function VideoPriceSection(props: {
   if (!table || !Array.isArray(table.tiers) || table.tiers.length === 0) {
     return null
   }
-  const dimensionalTiers = table.tiers.filter((tier) => !isDefaultTier(tier))
+  const dimensionalTiers = table.tiers.filter(
+    (tier) => !isDefaultMatrixTier(tier)
+  )
   const isFlatTable = dimensionalTiers.length === 0
   const visibleTiers = isFlatTable
-    ? table.tiers.filter(isDefaultTier).slice(0, 1)
+    ? table.tiers.filter(isDefaultMatrixTier).slice(0, 1)
     : dimensionalTiers
   const hasInputImagePrice = Number(table.input_image_price) > 0
   const hasInputTokenPrice = Number(table.input_token_price) > 0
@@ -86,10 +62,7 @@ export function VideoPriceSection(props: {
     return null
   }
 
-  let unitLabel = t('per second')
-  if (table.unit === 'per_million_tokens') unitLabel = t('per 1M tokens')
-  if (table.unit === 'per_image') unitLabel = t('per image')
-  if (table.unit === 'per_10k_chars') unitLabel = t('per 10K characters')
+  const unitLabel = matrixUnitLabel(table.unit, t)
   let sectionTitleKey = 'Video Price'
   if (table.unit === 'per_image') sectionTitleKey = 'Image Price'
   if (isFlatTable) sectionTitleKey = 'Unit price'
@@ -97,27 +70,6 @@ export function VideoPriceSection(props: {
   let dimensionHeaderKey = 'Resolution'
   if (table.unit === 'per_image') dimensionHeaderKey = 'Resolution / pixels'
   if (isFlatTable) dimensionHeaderKey = 'Billing unit'
-
-  // 多分组时每个分组一列，按倍率从低到高（折扣从优到差）排序，同倍率按名称稳定排序
-  const groups = getAvailableGroups(props.model, props.usableGroup || {})
-    .map((group) => {
-      const baseRatio = getConfiguredGroupRatio(props.groupRatio, group)
-      // CUSTOM: 限时活动（fork 扩展）。后端把活动倍率乘进了实际计费的 GroupRatio，
-      // 这里也必须乘进展示用的倍率，否则页面显示原价、实际按活动价扣费。
-      const promotion = activePromotionForGroup(props.model, group)
-      return {
-        key: group,
-        label: props.usableGroup[group]?.desc || group,
-        baseRatio,
-        ratio: promotion ? baseRatio * promotion.ratio : baseRatio,
-        promotion,
-      }
-    })
-    .filter((group) => Number.isFinite(group.ratio))
-    .sort((a, b) => a.ratio - b.ratio || a.key.localeCompare(b.key))
-
-  const formatRatio = (ratio: number): string =>
-    Number(ratio.toFixed(4)).toString()
 
   const formatPrice = (usd: number): string => {
     if (!Number.isFinite(usd)) return '-'
@@ -139,143 +91,78 @@ export function VideoPriceSection(props: {
     tiersByMode.set(mode, list)
   }
 
-  const formatTierDimension = (tier: VideoPriceTier): string => {
-    if (isFlatTable) return unitLabel
-    if (tier.resolution) return tier.resolution
-    const minPixels = Number(tier.min_pixels)
-    const maxPixels = Number(tier.max_pixels)
-    if (minPixels > 0 && maxPixels > 0) {
-      return `${minPixels.toLocaleString()}–${maxPixels.toLocaleString()} ${t('pixels')}`
-    }
-    if (minPixels > 0) {
-      return `>${(minPixels - 1).toLocaleString()} ${t('pixels')}`
-    }
-    if (maxPixels > 0) {
-      return `≤${maxPixels.toLocaleString()} ${t('pixels')}`
-    }
-    return '—'
-  }
-
   const renderRow = (tier: VideoPriceTier) => {
     const rowKey = `${tier.mode ?? ''}|${tier.resolution ?? ''}|${tier.audio ?? ''}|${tier.min_pixels ?? ''}|${tier.max_pixels ?? ''}|${tier.price}`
     return (
       <tr key={rowKey} className='border-border/50 border-t'>
-        <td className='py-1.5 pr-3'>{formatTierDimension(tier)}</td>
+        <td className='py-1.5 pr-3'>
+          {isFlatTable ? unitLabel : formatMatrixTierDimension(tier, t)}
+        </td>
         {showAudioColumn ? (
           <td className='text-muted-foreground py-1.5 pr-3'>
-            {tier.audio ? t(AUDIO_LABEL_KEYS[tier.audio] ?? tier.audio) : '—'}
+            {tier.audio
+              ? t(MATRIX_AUDIO_LABEL_KEYS[tier.audio] ?? tier.audio)
+              : '—'}
           </td>
         ) : null}
-        <td
-          className={
-            groups.length > 0
-              ? 'text-muted-foreground py-1.5 pr-3 text-right font-mono tabular-nums'
-              : 'py-1.5 pr-3 text-right font-mono tabular-nums'
-          }
-        >
-          {groups.length > 0 ? (
-            <span className='line-through'>{formatPrice(tier.price)}</span>
-          ) : (
-            formatPrice(tier.price)
-          )}
+        <td className='py-1.5 text-right font-mono tabular-nums'>
+          {formatPrice(tier.price)}
         </td>
-        {groups.map((group) => (
-          <td
-            key={group.key}
-            className='text-foreground py-1.5 pl-3 text-right font-mono font-semibold tabular-nums'
-          >
-            {formatPrice(tier.price * group.ratio)}
-          </td>
-        ))}
       </tr>
     )
   }
+
+  const inputRows = [
+    hasInputImagePrice
+      ? {
+          key: 'image',
+          label: t('Input image price'),
+          unit: t('per input image'),
+          price: Number(table.input_image_price),
+        }
+      : null,
+    hasInputTokenPrice
+      ? {
+          key: 'token',
+          label: t('Input token price'),
+          unit: t('per 1M tokens'),
+          price: Number(table.input_token_price),
+        }
+      : null,
+  ].filter((row) => row !== null)
 
   return (
     <section>
       <div className='mb-2 flex items-baseline gap-2'>
         <span className='text-sm font-medium'>{t(sectionTitleKey)}</span>
-        <span className='text-muted-foreground text-xs'>({unitLabel})</span>
+        <span className='text-muted-foreground text-xs'>
+          ({t('Official price')} · {unitLabel})
+        </span>
       </div>
       <div className='space-y-3'>
-        {hasInputImagePrice || hasInputTokenPrice ? (
+        {inputRows.length > 0 ? (
           <div className='bg-muted/20 overflow-x-auto rounded-lg border px-3 py-2.5'>
             <div className='text-muted-foreground mb-1 text-xs font-medium'>
               {t('Input price')}
             </div>
-            <table className='w-full min-w-[360px] text-sm'>
+            <table className='w-full min-w-[280px] text-sm'>
               <tbody>
-                {hasInputImagePrice ? (
-                  <tr className='border-border/50 border-t'>
-                    <td className='py-1.5 pr-3'>{t('Input image price')}</td>
+                {inputRows.map((row) => (
+                  <tr key={row.key} className='border-border/50 border-t'>
+                    <td className='py-1.5 pr-3'>{row.label}</td>
                     <td className='text-muted-foreground py-1.5 pr-3'>
-                      {t('per input image')}
+                      {row.unit}
                     </td>
-                    <td
-                      className={
-                        groups.length > 0
-                          ? 'text-muted-foreground py-1.5 pr-3 text-right font-mono tabular-nums'
-                          : 'py-1.5 pr-3 text-right font-mono tabular-nums'
-                      }
-                    >
-                      {groups.length > 0 ? (
-                        <span className='line-through'>
-                          {formatPrice(Number(table.input_image_price))}
-                        </span>
-                      ) : (
-                        formatPrice(Number(table.input_image_price))
-                      )}
+                    <td className='py-1.5 text-right font-mono tabular-nums'>
+                      {formatPrice(row.price)}
                     </td>
-                    {groups.map((group) => (
-                      <td
-                        key={group.key}
-                        className='text-foreground py-1.5 pl-3 text-right font-mono font-semibold tabular-nums'
-                      >
-                        {formatPrice(
-                          Number(table.input_image_price) * group.ratio
-                        )}
-                      </td>
-                    ))}
                   </tr>
-                ) : null}
-                {hasInputTokenPrice ? (
-                  <tr className='border-border/50 border-t'>
-                    <td className='py-1.5 pr-3'>{t('Input token price')}</td>
-                    <td className='text-muted-foreground py-1.5 pr-3'>
-                      {t('per 1M tokens')}
-                    </td>
-                    <td
-                      className={
-                        groups.length > 0
-                          ? 'text-muted-foreground py-1.5 pr-3 text-right font-mono tabular-nums'
-                          : 'py-1.5 pr-3 text-right font-mono tabular-nums'
-                      }
-                    >
-                      {groups.length > 0 ? (
-                        <span className='line-through'>
-                          {formatPrice(Number(table.input_token_price))}
-                        </span>
-                      ) : (
-                        formatPrice(Number(table.input_token_price))
-                      )}
-                    </td>
-                    {groups.map((group) => (
-                      <td
-                        key={group.key}
-                        className='text-foreground py-1.5 pl-3 text-right font-mono font-semibold tabular-nums'
-                      >
-                        {formatPrice(
-                          Number(table.input_token_price) * group.ratio
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ) : null}
+                ))}
               </tbody>
             </table>
           </div>
         ) : null}
-        {MODE_SECTION_KEYS.map((section) => {
+        {MATRIX_MODE_SECTIONS.map((section) => {
           const tiers = tiersByMode.get(section.mode)
           if (!tiers || tiers.length === 0) return null
           return (
@@ -286,7 +173,7 @@ export function VideoPriceSection(props: {
               <div className='text-muted-foreground mb-1 text-xs font-medium'>
                 {t(section.labelKey)}
               </div>
-              <table className='w-full min-w-[360px] text-sm'>
+              <table className='w-full min-w-[280px] text-sm'>
                 <thead>
                   <tr className='text-muted-foreground text-left text-xs'>
                     <th className='py-1 pr-3 font-normal'>
@@ -297,34 +184,10 @@ export function VideoPriceSection(props: {
                         {t('Audio track')}
                       </th>
                     ) : null}
-                    <th className='py-1 pr-3 text-right font-normal'>
+                    <th className='py-1 text-right font-normal'>
                       {t('Official price')}
                       {table.unit === 'per_image' ? ` ${t('/image')}` : null}
                     </th>
-                    {groups.map((group) => (
-                      <th
-                        key={group.key}
-                        className='py-1 pl-3 text-right font-normal'
-                      >
-                        <span className='whitespace-nowrap'>
-                          {group.label}
-                          {group.promotion && (
-                            <span className='text-muted-foreground/50 ml-1 line-through'>
-                              ×{formatRatio(group.baseRatio)}
-                            </span>
-                          )}
-                          <span className='text-muted-foreground/60 ml-1'>
-                            ×{formatRatio(group.ratio)}
-                          </span>
-                        </span>
-                        {/* CUSTOM: 限时活动角标（fork 扩展） */}
-                        {group.promotion && (
-                          <span className='mt-1 flex justify-end'>
-                            <PromotionBadge promotion={group.promotion} />
-                          </span>
-                        )}
-                      </th>
-                    ))}
                   </tr>
                 </thead>
                 <tbody>{tiers.map(renderRow)}</tbody>

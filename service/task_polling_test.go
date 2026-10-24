@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	taskdto "github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/bytedance/gopkg/util/gopool"
@@ -495,4 +496,88 @@ func TestSweepTimedOutTasksHonorsRefundRolloutBoundary(t *testing.T) {
 	assert.Contains(t, reloadedModern.FailReason, "任务超时")
 	assert.Equal(t, initialQuota+modernTaskQuota, getUserQuota(t, userID))
 	assert.Equal(t, int64(1), countLogs(t))
+}
+
+type terminalTaskPollingAdaptor struct {
+	status model.TaskStatus
+}
+
+func (a *terminalTaskPollingAdaptor) Init(_ *relaycommon.RelayInfo) {}
+
+func (a *terminalTaskPollingAdaptor) FetchTask(_ string, _ string, body map[string]any, _ string) (*http.Response, error) {
+	taskID, _ := body["task_id"].(string)
+	responseBody, err := common.Marshal(taskdto.TaskResponse[model.Task]{
+		Code: taskdto.TaskSuccessCode,
+		Data: model.Task{TaskID: taskID, Status: a.status, Progress: "100%"},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(responseBody)),
+	}, nil
+}
+
+func (a *terminalTaskPollingAdaptor) ParseTaskResult([]byte) (*relaycommon.TaskInfo, error) {
+	return nil, nil
+}
+
+func (a *terminalTaskPollingAdaptor) AdjustBillingOnComplete(_ *model.Task, _ *relaycommon.TaskInfo) int {
+	return 0
+}
+
+// 异步任务在轮询到终态时按「提交到完成」的耗时计入分组性能统计，重复轮询不能重复计数。
+func TestUpdateVideoSingleTaskRecordsTerminalTaskPerfOnce(t *testing.T) {
+	tests := []struct {
+		name        string
+		status      model.TaskStatus
+		successRate float64
+	}{
+		{name: "success", status: model.TaskStatusSuccess, successRate: 100},
+		{name: "failure", status: model.TaskStatusFailure, successRate: 0},
+	}
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			truncate(t)
+			channelID := 510 + i
+			modelName := "perf-task-model-" + tt.name
+			seedTaskPollingChannel(t, channelID, true)
+			task := &model.Task{
+				TaskID:     "perf_task_" + tt.name,
+				Platform:   constant.TaskPlatform("kling"),
+				UserId:     1,
+				Group:      "vip",
+				ChannelId:  channelID,
+				Action:     constant.TaskActionGenerate,
+				Status:     model.TaskStatusInProgress,
+				Progress:   "30%",
+				SubmitTime: time.Now().Unix() - 300,
+				Properties: model.Properties{OriginModelName: modelName},
+				PrivateData: model.TaskPrivateData{
+					UpstreamTaskID: "upstream_perf_" + tt.name,
+				},
+			}
+			require.NoError(t, model.DB.Create(task).Error)
+			channel, err := model.GetChannelById(channelID, true)
+			require.NoError(t, err)
+
+			adaptor := &terminalTaskPollingAdaptor{status: tt.status}
+			for range 2 {
+				var polled model.Task
+				require.NoError(t, model.DB.First(&polled, task.ID).Error)
+				require.NoError(t, updateVideoSingleTask(context.Background(), adaptor, channel, polled.TaskID, map[string]*model.Task{
+					polled.TaskID: &polled,
+				}))
+			}
+
+			result, err := perfmetrics.Query(perfmetrics.QueryParams{Model: modelName, Hours: 1})
+			require.NoError(t, err)
+			require.Len(t, result.Groups, 1)
+			group := result.Groups[0]
+			assert.Equal(t, "vip", group.Group)
+			assert.Equal(t, tt.successRate, group.SuccessRate)
+			assert.InDelta(t, 300_000, group.AvgLatencyMs, 2_000)
+		})
+	}
 }

@@ -37,27 +37,19 @@ export function supportsCustomAutoGroups(
 }
 
 /**
- * 把比价路由插到分组列表里。放在 auto 之后、真实分组之前——两个自动路由排在一起
- * 更好理解；后端不下发它，所以这里要判重，避免将来后端也开始下发时出现两条。
+ * 把比价路由加进分组列表，并把两种自动路由固定排在最前：auto_price 第一、auto
+ * 第二，其余分组保持后端返回的顺序。后端不下发 auto_price，所以这里合成；将来
+ * 后端也下发时沿用后端那一条，不出现两条。
  */
 export function withAutoPriceOption(
   groups: ApiKeyGroupOption[],
   label: string,
   desc: string
 ): ApiKeyGroupOption[] {
-  if (groups.some((group) => group.value === AUTO_PRICE_GROUP)) return groups
-
-  const option: ApiKeyGroupOption = {
-    value: AUTO_PRICE_GROUP,
-    label,
-    desc,
-    ratio: undefined,
-  }
-  const autoIndex = groups.findIndex((group) => group.value === 'auto')
-  if (autoIndex < 0) return [option, ...groups]
-  return [
-    ...groups.slice(0, autoIndex + 1),
-    option,
-    ...groups.slice(autoIndex + 1),
-  ]
+  const autoPrice = groups.find(
+    (group) => group.value === AUTO_PRICE_GROUP
+  ) ?? { value: AUTO_PRICE_GROUP, label, desc, ratio: undefined }
+  const auto = groups.filter((group) => group.value === 'auto')
+  const rest = groups.filter((group) => !isAutoRoutingGroup(group.value))
+  return [autoPrice, ...auto, ...rest]
 }

@@ -35,7 +35,6 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
-import { StaticDataTable } from '@/components/data-table'
 import { sideDrawerContentClassName } from '@/components/drawer-layout'
 import { GroupBadge } from '@/components/group-badge'
 import { PublicLayout } from '@/components/layout'
@@ -63,20 +62,11 @@ import { getModelVoices } from '../api'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import { usePricingData } from '../hooks/use-pricing-data'
 import {
-  getDynamicPriceEntries,
   getDynamicPricingSummary,
   hasDynamicRequestRules,
-  getDynamicPricingTiers,
-  isDynamicPricingModel,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
-import { resolveBillingExprForGroup } from '../lib/group-billing-expr'
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
-// CUSTOM: 限时活动（fork 扩展）
-import {
-  activePromotionForGroup,
-  effectiveGroupRatio,
-} from '../lib/model-promotion'
 import { formatFixedPrice, formatGroupPrice } from '../lib/price'
 import type {
   ModelCapability,
@@ -85,11 +75,11 @@ import type {
   TokenUnit,
 } from '../types'
 import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
+import { GroupPriceCards } from './group-price-cards'
 import { ModelBillingModeBadge } from './model-billing-mode-badge'
 import { ModelDetailsApi } from './model-details-api'
 import { ModelDetailsPerformance } from './model-details-performance'
 import { ModelVoices } from './model-voices'
-import { PromotionBadge } from './promotion-badge'
 import { VideoPriceSection } from './video-price-section'
 
 // ----------------------------------------------------------------------------
@@ -824,370 +814,6 @@ function AutoGroupChain(props: { model: PricingModel; autoGroups: string[] }) {
   )
 }
 
-type DynamicPriceOptions = Parameters<typeof getDynamicPriceEntries>[1]
-type DynamicPricingTier = ReturnType<typeof getDynamicPricingTiers>[number]
-type DynamicFormattedPricesByTier = Map<DynamicPricingTier, Map<string, string>>
-
-function getDynamicPriceFields(
-  tiers: DynamicPricingTier[],
-  options: DynamicPriceOptions
-) {
-  return [
-    ...new Map(
-      tiers
-        .flatMap((tier) => getDynamicPriceEntries(tier, options))
-        .map((entry) => [entry.field, entry])
-    ).values(),
-  ]
-}
-
-function getDynamicFormattedPricesByTier(
-  tiers: DynamicPricingTier[],
-  options: DynamicPriceOptions
-): DynamicFormattedPricesByTier {
-  return new Map(
-    tiers.map((tier) => [
-      tier,
-      new Map(
-        getDynamicPriceEntries(tier, options).map((entry) => [
-          entry.field,
-          entry.formatted,
-        ])
-      ),
-    ])
-  )
-}
-
-// ----------------------------------------------------------------------------
-// Group pricing table
-// ----------------------------------------------------------------------------
-
-function GroupPricingSection(props: {
-  model: PricingModel
-  groupRatio: Record<string, number>
-  usableGroup: Record<string, { desc: string; ratio: number }>
-  autoGroups: string[]
-  priceRate: number
-  usdExchangeRate: number
-  tokenUnit: TokenUnit
-  showRechargePrice?: boolean
-}) {
-  const { t } = useTranslation()
-  const showRechargePrice = props.showRechargePrice ?? false
-
-  const availableGroups = useMemo(
-    () => getAvailableGroups(props.model, props.usableGroup || {}),
-    [props.model, props.usableGroup]
-  )
-
-  const isTokenBased = isTokenBasedModel(props.model)
-  const tokenUnitLabel = props.tokenUnit === 'K' ? '1K' : '1M'
-
-  // CUSTOM: 后端把活动倍率乘进了实际计费的 GroupRatio，这里也必须乘进展示用的
-  // 倍率——否则页面显示原价、实际按活动价扣费，两边对不上。
-  const promotionOf = (group: string) =>
-    activePromotionForGroup(props.model, group)
-
-  const effectiveRatios = useMemo(() => {
-    const out: Record<string, number> = { ...props.groupRatio }
-    for (const group of availableGroups) {
-      out[group] = effectiveGroupRatio(
-        props.model,
-        group,
-        props.groupRatio[group] || 1
-      )
-    }
-    return out
-  }, [props.model, props.groupRatio, availableGroups])
-
-  const extraPriceTypes = useMemo(() => {
-    const types: { label: string; type: PriceType }[] = []
-    if (props.model.cache_ratio != null) {
-      types.push({ label: t('Cache'), type: 'cache' })
-    }
-    if (props.model.create_cache_ratio != null) {
-      types.push({ label: t('Cache Write'), type: 'create_cache' })
-    }
-    if (props.model.image_ratio != null) {
-      types.push({ label: t('Image'), type: 'image' })
-    }
-    if (props.model.audio_ratio != null) {
-      types.push({ label: t('Audio In'), type: 'audio_input' })
-    }
-    if (
-      props.model.audio_ratio != null &&
-      props.model.audio_completion_ratio != null
-    ) {
-      types.push({ label: t('Audio Out'), type: 'audio_output' })
-    }
-    return types
-  }, [props.model, t])
-
-  if (availableGroups.length === 0) {
-    return (
-      <section>
-        <SectionTitle>{t('Pricing by Group')}</SectionTitle>
-        <AutoGroupChain model={props.model} autoGroups={props.autoGroups} />
-        <p className='text-muted-foreground text-sm'>
-          {t(
-            'This model is not available in any group, or no group pricing information is configured.'
-          )}
-        </p>
-      </section>
-    )
-  }
-
-  const thClass =
-    'text-muted-foreground py-2 text-[10px] font-medium tracking-wider uppercase'
-
-  if (isDynamicPricingModel(props.model)) {
-    const dynamicTiers = getDynamicPricingTiers(props.model)
-
-    if (dynamicTiers.length === 0) {
-      return (
-        <section>
-          <SectionTitle>{t('Pricing by Group')}</SectionTitle>
-          <AutoGroupChain model={props.model} autoGroups={props.autoGroups} />
-          <div className='rounded-lg border border-amber-200/70 bg-amber-50/70 p-3 dark:border-amber-500/20 dark:bg-amber-500/10'>
-            <div className='text-sm font-medium text-amber-800 dark:text-amber-200'>
-              {t('Special billing expression')}
-            </div>
-            <p className='text-muted-foreground mt-1 text-xs'>
-              {t(
-                'Group prices cannot be expanded because this expression is not a standard tiered pricing expression.'
-              )}
-            </p>
-            <div className='mt-3'>
-              <div className='text-muted-foreground mb-1 text-[10px] font-medium tracking-wider uppercase'>
-                {t('Raw expression')}
-              </div>
-              <code className='text-muted-foreground bg-background/80 block max-h-28 overflow-auto rounded-md border px-2 py-1.5 font-mono text-xs break-all'>
-                {props.model.billing_expr}
-              </code>
-            </div>
-          </div>
-        </section>
-      )
-    }
-
-    // CUSTOM: 每个分组可能有自己的表达式，价格表必须按各自的档位算，
-    // 不能拿当前分组的档位乘一遍倍率就当成别的分组的价格（fork 扩展）。
-    const tiersByGroup = new Map(
-      availableGroups.map((group) => {
-        const expr = resolveBillingExprForGroup(props.model, group)
-        const tiers =
-          expr === props.model.billing_expr
-            ? dynamicTiers
-            : getDynamicPricingTiers({ ...props.model, billing_expr: expr })
-        return [group, tiers] as const
-      })
-    )
-    // 列取所有分组档位的并集：某个分组的覆盖可能多用或少用一个计价变量。
-    const priceFields = getDynamicPriceFields(
-      [dynamicTiers, ...tiersByGroup.values()].flat(),
-      {
-        tokenUnit: props.tokenUnit,
-        showRechargePrice,
-        priceRate: props.priceRate,
-        usdExchangeRate: props.usdExchangeRate,
-        groupRatioMultiplier: 1,
-      }
-    )
-    const formattedPricesByGroup = new Map(
-      availableGroups.map((group) => {
-        const ratio = effectiveRatios[group] || 1
-        return [
-          group,
-          getDynamicFormattedPricesByTier(
-            tiersByGroup.get(group) ?? dynamicTiers,
-            {
-              tokenUnit: props.tokenUnit,
-              showRechargePrice,
-              priceRate: props.priceRate,
-              usdExchangeRate: props.usdExchangeRate,
-              groupRatioMultiplier: ratio,
-            }
-          ),
-        ] as const
-      })
-    )
-
-    return (
-      <section>
-        <SectionTitle>{t('Pricing by Group')}</SectionTitle>
-        <AutoGroupChain model={props.model} autoGroups={props.autoGroups} />
-        <div className='space-y-3'>
-          {availableGroups.map((group) => {
-            const ratio = effectiveRatios[group] || 1
-            const promotion = promotionOf(group)
-            const groupTiers = tiersByGroup.get(group) ?? dynamicTiers
-            const formattedPricesByTier =
-              formattedPricesByGroup.get(group) ??
-              new Map<DynamicPricingTier, Map<string, string>>()
-
-            return (
-              <div key={group} className='overflow-hidden rounded-lg border'>
-                <div className='bg-muted/20 flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2'>
-                  <div className='flex flex-wrap items-center gap-2'>
-                    <GroupBadge group={group} size='sm' />
-                    {/* CUSTOM: 限时活动角标（fork 扩展） */}
-                    {promotion && <PromotionBadge promotion={promotion} />}
-                  </div>
-                  <span className='text-muted-foreground font-mono text-xs'>
-                    {promotion && (
-                      <span className='mr-1 line-through opacity-60'>
-                        {props.groupRatio[group] || 1}x
-                      </span>
-                    )}
-                    {Number(ratio.toFixed(4))}x
-                  </span>
-                </div>
-                <StaticDataTable
-                  className='rounded-none border-0'
-                  tableClassName='text-sm'
-                  headerRowClassName='hover:bg-transparent'
-                  data={groupTiers}
-                  getRowKey={(tier, tierIndex) =>
-                    `${group}-${tier.label || tierIndex}`
-                  }
-                  columns={[
-                    {
-                      id: 'tier',
-                      header: t('Tier'),
-                      className: thClass,
-                      cellClassName: 'text-muted-foreground py-2.5',
-                      cell: (tier) => tier.label || t('Default'),
-                    },
-                    ...priceFields.map((fieldEntry) => ({
-                      id: fieldEntry.field,
-                      header: t(fieldEntry.shortLabel),
-                      className: `${thClass} text-right`,
-                      cellClassName: 'py-2.5 text-right font-mono',
-                      cell: (tier: (typeof dynamicTiers)[number]) =>
-                        formattedPricesByTier
-                          .get(tier)
-                          ?.get(fieldEntry.field) ?? '-',
-                    })),
-                  ]}
-                />
-              </div>
-            )
-          })}
-          <p className='text-muted-foreground/40 mt-1.5 text-[10px]'>
-            {t('Prices shown per')} {tokenUnitLabel} tokens
-          </p>
-        </div>
-      </section>
-    )
-  }
-
-  const renderGroupPrice = (group: string, type: PriceType) =>
-    formatGroupPrice(
-      props.model,
-      group,
-      type,
-      props.tokenUnit,
-      showRechargePrice,
-      props.priceRate,
-      props.usdExchangeRate,
-      effectiveRatios
-    )
-  const renderFixedGroupPrice = (group: string) =>
-    formatFixedPrice(
-      props.model,
-      group,
-      showRechargePrice,
-      props.priceRate,
-      props.usdExchangeRate,
-      effectiveRatios
-    )
-
-  return (
-    <section>
-      <SectionTitle>{t('Pricing by Group')}</SectionTitle>
-      <AutoGroupChain model={props.model} autoGroups={props.autoGroups} />
-      <StaticDataTable
-        className='-mx-4 rounded-none border-0 sm:mx-0'
-        tableClassName='text-sm'
-        headerRowClassName='hover:bg-transparent'
-        data={availableGroups}
-        getRowKey={(group) => group}
-        columns={[
-          {
-            id: 'group',
-            header: t('Group'),
-            className: thClass,
-            cellClassName: 'py-2.5',
-            cell: (group) => <GroupBadge group={group} size='sm' />,
-          },
-          {
-            id: 'ratio',
-            header: t('Ratio'),
-            className: thClass,
-            cellClassName: 'text-muted-foreground py-2.5 font-mono',
-            // CUSTOM: 命中活动时展示"原倍率 → 活动后倍率"，并挂上活动角标。
-            cell: (group) => {
-              const promotion = promotionOf(group)
-              if (!promotion) return `${props.groupRatio[group] || 1}x`
-              return (
-                <span className='flex flex-wrap items-center gap-1.5'>
-                  <span className='line-through opacity-60'>
-                    {props.groupRatio[group] || 1}x
-                  </span>
-                  <span className='text-foreground'>
-                    {Number((effectiveRatios[group] || 1).toFixed(4))}x
-                  </span>
-                  <PromotionBadge promotion={promotion} />
-                </span>
-              )
-            },
-          },
-          ...(isTokenBased
-            ? [
-                {
-                  id: 'input',
-                  header: t('Input'),
-                  className: `${thClass} text-right`,
-                  cellClassName: 'py-2.5 text-right font-mono',
-                  cell: (group: string) => renderGroupPrice(group, 'input'),
-                },
-                {
-                  id: 'output',
-                  header: t('Output'),
-                  className: `${thClass} text-right`,
-                  cellClassName: 'py-2.5 text-right font-mono',
-                  cell: (group: string) => renderGroupPrice(group, 'output'),
-                },
-                ...extraPriceTypes.map((ep) => ({
-                  id: ep.type,
-                  header: ep.label,
-                  className: `${thClass} text-right`,
-                  cellClassName: 'py-2.5 text-right font-mono',
-                  cell: (group: string) => renderGroupPrice(group, ep.type),
-                })),
-              ]
-            : [
-                {
-                  id: 'price',
-                  header: t('Price'),
-                  className: `${thClass} text-right`,
-                  cellClassName: 'py-2.5 text-right font-mono',
-                  cell: renderFixedGroupPrice,
-                },
-              ]),
-        ]}
-      />
-      <div className='-mx-4 sm:mx-0'>
-        {isTokenBased && (
-          <p className='text-muted-foreground/40 mt-1.5 px-4 text-[10px] sm:px-0'>
-            {t('Prices shown per')} {tokenUnitLabel} tokens
-          </p>
-        )}
-      </div>
-    </section>
-  )
-}
-
 // CUSTOM: voices 标签页只对有音色目录的语音模型显示（fork 扩展）
 const TAB_VALUES = ['overview', 'performance', 'api', 'voices'] as const
 type TabValue = (typeof TAB_VALUES)[number]
@@ -1221,9 +847,8 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
   // CUSTOM: 矩阵定价模型的完整价格由 VideoPriceSection 展示，
   // 隐藏仅用于兼容和兜底的模型基础价与 token 分组定价区块。
   const { videoPricing } = usePricingData()
-  const hasMatrixPricing = Boolean(
-    videoPricing[props.model.model_name]?.tiers?.length
-  )
+  const matrixTable = videoPricing[props.model.model_name]
+  const hasMatrixPricing = Boolean(matrixTable?.tiers?.length)
 
   const isDynamic =
     props.model.billing_mode === 'tiered_expr' &&
@@ -1304,27 +929,31 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
                 hideTiers={collapseBasePricing}
               />
             )}
-            {/* CUSTOM: 视频价格矩阵（fork 扩展） */}
+            {/* CUSTOM: 音视频和图片价格表的官方价（fork 扩展） */}
             <VideoPriceSection
               model={props.model}
-              groupRatio={props.groupRatio}
-              usableGroup={props.usableGroup}
               priceRate={props.priceRate}
               usdExchangeRate={props.usdExchangeRate}
               showRechargePrice={showRechargePrice}
             />
-            {!hasMatrixPricing && (
-              <GroupPricingSection
+            {/* CUSTOM: 按分组的价格卡片，覆盖所有计价方式（fork 扩展） */}
+            <section>
+              <SectionTitle>{t('Pricing by Group')}</SectionTitle>
+              <AutoGroupChain
+                model={props.model}
+                autoGroups={props.autoGroups}
+              />
+              <GroupPriceCards
                 model={props.model}
                 groupRatio={props.groupRatio}
                 usableGroup={props.usableGroup}
-                autoGroups={props.autoGroups}
+                matrixTable={matrixTable}
                 priceRate={props.priceRate}
                 usdExchangeRate={props.usdExchangeRate}
                 tokenUnit={props.tokenUnit}
                 showRechargePrice={showRechargePrice}
               />
-            )}
+            </section>
           </section>
 
           <ModelBackendDetailsSection model={props.model} />

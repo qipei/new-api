@@ -51,6 +51,7 @@ func TestMain(m *testing.M) {
 		&model.SystemTask{},
 		&model.SystemTaskLock{},
 		&model.VoiceCatalogEntry{},
+		&model.PerfMetric{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}

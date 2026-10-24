@@ -1,0 +1,2516 @@
+{
+  "source_url": "https://platform.minimax.cn/docs/faq/system-voice-id",
+  "updated_at": "2026-10-24",
+  "note": "按 MiniMax 开放平台系统音色表整理，四个 MiniMax 语音模型共用；327 个音色均已在 speech-02-turbo 上实测合成通过，并抽 40 个在 speech-2.8-turbo 上交叉验证。",
+  "voices": [
+    {
+      "voice": "male-qn-qingse",
+      "name": "青涩青年音色",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "male-qn-jingying",
+      "name": "精英青年音色",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "male-qn-badao",
+      "name": "霸道青年音色",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "male-qn-daxuesheng",
+      "name": "青年大学生音色",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "female-shaonv",
+      "name": "少女音色",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "female-yujie",
+      "name": "御姐音色",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "female-chengshu",
+      "name": "成熟女性音色",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "female-tianmei",
+      "name": "甜美女性音色",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "male-qn-qingse-jingpin",
+      "name": "青涩青年音色-beta",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "male-qn-jingying-jingpin",
+      "name": "精英青年音色-beta",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "male-qn-badao-jingpin",
+      "name": "霸道青年音色-beta",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "male-qn-daxuesheng-jingpin",
+      "name": "青年大学生音色-beta",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "female-shaonv-jingpin",
+      "name": "少女音色-beta",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "female-yujie-jingpin",
+      "name": "御姐音色-beta",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "female-chengshu-jingpin",
+      "name": "成熟女性音色-beta",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "female-tianmei-jingpin",
+      "name": "甜美女性音色-beta",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "clever_boy",
+      "name": "聪明男童",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "cute_boy",
+      "name": "可爱男童",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "lovely_girl",
+      "name": "萌萌女童",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "cartoon_pig",
+      "name": "卡通猪小琪",
+      "languages": [
+        "中文 (普通话)"
+      ]
+    },
+    {
+      "voice": "bingjiao_didi",
+      "name": "病娇弟弟",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "junlang_nanyou",
+      "name": "俊朗男友",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "chunzhen_xuedi",
+      "name": "纯真学弟",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "lengdan_xiongzhang",
+      "name": "冷淡学长",
+      "languages": [
+        "中文 (普通话)"
+      ]
+    },
+    {
+      "voice": "badao_shaoye",
+      "name": "霸道少爷",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "tianxin_xiaoling",
+      "name": "甜心小玲",
+      "languages": [
+        "中文 (普通话)"
+      ]
+    },
+    {
+      "voice": "qiaopi_mengmei",
+      "name": "俏皮萌妹",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "wumei_yujie",
+      "name": "妩媚御姐",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "diadia_xuemei",
+      "name": "嗲嗲学妹",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "danya_xuejie",
+      "name": "淡雅学姐",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Reliable_Executive",
+      "name": "沉稳高管",
+      "languages": [
+        "中文 (普通话)"
+      ]
+    },
+    {
+      "voice": "Chinese (Mandarin)_News_Anchor",
+      "name": "新闻女声",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Mature_Woman",
+      "name": "傲娇御姐",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Unrestrained_Young_Man",
+      "name": "不羁青年",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Arrogant_Miss",
+      "name": "嚣张小姐",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Robot_Armor",
+      "name": "机械战甲",
+      "languages": [
+        "中文 (普通话)"
+      ]
+    },
+    {
+      "voice": "Chinese (Mandarin)_Kind-hearted_Antie",
+      "name": "热心大婶",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Chinese (Mandarin)_HK_Flight_Attendant",
+      "name": "港普空姐",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Humorous_Elder",
+      "name": "搞笑大爷",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Gentleman",
+      "name": "温润男声",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Warm_Bestie",
+      "name": "温暖闺蜜",
+      "languages": [
+        "中文 (普通话)"
+      ]
+    },
+    {
+      "voice": "Chinese (Mandarin)_Male_Announcer",
+      "name": "播报男声",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Sweet_Lady",
+      "name": "甜美女声",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Southern_Young_Man",
+      "name": "南方小哥",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Wise_Women",
+      "name": "阅历姐姐",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Gentle_Youth",
+      "name": "温润青年",
+      "languages": [
+        "中文 (普通话)"
+      ]
+    },
+    {
+      "voice": "Chinese (Mandarin)_Warm_Girl",
+      "name": "温暖少女",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Kind-hearted_Elder",
+      "name": "花甲奶奶",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Cute_Spirit",
+      "name": "憨憨萌兽",
+      "languages": [
+        "中文 (普通话)"
+      ]
+    },
+    {
+      "voice": "Chinese (Mandarin)_Radio_Host",
+      "name": "电台男主播",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Lyrical_Voice",
+      "name": "抒情男声",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Straightforward_Boy",
+      "name": "率真弟弟",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Sincere_Adult",
+      "name": "真诚青年",
+      "languages": [
+        "中文 (普通话)"
+      ]
+    },
+    {
+      "voice": "Chinese (Mandarin)_Gentle_Senior",
+      "name": "温柔学姐",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Stubborn_Friend",
+      "name": "嘴硬竹马",
+      "languages": [
+        "中文 (普通话)"
+      ]
+    },
+    {
+      "voice": "Chinese (Mandarin)_Crisp_Girl",
+      "name": "清脆少女",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Pure-hearted_Boy",
+      "name": "清澈邻家弟弟",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Chinese (Mandarin)_Soft_Girl",
+      "name": "柔和少女",
+      "languages": [
+        "中文 (普通话)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Cantonese_ProfessionalHost（F)",
+      "name": "专业女主持",
+      "languages": [
+        "中文 (粤语)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Cantonese_GentleLady",
+      "name": "温柔女声",
+      "languages": [
+        "中文 (粤语)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Cantonese_ProfessionalHost（M)",
+      "name": "专业男主持",
+      "languages": [
+        "中文 (粤语)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Cantonese_PlayfulMan",
+      "name": "活泼男声",
+      "languages": [
+        "中文 (粤语)"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Cantonese_CuteGirl",
+      "name": "可爱女孩",
+      "languages": [
+        "中文 (粤语)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Cantonese_KindWoman",
+      "name": "善良女声",
+      "languages": [
+        "中文 (粤语)"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Santa_Claus",
+      "name": "Santa Claus",
+      "languages": [
+        "英文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Grinch",
+      "name": "Grinch",
+      "languages": [
+        "英文"
+      ]
+    },
+    {
+      "voice": "Rudolph",
+      "name": "Rudolph",
+      "languages": [
+        "英文"
+      ]
+    },
+    {
+      "voice": "Arnold",
+      "name": "Arnold",
+      "languages": [
+        "英文"
+      ]
+    },
+    {
+      "voice": "Charming_Santa",
+      "name": "Charming Santa",
+      "languages": [
+        "英文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Charming_Lady",
+      "name": "Charming Lady",
+      "languages": [
+        "英文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Sweet_Girl",
+      "name": "Sweet Girl",
+      "languages": [
+        "英文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Cute_Elf",
+      "name": "Cute Elf",
+      "languages": [
+        "英文"
+      ]
+    },
+    {
+      "voice": "Attractive_Girl",
+      "name": "Attractive Girl",
+      "languages": [
+        "英文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Serene_Woman",
+      "name": "Serene Woman",
+      "languages": [
+        "英文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "English_Trustworthy_Man",
+      "name": "Trustworthy Man",
+      "languages": [
+        "英文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "English_Graceful_Lady",
+      "name": "Graceful Lady",
+      "languages": [
+        "英文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "English_Aussie_Bloke",
+      "name": "Aussie Bloke",
+      "languages": [
+        "英文"
+      ]
+    },
+    {
+      "voice": "English_Whispering_girl",
+      "name": "Whispering girl",
+      "languages": [
+        "英文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "English_Diligent_Man",
+      "name": "Diligent Man",
+      "languages": [
+        "英文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "English_Gentle-voiced_man",
+      "name": "Gentle-voiced man",
+      "languages": [
+        "英文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Japanese_IntellectualSenior",
+      "name": "Intellectual Senior",
+      "languages": [
+        "日文"
+      ]
+    },
+    {
+      "voice": "Japanese_DecisivePrincess",
+      "name": "Decisive Princess",
+      "languages": [
+        "日文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Japanese_LoyalKnight",
+      "name": "Loyal Knight",
+      "languages": [
+        "日文"
+      ]
+    },
+    {
+      "voice": "Japanese_DominantMan",
+      "name": "Dominant Man",
+      "languages": [
+        "日文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Japanese_SeriousCommander",
+      "name": "Serious Commander",
+      "languages": [
+        "日文"
+      ]
+    },
+    {
+      "voice": "Japanese_ColdQueen",
+      "name": "Cold Queen",
+      "languages": [
+        "日文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Japanese_DependableWoman",
+      "name": "Dependable Woman",
+      "languages": [
+        "日文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Japanese_GentleButler",
+      "name": "Gentle Butler",
+      "languages": [
+        "日文"
+      ]
+    },
+    {
+      "voice": "Japanese_KindLady",
+      "name": "Kind Lady",
+      "languages": [
+        "日文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Japanese_CalmLady",
+      "name": "Calm Lady",
+      "languages": [
+        "日文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Japanese_OptimisticYouth",
+      "name": "Optimistic Youth",
+      "languages": [
+        "日文"
+      ]
+    },
+    {
+      "voice": "Japanese_GenerousIzakayaOwner",
+      "name": "Generous Izakaya Owner",
+      "languages": [
+        "日文"
+      ]
+    },
+    {
+      "voice": "Japanese_SportyStudent",
+      "name": "Sporty Student",
+      "languages": [
+        "日文"
+      ]
+    },
+    {
+      "voice": "Japanese_InnocentBoy",
+      "name": "Innocent Boy",
+      "languages": [
+        "日文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Japanese_GracefulMaiden",
+      "name": "Graceful Maiden",
+      "languages": [
+        "日文"
+      ]
+    },
+    {
+      "voice": "Korean_SweetGirl",
+      "name": "Sweet Girl",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_CheerfulBoyfriend",
+      "name": "Cheerful Boyfriend",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_EnchantingSister",
+      "name": "Enchanting Sister",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_ShyGirl",
+      "name": "Shy Girl",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_ReliableSister",
+      "name": "Reliable Sister",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_StrictBoss",
+      "name": "Strict Boss",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_SassyGirl",
+      "name": "Sassy Girl",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_ChildhoodFriendGirl",
+      "name": "Childhood Friend Girl",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_PlayboyCharmer",
+      "name": "Playboy Charmer",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_ElegantPrincess",
+      "name": "Elegant Princess",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_BraveFemaleWarrior",
+      "name": "Brave Female Warrior",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_BraveYouth",
+      "name": "Brave Youth",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_CalmLady",
+      "name": "Calm Lady",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_EnthusiasticTeen",
+      "name": "Enthusiastic Teen",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_SoothingLady",
+      "name": "Soothing Lady",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_IntellectualSenior",
+      "name": "Intellectual Senior",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_LonelyWarrior",
+      "name": "Lonely Warrior",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_MatureLady",
+      "name": "Mature Lady",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_InnocentBoy",
+      "name": "Innocent Boy",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Korean_CharmingSister",
+      "name": "Charming Sister",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_AthleticStudent",
+      "name": "Athletic Student",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_BraveAdventurer",
+      "name": "Brave Adventurer",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_CalmGentleman",
+      "name": "Calm Gentleman",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Korean_WiseElf",
+      "name": "Wise Elf",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_CheerfulCoolJunior",
+      "name": "Cheerful Cool Junior",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_DecisiveQueen",
+      "name": "Decisive Queen",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_ColdYoungMan",
+      "name": "Cold Young Man",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Korean_MysteriousGirl",
+      "name": "Mysterious Girl",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_QuirkyGirl",
+      "name": "Quirky Girl",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_ConsiderateSenior",
+      "name": "Considerate Senior",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_CheerfulLittleSister",
+      "name": "Cheerful Little Sister",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_DominantMan",
+      "name": "Dominant Man",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Korean_AirheadedGirl",
+      "name": "Airheaded Girl",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_ReliableYouth",
+      "name": "Reliable Youth",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_FriendlyBigSister",
+      "name": "Friendly Big Sister",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_GentleBoss",
+      "name": "Gentle Boss",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_ColdGirl",
+      "name": "Cold Girl",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_HaughtyLady",
+      "name": "Haughty Lady",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_CharmingElderSister",
+      "name": "Charming Elder Sister",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_IntellectualMan",
+      "name": "Intellectual Man",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Korean_CaringWoman",
+      "name": "Caring Woman",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_WiseTeacher",
+      "name": "Wise Teacher",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_ConfidentBoss",
+      "name": "Confident Boss",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Korean_AthleticGirl",
+      "name": "Athletic Girl",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_PossessiveMan",
+      "name": "Possessive Man",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Korean_GentleWoman",
+      "name": "Gentle Woman",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_CockyGuy",
+      "name": "Cocky Guy",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Korean_ThoughtfulWoman",
+      "name": "Thoughtful Woman",
+      "languages": [
+        "韩文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Korean_OptimisticYouth",
+      "name": "Optimistic Youth",
+      "languages": [
+        "韩文"
+      ]
+    },
+    {
+      "voice": "Spanish_SereneWoman",
+      "name": "Serene Woman",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Spanish_MaturePartner",
+      "name": "Mature Partner",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_CaptivatingStoryteller",
+      "name": "Captivating Storyteller",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_Narrator",
+      "name": "Narrator",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_WiseScholar",
+      "name": "Wise Scholar",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_Kind-heartedGirl",
+      "name": "Kind-hearted Girl",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Spanish_DeterminedManager",
+      "name": "Determined Manager",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_BossyLeader",
+      "name": "Bossy Leader",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_ReservedYoungMan",
+      "name": "Reserved Young Man",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Spanish_ConfidentWoman",
+      "name": "Confident Woman",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Spanish_ThoughtfulMan",
+      "name": "Thoughtful Man",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Spanish_Strong-WilledBoy",
+      "name": "Strong-willed Boy",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Spanish_SophisticatedLady",
+      "name": "Sophisticated Lady",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Spanish_RationalMan",
+      "name": "Rational Man",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Spanish_AnimeCharacter",
+      "name": "Anime Character",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_Deep-tonedMan",
+      "name": "Deep-toned Man",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Spanish_Fussyhostess",
+      "name": "Fussy hostess",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_SincereTeen",
+      "name": "Sincere Teen",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_FrankLady",
+      "name": "Frank Lady",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Spanish_Comedian",
+      "name": "Comedian",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_Debator",
+      "name": "Debator",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_ToughBoss",
+      "name": "Tough Boss",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_Wiselady",
+      "name": "Wise Lady",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Spanish_Steadymentor",
+      "name": "Steady Mentor",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_Jovialman",
+      "name": "Jovial Man",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Spanish_SantaClaus",
+      "name": "Santa Claus",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Spanish_Rudolph",
+      "name": "Rudolph",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_Intonategirl",
+      "name": "Intonate Girl",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Spanish_Arnold",
+      "name": "Arnold",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_Ghost",
+      "name": "Ghost",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_HumorousElder",
+      "name": "Humorous Elder",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_EnergeticBoy",
+      "name": "Energetic Boy",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Spanish_WhimsicalGirl",
+      "name": "Whimsical Girl",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Spanish_StrictBoss",
+      "name": "Strict Boss",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_ReliableMan",
+      "name": "Reliable Man",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Spanish_SereneElder",
+      "name": "Serene Elder",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_AngryMan",
+      "name": "Angry Man",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Spanish_AssertiveQueen",
+      "name": "Assertive Queen",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Spanish_CaringGirlfriend",
+      "name": "Caring Girlfriend",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_PowerfulSoldier",
+      "name": "Powerful Soldier",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_PassionateWarrior",
+      "name": "Passionate Warrior",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_ChattyGirl",
+      "name": "Chatty Girl",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Spanish_RomanticHusband",
+      "name": "Romantic Husband",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Spanish_CompellingGirl",
+      "name": "Compelling Girl",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Spanish_PowerfulVeteran",
+      "name": "Powerful Veteran",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_SensibleManager",
+      "name": "Sensible Manager",
+      "languages": [
+        "西班牙文"
+      ]
+    },
+    {
+      "voice": "Spanish_ThoughtfulLady",
+      "name": "Thoughtful Lady",
+      "languages": [
+        "西班牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_SentimentalLady",
+      "name": "Sentimental Lady",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_BossyLeader",
+      "name": "Bossy Leader",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_Wiselady",
+      "name": "Wise lady",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_Strong-WilledBoy",
+      "name": "Strong-willed Boy",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_Deep-VoicedGentleman",
+      "name": "Deep-voiced Gentleman",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_UpsetGirl",
+      "name": "Upset Girl",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_PassionateWarrior",
+      "name": "Passionate Warrior",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_AnimeCharacter",
+      "name": "Anime Character",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_ConfidentWoman",
+      "name": "Confident Woman",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_AngryMan",
+      "name": "Angry Man",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_CaptivatingStoryteller",
+      "name": "Captivating Storyteller",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_Godfather",
+      "name": "Godfather",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_ReservedYoungMan",
+      "name": "Reserved Young Man",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_SmartYoungGirl",
+      "name": "Smart Young Girl",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_Kind-heartedGirl",
+      "name": "Kind-hearted Girl",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_Pompouslady",
+      "name": "Pompous lady",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_Grinch",
+      "name": "Grinch",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_Debator",
+      "name": "Debator",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_SweetGirl",
+      "name": "Sweet Girl",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_AttractiveGirl",
+      "name": "Attractive Girl",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_ThoughtfulMan",
+      "name": "Thoughtful Man",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_PlayfulGirl",
+      "name": "Playful Girl",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_GorgeousLady",
+      "name": "Gorgeous Lady",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_LovelyLady",
+      "name": "Lovely Lady",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_SereneWoman",
+      "name": "Serene Woman",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_SadTeen",
+      "name": "Sad Teen",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_MaturePartner",
+      "name": "Mature Partner",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_Comedian",
+      "name": "Comedian",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_NaughtySchoolgirl",
+      "name": "Naughty Schoolgirl",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_Narrator",
+      "name": "Narrator",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_ToughBoss",
+      "name": "Tough Boss",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_Fussyhostess",
+      "name": "Fussy hostess",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_Dramatist",
+      "name": "Dramatist",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_Steadymentor",
+      "name": "Steady Mentor",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_Jovialman",
+      "name": "Jovial Man",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_CharmingQueen",
+      "name": "Charming Queen",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_SantaClaus",
+      "name": "Santa Claus",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_Rudolph",
+      "name": "Rudolph",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_Arnold",
+      "name": "Arnold",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_CharmingSanta",
+      "name": "Charming Santa",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_CharmingLady",
+      "name": "Charming Lady",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_Ghost",
+      "name": "Ghost",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_HumorousElder",
+      "name": "Humorous Elder",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_CalmLeader",
+      "name": "Calm Leader",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_GentleTeacher",
+      "name": "Gentle Teacher",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_EnergeticBoy",
+      "name": "Energetic Boy",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_ReliableMan",
+      "name": "Reliable Man",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_SereneElder",
+      "name": "Serene Elder",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_GrimReaper",
+      "name": "Grim Reaper",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_AssertiveQueen",
+      "name": "Assertive Queen",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_WhimsicalGirl",
+      "name": "Whimsical Girl",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_StressedLady",
+      "name": "Stressed Lady",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_FriendlyNeighbor",
+      "name": "Friendly Neighbor",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_CaringGirlfriend",
+      "name": "Caring Girlfriend",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_PowerfulSoldier",
+      "name": "Powerful Soldier",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_FascinatingBoy",
+      "name": "Fascinating Boy",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_RomanticHusband",
+      "name": "Romantic Husband",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_StrictBoss",
+      "name": "Strict Boss",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_InspiringLady",
+      "name": "Inspiring Lady",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_PlayfulSpirit",
+      "name": "Playful Spirit",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_ElegantGirl",
+      "name": "Elegant Girl",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_CompellingGirl",
+      "name": "Compelling Girl",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_PowerfulVeteran",
+      "name": "Powerful Veteran",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_SensibleManager",
+      "name": "Sensible Manager",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_ThoughtfulLady",
+      "name": "Thoughtful Lady",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_TheatricalActor",
+      "name": "Theatrical Actor",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_FragileBoy",
+      "name": "Fragile Boy",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_ChattyGirl",
+      "name": "Chatty Girl",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_Conscientiousinstructor",
+      "name": "Conscientious Instructor",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_RationalMan",
+      "name": "Rational Man",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Portuguese_WiseScholar",
+      "name": "Wise Scholar",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "Portuguese_FrankLady",
+      "name": "Frank Lady",
+      "languages": [
+        "葡萄牙文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Portuguese_DeterminedManager",
+      "name": "Determined Manager",
+      "languages": [
+        "葡萄牙文"
+      ]
+    },
+    {
+      "voice": "French_Male_Speech_New",
+      "name": "Level-Headed Man",
+      "languages": [
+        "法文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "French_Female_News Anchor",
+      "name": "Patient Female Presenter",
+      "languages": [
+        "法文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "French_CasualMan",
+      "name": "Casual Man",
+      "languages": [
+        "法文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "French_MovieLeadFemale",
+      "name": "Movie Lead Female",
+      "languages": [
+        "法文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "French_FemaleAnchor",
+      "name": "Female Anchor",
+      "languages": [
+        "法文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "French_MaleNarrator",
+      "name": "Male Narrator",
+      "languages": [
+        "法文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Indonesian_SweetGirl",
+      "name": "Sweet Girl",
+      "languages": [
+        "印尼文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Indonesian_ReservedYoungMan",
+      "name": "Reserved Young Man",
+      "languages": [
+        "印尼文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Indonesian_CharmingGirl",
+      "name": "Charming Girl",
+      "languages": [
+        "印尼文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Indonesian_CalmWoman",
+      "name": "Calm Woman",
+      "languages": [
+        "印尼文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Indonesian_ConfidentWoman",
+      "name": "Confident Woman",
+      "languages": [
+        "印尼文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Indonesian_CaringMan",
+      "name": "Caring Man",
+      "languages": [
+        "印尼文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Indonesian_BossyLeader",
+      "name": "Bossy Leader",
+      "languages": [
+        "印尼文"
+      ]
+    },
+    {
+      "voice": "Indonesian_DeterminedBoy",
+      "name": "Determined Boy",
+      "languages": [
+        "印尼文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Indonesian_GentleGirl",
+      "name": "Gentle Girl",
+      "languages": [
+        "印尼文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "German_FriendlyMan",
+      "name": "Friendly Man",
+      "languages": [
+        "德文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "German_SweetLady",
+      "name": "Sweet Lady",
+      "languages": [
+        "德文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "German_PlayfulMan",
+      "name": "Playful Man",
+      "languages": [
+        "德文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Russian_HandsomeChildhoodFriend",
+      "name": "Handsome Childhood Friend",
+      "languages": [
+        "俄文"
+      ]
+    },
+    {
+      "voice": "Russian_BrightHeroine",
+      "name": "Bright Queen",
+      "languages": [
+        "俄文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Russian_AmbitiousWoman",
+      "name": "Ambitious Woman",
+      "languages": [
+        "俄文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Russian_ReliableMan",
+      "name": "Reliable Man",
+      "languages": [
+        "俄文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Russian_CrazyQueen",
+      "name": "Crazy Girl",
+      "languages": [
+        "俄文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Russian_PessimisticGirl",
+      "name": "Pessimistic Girl",
+      "languages": [
+        "俄文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Russian_AttractiveGuy",
+      "name": "Attractive Guy",
+      "languages": [
+        "俄文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Russian_Bad-temperedBoy",
+      "name": "Bad-tempered Boy",
+      "languages": [
+        "俄文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Italian_BraveHeroine",
+      "name": "Brave Heroine",
+      "languages": [
+        "意大利文"
+      ]
+    },
+    {
+      "voice": "Italian_Narrator",
+      "name": "Narrator",
+      "languages": [
+        "意大利文"
+      ]
+    },
+    {
+      "voice": "Italian_WanderingSorcerer",
+      "name": "Wandering Sorcerer",
+      "languages": [
+        "意大利文"
+      ]
+    },
+    {
+      "voice": "Italian_DiligentLeader",
+      "name": "Diligent Leader",
+      "languages": [
+        "意大利文"
+      ]
+    },
+    {
+      "voice": "Arabic_CalmWoman",
+      "name": "Calm Woman",
+      "languages": [
+        "阿拉伯文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Arabic_FriendlyGuy",
+      "name": "Friendly Guy",
+      "languages": [
+        "阿拉伯文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Turkish_CalmWoman",
+      "name": "Calm Woman",
+      "languages": [
+        "土耳其文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Turkish_Trustworthyman",
+      "name": "Trustworthy man",
+      "languages": [
+        "土耳其文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Ukrainian_CalmWoman",
+      "name": "Calm Woman",
+      "languages": [
+        "乌克兰文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Ukrainian_WiseScholar",
+      "name": "Wise Scholar",
+      "languages": [
+        "乌克兰文"
+      ]
+    },
+    {
+      "voice": "Dutch_kindhearted_girl",
+      "name": "Kind-hearted girl",
+      "languages": [
+        "荷兰文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Dutch_bossy_leader",
+      "name": "Bossy leader",
+      "languages": [
+        "荷兰文"
+      ]
+    },
+    {
+      "voice": "Vietnamese_kindhearted_girl",
+      "name": "Kind-hearted girl",
+      "languages": [
+        "越南文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Thai_male_1_sample8",
+      "name": "Serene Man",
+      "languages": [
+        "泰文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Thai_male_2_sample2",
+      "name": "Friendly Man",
+      "languages": [
+        "泰文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Thai_female_1_sample1",
+      "name": "Confident Woman",
+      "languages": [
+        "泰文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Thai_female_2_sample2",
+      "name": "Energetic Woman",
+      "languages": [
+        "泰文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Polish_male_1_sample4",
+      "name": "Male Narrator",
+      "languages": [
+        "波兰文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Polish_male_2_sample3",
+      "name": "Male Anchor",
+      "languages": [
+        "波兰文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Polish_female_1_sample1",
+      "name": "Calm Woman",
+      "languages": [
+        "波兰文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Polish_female_2_sample3",
+      "name": "Casual Woman",
+      "languages": [
+        "波兰文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Romanian_male_1_sample2",
+      "name": "Reliable Man",
+      "languages": [
+        "罗马尼亚文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Romanian_male_2_sample1",
+      "name": "Energetic Youth",
+      "languages": [
+        "罗马尼亚文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Romanian_female_1_sample4",
+      "name": "Optimistic Youth",
+      "languages": [
+        "罗马尼亚文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Romanian_female_2_sample1",
+      "name": "Gentle Woman",
+      "languages": [
+        "罗马尼亚文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "greek_male_1a_v1",
+      "name": "Thoughtful Mentor",
+      "languages": [
+        "希腊文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "Greek_female_1_sample1",
+      "name": "Gentle Lady",
+      "languages": [
+        "希腊文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "Greek_female_2_sample3",
+      "name": "Girl Next Door",
+      "languages": [
+        "希腊文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "czech_male_1_v1",
+      "name": "Assured Presenter",
+      "languages": [
+        "捷克文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "czech_female_5_v7",
+      "name": "Steadfast Narrator",
+      "languages": [
+        "捷克文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "czech_female_2_v2",
+      "name": "Elegant Lady",
+      "languages": [
+        "捷克文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "finnish_male_3_v1",
+      "name": "Upbeat Man",
+      "languages": [
+        "芬兰文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "finnish_male_1_v2",
+      "name": "Friendly Boy",
+      "languages": [
+        "芬兰文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "finnish_female_4_v1",
+      "name": "Assetive Woman",
+      "languages": [
+        "芬兰文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "hindi_male_1_v2",
+      "name": "Trustworthy Advisor",
+      "languages": [
+        "印地文"
+      ],
+      "gender": "male"
+    },
+    {
+      "voice": "hindi_female_2_v1",
+      "name": "Tranquil Woman",
+      "languages": [
+        "印地文"
+      ],
+      "gender": "female"
+    },
+    {
+      "voice": "hindi_female_1_v2",
+      "name": "News Anchor",
+      "languages": [
+        "印地文"
+      ],
+      "gender": "female"
+    }
+  ]
+}

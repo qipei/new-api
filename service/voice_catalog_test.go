@@ -99,6 +99,9 @@ func TestVoiceCatalogRulesPerModel(t *testing.T) {
 		{"seed-icl-2.0", VoiceCatalogKindClonedVoices, 0, voice_catalog.ProviderVolc},
 		{"seed-tts-2.0", VoiceCatalogKindVoices, 0, voice_catalog.ProviderVolc},
 		{"seed-audio-1.0", VoiceCatalogKindVoices, 0, voice_catalog.ProviderVolc},
+		// MiniMax 四个模型共用一份系统音色清单，对外名带不带 MiniMax/ 前缀都能对上。
+		{"MiniMax/speech-2.8-hd", VoiceCatalogKindVoices, 327, voice_catalog.ProviderMiniMax},
+		{"speech-02-turbo", VoiceCatalogKindVoices, 327, voice_catalog.ProviderMiniMax},
 	}
 	for _, tt := range tests {
 		t.Run(tt.model, func(t *testing.T) {

@@ -162,6 +162,12 @@ export function buildScenarioSample(
         `# ${ctx.translate('Download the audio from output.audio.url in the response; the link is valid for 24 hours.')}`
       )
     }
+    if (response === 'audio-hex') {
+      lines.push(
+        '',
+        `# ${ctx.translate('output.data.audio in the response is hex-encoded; decode it to get the audio file.')}`
+      )
+    }
     if (response === 'task') {
       lines.push(
         '',
@@ -180,6 +186,7 @@ export function buildScenarioSample(
       'audio-binary': 'import os, requests',
       'audio-base64': 'import base64, os, requests',
       'audio-url': 'import os, requests',
+      'audio-hex': 'import os, requests',
       task: 'import os, time, requests',
     }[response]
     const tail = {
@@ -199,6 +206,12 @@ export function buildScenarioSample(
         'data = resp.json()',
         `with open("${outputFile}", "wb") as f:`,
         '    f.write(requests.get(data["output"]["audio"]["url"]).content)',
+        'print(data["usage"])',
+      ],
+      'audio-hex': [
+        'data = resp.json()',
+        `with open("${outputFile}", "wb") as f:`,
+        '    f.write(bytes.fromhex(data["output"]["data"]["audio"]))',
         'print(data["usage"])',
       ],
       task: [
@@ -252,6 +265,11 @@ export function buildScenarioSample(
       `fs.writeFileSync("${outputFile}", Buffer.from(await audio.arrayBuffer()))`,
       'console.log(data.usage)',
     ],
+    'audio-hex': [
+      'const data = await resp.json()',
+      `fs.writeFileSync("${outputFile}", Buffer.from(data.output.data.audio, "hex"))`,
+      'console.log(data.usage)',
+    ],
     task: [
       'const { task_id } = await resp.json()',
       `// ${ctx.translate(POLL_HINT)}`,
@@ -266,7 +284,8 @@ export function buildScenarioSample(
   const needsFs =
     response === 'audio-binary' ||
     response === 'audio-base64' ||
-    response === 'audio-url'
+    response === 'audio-url' ||
+    response === 'audio-hex'
   return [
     ...(needsFs ? ['import fs from "node:fs"', ''] : []),
     `// ${ctx.scenarioTitle}`,

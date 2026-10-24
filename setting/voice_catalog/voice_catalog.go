@@ -1,8 +1,10 @@
 // CUSTOM: 语音模型的预置音色目录（fork 扩展）。
 //
-// 两个来源：
+// 三个来源：
 //   - 百炼 Qwen-Audio-TTS 没有查询音色的接口，按官方音色文档整理成静态清单随代码发布
 //     （bailian_voices.json，每个音色都在对应模型上实测合成过）；
+//   - 百炼 MiniMax 语音同样没有查询接口，按 MiniMax 开放平台的系统音色表整理成静态清单
+//     （minimax_voices.json，四个模型共用）；
 //   - 火山豆包语音用 ListSpeakers 接口定时同步入库，需要后台配置火山 OpenAPI 的 AK/SK
 //     （与语音的 X-Api-Key 不是同一套凭据）。
 //
@@ -21,6 +23,7 @@ import (
 
 const (
 	ProviderBailian = "bailian"
+	ProviderMiniMax = "minimax"
 	ProviderVolc    = "volcengine"
 )
 
@@ -153,4 +156,29 @@ func BailianVoices(model string) (voices []Voice, sourceURL, updatedAt string) {
 		}
 	}
 	return voices, catalog.SourceURL, catalog.UpdatedAt
+}
+
+//go:embed minimax_voices.json
+var miniMaxVoicesJSON []byte
+
+// MiniMaxCatalog MiniMax 系统音色静态清单，四个 MiniMax 语音模型共用。
+type MiniMaxCatalog struct {
+	SourceURL string  `json:"source_url"`
+	UpdatedAt string  `json:"updated_at"`
+	Voices    []Voice `json:"voices"`
+}
+
+var (
+	miniMaxOnce    sync.Once
+	miniMaxCatalog MiniMaxCatalog
+)
+
+// MiniMaxVoices 返回 MiniMax 系统音色，以及清单的整理日期。
+func MiniMaxVoices() (voices []Voice, updatedAt string) {
+	miniMaxOnce.Do(func() {
+		if err := common.Unmarshal(miniMaxVoicesJSON, &miniMaxCatalog); err != nil {
+			common.SysError(fmt.Sprintf("load minimax voice catalog failed: %v", err))
+		}
+	})
+	return miniMaxCatalog.Voices, miniMaxCatalog.UpdatedAt
 }

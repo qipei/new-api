@@ -135,7 +135,12 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 		case constant.RelayModeCompletions:
 			fullRequestURL = fmt.Sprintf("%s/compatible-mode/v1/completions", info.ChannelBaseUrl)
 		case constant.RelayModeAudioSpeech, constant.RelayModeAudioGeneration:
-			fullRequestURL = fmt.Sprintf("%s/api/v1/services/audio/tts/SpeechSynthesizer", info.ChannelBaseUrl)
+			// CUSTOM: MiniMax 语音走多模态生成接口，Qwen-Audio-TTS 走 SpeechSynthesizer（fork 扩展）
+			if isMiniMaxSpeechModel(info.UpstreamModelName) {
+				fullRequestURL = fmt.Sprintf("%s/api/v1/services/aigc/multimodal-generation/generation", info.ChannelBaseUrl)
+			} else {
+				fullRequestURL = fmt.Sprintf("%s/api/v1/services/audio/tts/SpeechSynthesizer", info.ChannelBaseUrl)
+			}
 		default:
 			fullRequestURL = fmt.Sprintf("%s/compatible-mode/v1/chat/completions", info.ChannelBaseUrl)
 		}
@@ -256,15 +261,19 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 	if !isSpeechRelay(info) {
 		return nil, errors.New("not implemented")
 	}
+	if isMiniMaxSpeechModel(info.UpstreamModelName) {
+		return convertMiniMaxSpeechRequest(c, info, request)
+	}
 	return convertSpeechRequest(c, info, request)
 }
 
-// isSpeechRelay 判断是否为百炼 Qwen-Audio-TTS 的语音合成或音频生成请求。
+// isSpeechRelay 判断是否为百炼 Qwen-Audio-TTS / MiniMax 的语音合成或音频生成请求。
 func isSpeechRelay(info *relaycommon.RelayInfo) bool {
 	if info.RelayMode == constant.RelayModeAudioGeneration {
 		return true
 	}
-	return info.RelayMode == constant.RelayModeAudioSpeech && isQwenAudioTTSModel(info.UpstreamModelName)
+	return info.RelayMode == constant.RelayModeAudioSpeech &&
+		(isQwenAudioTTSModel(info.UpstreamModelName) || isMiniMaxSpeechModel(info.UpstreamModelName))
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
@@ -294,7 +303,11 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		case constant.RelayModeRerank:
 			err, usage = RerankHandler(c, resp, info)
 		case constant.RelayModeAudioSpeech, constant.RelayModeAudioGeneration:
-			usage, err = handleSpeechResponse(c, resp, info)
+			if isMiniMaxSpeechModel(info.UpstreamModelName) {
+				usage, err = handleMiniMaxSpeechResponse(c, resp, info)
+			} else {
+				usage, err = handleSpeechResponse(c, resp, info)
+			}
 		default:
 			adaptor := openai.Adaptor{}
 			usage, err = adaptor.DoResponse(c, resp, info)

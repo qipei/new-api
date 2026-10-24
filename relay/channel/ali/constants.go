@@ -12,6 +12,10 @@ var ModelList = []string{
 	"qwen-audio-3.1-tts-plus",
 	"qwen-audio-3.1-tts-flash",
 	"qwen-audio-3.1-tts-next",
+	"MiniMax/speech-2.8-hd",
+	"MiniMax/speech-02-hd",
+	"MiniMax/speech-2.8-turbo",
+	"MiniMax/speech-02-turbo",
 }
 
 var ChannelName = "ali"

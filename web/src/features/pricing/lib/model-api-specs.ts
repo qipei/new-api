@@ -54,6 +54,7 @@ export type ModelApiParam = Omit<SupportedParameter, 'descriptionKey'> & {
  * 示例的响应处理方式，决定示例代码在请求之后做什么：
  * json 打印响应；audio-binary 把响应体存成音频文件；audio-base64 解码响应里的
  * audio 字段再存文件；audio-url 下载响应里 output.audio.url 指向的音频；
+ * audio-hex 把响应里 output.data.audio 的 hex 编码解码后存文件；
  * task 提交后轮询查询接口直到任务结束。
  */
 export type SampleResponseKind =
@@ -61,6 +62,7 @@ export type SampleResponseKind =
   | 'audio-binary'
   | 'audio-base64'
   | 'audio-url'
+  | 'audio-hex'
   | 'task'
 
 export type ModelApiSample = {
@@ -2053,6 +2055,368 @@ const QWEN_AUDIO_NEXT: ModelApiSpec = {
   ],
 }
 
+// ---------------------------------------------------------------------------
+// 百炼 MiniMax 同步语音合成 MiniMax/speech-2.8-hd、speech-02-hd、speech-2.8-turbo、
+// speech-02-turbo（按万字符计费，汉字计 2 个）
+// 依据：relay/channel/ali/minimax_speech.go。原生入口返回 hex 编码的音频。
+// ---------------------------------------------------------------------------
+
+const MINIMAX_SPEECH_LANGUAGES = [
+  'auto',
+  'Chinese',
+  'Chinese,Yue',
+  'English',
+  'Arabic',
+  'Russian',
+  'Spanish',
+  'French',
+  'Portuguese',
+  'German',
+  'Turkish',
+  'Dutch',
+  'Ukrainian',
+  'Vietnamese',
+  'Indonesian',
+  'Japanese',
+  'Italian',
+  'Korean',
+  'Thai',
+  'Polish',
+  'Romanian',
+  'Greek',
+  'Czech',
+  'Finnish',
+  'Hindi',
+  'Bulgarian',
+  'Danish',
+  'Hebrew',
+  'Malay',
+  'Persian',
+  'Slovak',
+  'Swedish',
+  'Croatian',
+  'Filipino',
+  'Hungarian',
+  'Norwegian',
+  'Slovenian',
+  'Catalan',
+  'Nynorsk',
+  'Tamil',
+  'Afrikaans',
+]
+
+const MINIMAX_SPEECH_COMPAT_PARAMS: ModelApiParam[] = [
+  {
+    name: 'input',
+    location: 'body',
+    type: 'string',
+    required: true,
+    range: '< 10000',
+    descriptionKey: 'Text to synthesize, sent upstream as input.text.',
+  },
+  {
+    name: 'voice',
+    location: 'body',
+    type: 'string',
+    required: true,
+    descriptionKey: 'Voice ID, sent upstream as input.voice_setting.voice_id.',
+  },
+  {
+    name: 'response_format',
+    location: 'body',
+    type: 'enum',
+    defaultValue: 'mp3',
+    enumValues: ['mp3', 'wav', 'pcm', 'flac'],
+    descriptionKey:
+      'Audio format of the response body. opus and aac are rejected.',
+  },
+  {
+    name: 'speed',
+    location: 'body',
+    type: 'number',
+    defaultValue: 1,
+    range: '0.5 – 2',
+    descriptionKey:
+      'Speaking speed, sent upstream as input.voice_setting.speed. Values outside 0.5-2 are clamped.',
+  },
+  {
+    name: 'metadata',
+    location: 'metadata',
+    type: 'object',
+    descriptionKey:
+      'Native fields merged into input. voice_setting and audio_setting are merged field by field, so you can add emotion or sample_rate without losing the converted values.',
+  },
+]
+
+const MINIMAX_SPEECH: ModelApiSpec = {
+  family: 'minimax-speech',
+  match: /^(minimax\/)?speech-[\d.]+-(hd|turbo)/i,
+  endpointPath: '/v1/audio/generations',
+  response: 'audio-hex',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'Billed per 10,000 characters, with each Chinese character counting as two. The hd models cost more than the turbo models.',
+    },
+    {
+      name: 'input.text',
+      location: 'body',
+      type: 'string',
+      required: true,
+      range: '< 10000',
+      descriptionKey: 'Text to synthesize, fewer than 10,000 characters.',
+    },
+    {
+      name: 'input.voice_setting.voice_id',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'System voice ID such as male-qn-qingse. Leave it empty when mixing voices with timbre_weights.',
+    },
+    {
+      name: 'input.voice_setting.speed',
+      location: 'body',
+      type: 'number',
+      defaultValue: 1,
+      range: '0.5 – 2',
+      descriptionKey: 'Speaking speed multiplier.',
+    },
+    {
+      name: 'input.voice_setting.vol',
+      location: 'body',
+      type: 'number',
+      defaultValue: 1,
+      range: '(0, 10]',
+      descriptionKey: 'Volume.',
+    },
+    {
+      name: 'input.voice_setting.pitch',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 0,
+      range: '-12 – 12',
+      descriptionKey: 'Pitch in semitones.',
+    },
+    {
+      name: 'input.voice_setting.emotion',
+      location: 'body',
+      type: 'enum',
+      enumValues: [
+        'happy',
+        'sad',
+        'angry',
+        'fearful',
+        'disgusted',
+        'surprised',
+        'calm',
+        'whisper',
+      ],
+      descriptionKey:
+        'Emotion. The model picks one from the text when omitted. speech-2.8 models do not support whisper.',
+    },
+    {
+      name: 'input.voice_setting.text_normalization',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Normalize Chinese and English text so numbers read better, at the cost of slightly higher latency.',
+    },
+    {
+      name: 'input.voice_setting.latex_read',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Read LaTeX formulas wrapped in $$. Chinese only; it forces language_boost to Chinese.',
+    },
+    {
+      name: 'input.audio_setting.sample_rate',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 32000,
+      enumValues: ['8000', '16000', '22050', '24000', '32000', '44100'],
+      descriptionKey: 'Sample rate in Hz.',
+    },
+    {
+      name: 'input.audio_setting.bitrate',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 128000,
+      enumValues: ['32000', '64000', '128000', '256000'],
+      descriptionKey: 'Bit rate. Only applies to mp3.',
+    },
+    {
+      name: 'input.audio_setting.format',
+      location: 'body',
+      type: 'enum',
+      defaultValue: 'mp3',
+      enumValues: ['mp3', 'pcm', 'flac', 'wav'],
+      descriptionKey: 'Output audio format.',
+    },
+    {
+      name: 'input.audio_setting.channel',
+      location: 'body',
+      type: 'integer',
+      defaultValue: 1,
+      enumValues: ['1', '2'],
+      descriptionKey: 'Number of channels: 1 for mono, 2 for stereo.',
+    },
+    {
+      name: 'input.pronunciation_dict.tone',
+      location: 'body',
+      type: 'array',
+      descriptionKey:
+        'Pronunciation rules in the form text/pronunciation, for example 燕少飞/(yan4)(shao3)(fei1) or omg/oh my god. Tones are 1-4, and 5 for the neutral tone.',
+    },
+    {
+      name: 'input.timbre_weights',
+      location: 'body',
+      type: 'array',
+      descriptionKey:
+        'Mix up to 4 voices. Each item has voice_id and weight from 1 to 100.',
+    },
+    {
+      name: 'input.language_boost',
+      location: 'body',
+      type: 'enum',
+      enumValues: MINIMAX_SPEECH_LANGUAGES,
+      descriptionKey:
+        'Improve recognition of a minor language or dialect; auto lets the model decide.',
+    },
+    {
+      name: 'input.voice_modify.pitch',
+      location: 'body',
+      type: 'integer',
+      range: '-100 – 100',
+      descriptionKey: 'Voice effect: lower is deeper, higher is brighter.',
+    },
+    {
+      name: 'input.voice_modify.intensity',
+      location: 'body',
+      type: 'integer',
+      range: '-100 – 100',
+      descriptionKey: 'Voice effect: lower is more forceful, higher is softer.',
+    },
+    {
+      name: 'input.voice_modify.timbre',
+      location: 'body',
+      type: 'integer',
+      range: '-100 – 100',
+      descriptionKey: 'Voice effect: lower is fuller, higher is crisper.',
+    },
+    {
+      name: 'input.voice_modify.sound_effects',
+      location: 'body',
+      type: 'enum',
+      enumValues: [
+        'spacious_echo',
+        'auditorium_echo',
+        'lofi_telephone',
+        'robotic',
+      ],
+      descriptionKey:
+        'Sound effect: spacious echo, auditorium, lo-fi telephone or robotic. voice_modify supports mp3, wav and flac.',
+    },
+    {
+      name: 'input.subtitle_enable',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey: 'Return subtitles with the audio.',
+    },
+    {
+      name: 'input.output_format',
+      location: 'body',
+      type: 'enum',
+      defaultValue: 'hex',
+      enumValues: ['hex', 'url'],
+      descriptionKey:
+        'hex returns the audio in output.data.audio; url returns a download link valid for 24 hours.',
+    },
+    {
+      name: 'input.aigc_watermark',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Append an invisible AIGC watermark to the end of the audio.',
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Speak with a preset voice',
+      body: {
+        model: 'MiniMax/speech-2.8-hd',
+        input: {
+          text: '今天是不是很开心呀(laughs)，当然了！',
+          voice_setting: {
+            voice_id: 'male-qn-qingse',
+            speed: 1,
+            vol: 1,
+            pitch: 0,
+            emotion: 'happy',
+          },
+          audio_setting: {
+            sample_rate: 32000,
+            bitrate: 128000,
+            format: 'mp3',
+            channel: 1,
+          },
+        },
+      },
+      outputFile: 'speech.mp3',
+      noteKey:
+        'The response carries the hex-encoded audio in output.data.audio and the billable characters in usage.characters.',
+    },
+    {
+      titleKey: 'Mix voices and fix pronunciation',
+      body: {
+        model: 'MiniMax/speech-02-turbo',
+        input: {
+          text: '燕少飞今天在处理一件危险的事。',
+          voice_setting: { voice_id: '', speed: 1.1 },
+          timbre_weights: [
+            { voice_id: 'male-qn-qingse', weight: 60 },
+            { voice_id: 'Chinese (Mandarin)_Gentleman', weight: 40 },
+          ],
+          pronunciation_dict: {
+            tone: ['燕少飞/(yan4)(shao3)(fei1)', '处理/(chu3)(li3)'],
+          },
+          language_boost: 'Chinese',
+          audio_setting: { format: 'mp3' },
+        },
+      },
+      outputFile: 'speech.mp3',
+    },
+    {
+      titleKey: 'OpenAI-compatible speech',
+      endpointPath: '/v1/audio/speech',
+      response: 'audio-binary',
+      body: {
+        model: 'MiniMax/speech-2.8-turbo',
+        input: '你好，这是兼容 OpenAI 格式的语音合成。',
+        voice: 'female-shaonv',
+        response_format: 'mp3',
+        speed: 1.0,
+        metadata: {
+          voice_setting: { emotion: 'happy' },
+          audio_setting: { sample_rate: 44100 },
+        },
+      },
+      outputFile: 'speech.mp3',
+      sampleParams: MINIMAX_SPEECH_COMPAT_PARAMS,
+      noteKey:
+        'The OpenAI-compatible endpoint decodes the audio for you and returns the audio bytes directly.',
+    },
+  ],
+}
+
 const SPECS: ModelApiSpec[] = [
   MINIMAX_VIDEO,
   KLING_VIDEO,
@@ -2066,6 +2430,7 @@ const SPECS: ModelApiSpec[] = [
   SEED_TTS_TASK,
   QWEN_AUDIO_TTS,
   QWEN_AUDIO_NEXT,
+  MINIMAX_SPEECH,
 ]
 
 /** 返回命中的族定义；没有专属定义时返回 undefined，由调用方回落到通用逻辑。 */

@@ -78,6 +78,19 @@ describe('model API specs', () => {
     assert.equal(findModelApiSpec('MiniMax-M2.5'), undefined)
   })
 
+  // MiniMax 语音对外名带不带 MiniMax/ 前缀都要命中，且不能和 MiniMax 视频混在一起。
+  test('matches the MiniMax speech family with or without the vendor prefix', () => {
+    for (const model of [
+      'MiniMax/speech-2.8-hd',
+      'MiniMax/speech-02-hd',
+      'MiniMax/speech-2.8-turbo',
+      'speech-02-turbo',
+    ]) {
+      assert.equal(findModelApiSpec(model)?.family, 'minimax-speech', model)
+    }
+    assert.equal(findModelApiSpec('MiniMax-H3')?.family, 'minimax-video')
+  })
+
   test('matches both wan3.0 video variants but not other wan models', () => {
     assert.equal(findModelApiSpec('wan3.0-video')?.family, 'wan3-video')
     assert.equal(findModelApiSpec('wan3.0-video-prime')?.family, 'wan3-video')

@@ -23,6 +23,8 @@ func TestGetEndpointTypesMarksSpeechModels(t *testing.T) {
 		{constant.ChannelTypeAli, "qwen-audio-3.1-tts-plus", speech},
 		{constant.ChannelTypeAli, "qwen-audio-3.1-tts-next", speech},
 		{constant.ChannelTypeAli, "qwen3-tts-flash", speech},
+		{constant.ChannelTypeAli, "MiniMax/speech-2.8-hd", speech},
+		{constant.ChannelTypeAli, "speech-02-turbo", speech},
 		{constant.ChannelTypeOpenAI, "tts-1", speech},
 		{constant.ChannelTypeOpenAI, "tts-1-hd", speech},
 		{constant.ChannelTypeOpenAI, "gpt-4o-mini-tts", speech},
@@ -31,6 +33,7 @@ func TestGetEndpointTypesMarksSpeechModels(t *testing.T) {
 		{constant.ChannelTypeVolcEngine, "doubao-seedance-2-0-260128", []constant.EndpointType{constant.EndpointTypeOpenAI}},
 		{constant.ChannelTypeVolcEngine, "doubao-seed-1-6-thinking-250715", []constant.EndpointType{constant.EndpointTypeOpenAI}},
 		{constant.ChannelTypeAli, "qwen-audio-asr", []constant.EndpointType{constant.EndpointTypeOpenAI}},
+		{constant.ChannelTypeAli, "MiniMax/MiniMax-M3", []constant.EndpointType{constant.EndpointTypeOpenAI}},
 		{constant.ChannelTypeOpenAI, "gpt-4o-mini", []constant.EndpointType{constant.EndpointTypeOpenAI}},
 		{constant.ChannelTypeOpenAI, "gpt-image-1", []constant.EndpointType{constant.EndpointTypeImageGeneration, constant.EndpointTypeOpenAI}},
 	}

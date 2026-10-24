@@ -30,6 +30,7 @@ const (
 const (
 	bailianVoiceDocURL      = "https://docs.bailian.console.aliyun.com/zh/model-studio/qwen-audio-tts-voice-list"
 	bailianAudioGenDocURL   = "https://docs.bailian.console.aliyun.com/zh/model-studio/audio-generation-api"
+	miniMaxVoiceDocURL      = "https://platform.minimax.cn/docs/faq/system-voice-id"
 	volcVoiceLibraryURL     = "https://console.volcengine.com/speech/new/voices"
 	volcVoiceCloneDocURL    = "https://docs.volcengine.com/docs/DoubaoVoice/tone-training-http?lang=zh"
 	volcSpeakerPageSize     = 100
@@ -42,7 +43,8 @@ const (
 type voiceCatalogRule struct {
 	pattern  *regexp.Regexp
 	provider string
-	// source 百炼为清单中的模型名，火山为 ListSpeakers 的 ResourceID；无预置音色时为空。
+	// source 百炼为清单中的模型名，火山为 ListSpeakers 的 ResourceID，MiniMax 四个模型
+	// 共用一份清单（任意非空值）；无预置音色时为空。
 	source  string
 	kind    string
 	docsURL string
@@ -62,6 +64,7 @@ var voiceCatalogRules = []voiceCatalogRule{
 	{regexp.MustCompile(`(?i)^seed-audio-`), voice_catalog.ProviderVolc, "seed-tts-2.0", VoiceCatalogKindVoices, volcVoiceLibraryURL,
 		"These are the Doubao 2.0 voices. Most of them work with this model, but a few are not supported; confirm with a test call."},
 	{regexp.MustCompile(`(?i)^seed-icl-`), voice_catalog.ProviderVolc, "", VoiceCatalogKindClonedVoices, volcVoiceCloneDocURL, ""},
+	{regexp.MustCompile(`(?i)^(minimax/)?speech-[\d.]+-(hd|turbo)`), voice_catalog.ProviderMiniMax, "system", VoiceCatalogKindVoices, miniMaxVoiceDocURL, ""},
 }
 
 // ModelVoiceCatalog 某个模型可用的预置音色。
@@ -99,6 +102,10 @@ func GetModelVoiceCatalog(modelName string) (catalog ModelVoiceCatalog, ok bool,
 		if rule.provider == voice_catalog.ProviderBailian {
 			voices, _, updatedAt := voice_catalog.BailianVoices(rule.source)
 			catalog.Voices, catalog.UpdatedAt = voices, updatedAt
+			return catalog, true, nil
+		}
+		if rule.provider == voice_catalog.ProviderMiniMax {
+			catalog.Voices, catalog.UpdatedAt = voice_catalog.MiniMaxVoices()
 			return catalog, true, nil
 		}
 		voices, updatedAt, err := volcVoices(rule.source)

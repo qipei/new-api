@@ -177,6 +177,23 @@ describe('scenario samples', () => {
     assert.ok(js.includes('await fetch(data.output.audio.url)'))
   })
 
+  // MiniMax 原生接口把音频以 hex 编码放在 output.data.audio，示例要演示解码成文件。
+  test('decodes hex audio from output.data.audio', () => {
+    const hexCtx = {
+      ...ctx,
+      response: 'audio-hex' as const,
+      outputFile: 'a.mp3',
+    }
+    assert.ok(
+      buildScenarioSample('python', hexCtx).includes(
+        'f.write(bytes.fromhex(data["output"]["data"]["audio"]))'
+      )
+    )
+    const js = buildScenarioSample('javascript', hexCtx)
+    assert.ok(js.startsWith('import fs from "node:fs"'))
+    assert.ok(js.includes('Buffer.from(data.output.data.audio, "hex")'))
+  })
+
   test('does not cut the comment at a version number', () => {
     const python = buildScenarioSample('python', {
       ...ctx,

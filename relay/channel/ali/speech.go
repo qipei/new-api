@@ -82,6 +82,7 @@ var speechContentTypes = map[string]string{
 	"wav":  "audio/wav",
 	"pcm":  "audio/pcm",
 	"opus": "audio/ogg",
+	"flac": "audio/flac",
 }
 
 func invalidSpeechRequest(err error) error {

@@ -900,6 +900,16 @@ type TaskSubmitReq struct {
 	// 旧写法按张数推断首帧/参考图，和按用途区分的图片字段同时出现时用途说不清，需要拒绝；
 	// 视频、音频只有「参考」一种用途，两种写法合并即可。
 	legacyImages bool
+
+	// bodyFields 调用方请求体顶层的全部字段（JSON 写法），供按上游官方协议透传参数的渠道
+	// 读取未在本结构中声明的官方参数，例如火山方舟的 generate_audio、seed、tools。
+	bodyFields map[string]interface{}
+}
+
+// BodyField 读取请求体顶层的字段，未传时第二个返回值为 false。
+func (t *TaskSubmitReq) BodyField(key string) (interface{}, bool) {
+	value, ok := t.bodyFields[key]
+	return value, ok
 }
 
 // TaskMedia 按用途区分的输入素材：首帧、尾帧、参考图、参考视频、参考音频。
@@ -1110,6 +1120,10 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 
 	if err := common.Unmarshal(data, &aux); err != nil {
 		return err
+	}
+	var bodyFields map[string]interface{}
+	if err := common.Unmarshal(data, &bodyFields); err == nil {
+		t.bodyFields = bodyFields
 	}
 
 	if len(aux.InputReference) > 0 {

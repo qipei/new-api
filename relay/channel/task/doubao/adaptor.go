@@ -75,6 +75,14 @@ type requestPayload struct {
 	Watermark        *dto.BoolValue `json:"watermark,omitempty"`
 }
 
+// volcBodyParams 火山方舟创建视频任务接口的顶层参数里，网关按官方原名透传的部分。
+// model、content、duration 由网关字段处理；resolution、ratio 在组装时统一小写化后兜底。
+var volcBodyParams = []string{
+	"callback_url", "return_last_frame", "service_tier", "execution_expires_after", "generate_audio",
+	"draft", "omni_reference_task_type", "output_format", "tools", "safety_identifier", "priority",
+	"frames", "seed", "camera_fixed", "watermark",
+}
+
 type responsePayload struct {
 	ID string `json:"id"` // task_id
 }
@@ -446,7 +454,17 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 		}
 	}
 
-	metadata := req.Metadata
+	// CUSTOM: 火山方舟官方写法的顶层参数（generate_audio、seed、tools 等）与 metadata 冗余并存，
+	// metadata 里的同名参数优先（fork 扩展）。model/content/duration 已在上面按网关字段处理。
+	metadata := map[string]interface{}{}
+	for _, key := range volcBodyParams {
+		if value, ok := req.BodyField(key); ok {
+			metadata[key] = value
+		}
+	}
+	for key, value := range req.Metadata {
+		metadata[key] = value
+	}
 	if err := taskcommon.UnmarshalMetadata(metadata, &r); err != nil {
 		return nil, errors.Wrap(err, "unmarshal metadata failed")
 	}

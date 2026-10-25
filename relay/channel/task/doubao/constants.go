@@ -2,6 +2,7 @@ package doubao
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -76,17 +77,24 @@ const (
 	seedance25      seedanceFamily = "2.5"
 )
 
+// seedanceVersionPattern 匹配名字里的 Seedance 版本号：官方 ID 写作 seedance-2-5，
+// 平台对外名或第三方转发名常写作 Doubao-Seedance-2.5、seedance2.5-huoshan、Seedance 2.0。
+var seedanceVersionPattern = regexp.MustCompile(`seedance[\s._-]*(\d)[\s._-]+(\d)`)
+
 func identifySeedanceFamily(names ...string) seedanceFamily {
 	for _, name := range names {
-		normalized := strings.ToLower(name)
-		switch {
-		case strings.Contains(normalized, "seedance-2-5"):
+		match := seedanceVersionPattern.FindStringSubmatch(strings.ToLower(name))
+		if match == nil {
+			continue
+		}
+		switch match[1] + "." + match[2] {
+		case "2.5":
 			return seedance25
-		case strings.Contains(normalized, "seedance-2-0"):
+		case "2.0":
 			return seedance20
-		case strings.Contains(normalized, "seedance-1-5"):
+		case "1.5":
 			return seedance15
-		case strings.Contains(normalized, "seedance-1-0"):
+		case "1.0":
 			return seedance10
 		}
 	}
@@ -235,7 +243,7 @@ func validateModelParameters(req *requestPayload, family seedanceFamily, imageCo
 		supported := true
 		switch family {
 		case seedance25:
-			supported = resolution == "480p" || resolution == "720p"
+			supported = resolution == "480p" || resolution == "720p" || resolution == "1080p"
 		case seedance20:
 			if strings.Contains(modelName, "fast") || strings.Contains(modelName, "mini") {
 				supported = resolution == "480p" || resolution == "720p"
@@ -283,21 +291,22 @@ func validateModelParameters(req *requestPayload, family seedanceFamily, imageCo
 	if req.OutputFormat != "" && family != seedance25 {
 		return fmt.Errorf("model %s does not support output_format", req.Model)
 	}
+	// 样片模式：1.5 与 2.5 支持，都只能生成 480p；尾帧与 flex 的限制按 1.5 的规则保留。
 	if req.Draft != nil && bool(*req.Draft) {
-		if family != seedance15 {
+		if family != seedance15 && family != seedance25 {
 			return fmt.Errorf("model %s does not support draft mode", req.Model)
 		}
 		if resolution != "" && resolution != "480p" {
 			return fmt.Errorf("draft mode requires resolution 480p")
 		}
-		if req.ReturnLastFrame != nil && bool(*req.ReturnLastFrame) {
+		if family == seedance15 && req.ReturnLastFrame != nil && bool(*req.ReturnLastFrame) {
 			return fmt.Errorf("draft mode does not support return_last_frame")
 		}
 		if req.ServiceTier == "flex" {
 			return fmt.Errorf("draft mode does not support service_tier flex")
 		}
 	}
-	if draftTaskCount > 0 && family != seedance15 {
+	if draftTaskCount > 0 && family != seedance15 && family != seedance25 {
 		return fmt.Errorf("model %s does not support draft_task", req.Model)
 	}
 	if (family == seedance20 || family == seedance25) && req.ServiceTier == "flex" {

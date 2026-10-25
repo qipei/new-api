@@ -6140,6 +6140,8 @@
     "OpenAI-compatible first-frame image: a URL string or an object such as {\"image_url\": \"https://...\"}. Works like image; do not combine it with first_frame_url or reference_images.": "OpenAI-compatible first-frame image: a URL string or an object such as {\"image_url\": \"https://...\"}. Works like image; do not combine it with first_frame_url or reference_images.",
     "Official content array with an explicit role on each item (text, image_url, video_url, audio_url), sent upstream as is. A text item can replace prompt. Do not combine it with the media fields above.": "Official content array with an explicit role on each item (text, image_url, video_url, audio_url), sent upstream as is. A text item can replace prompt. Do not combine it with the media fields above.",
     "Aspect ratio of the generated video, for example 16:9. Same as metadata.ratio.": "Aspect ratio of the generated video, for example 16:9. Same as metadata.ratio.",
-    "Resolution tier, same as size.": "Resolution tier, same as size."
+    "Resolution tier, same as size.": "Resolution tier, same as size.",
+    "Volcengine Ark official format": "Volcengine Ark official format",
+    "Request bodies written for the Volcengine Ark video API work here as is: content and the official top-level parameters such as generate_audio, watermark, return_last_frame, draft, tools and callback_url take effect. The same parameter under metadata takes precedence.": "Request bodies written for the Volcengine Ark video API work here as is: content and the official top-level parameters such as generate_audio, watermark, return_last_frame, draft, tools and callback_url take effect. The same parameter under metadata takes precedence."
   }
 }

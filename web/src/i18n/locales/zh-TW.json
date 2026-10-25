@@ -6140,6 +6140,8 @@
     "OpenAI-compatible first-frame image: a URL string or an object such as {\"image_url\": \"https://...\"}. Works like image; do not combine it with first_frame_url or reference_images.": "相容 OpenAI 的首幀圖片：可以是圖片 URL 字串，也可以是 {\"image_url\": \"https://...\"} 這樣的物件。作用同 image，不要和 first_frame_url、reference_images 混用。",
     "Official content array with an explicit role on each item (text, image_url, video_url, audio_url), sent upstream as is. A text item can replace prompt. Do not combine it with the media fields above.": "官方的 content 陣列，每項帶明確的 role（text、image_url、video_url、audio_url），原樣送給上游。其中的 text 項可以取代 prompt。不要和上面的素材欄位一起用。",
     "Aspect ratio of the generated video, for example 16:9. Same as metadata.ratio.": "生成影片的寬高比，例如 16:9。同 metadata.ratio。",
-    "Resolution tier, same as size.": "解析度檔位，同 size。"
+    "Resolution tier, same as size.": "解析度檔位，同 size。",
+    "Volcengine Ark official format": "火山方舟官方寫法",
+    "Request bodies written for the Volcengine Ark video API work here as is: content and the official top-level parameters such as generate_audio, watermark, return_last_frame, draft, tools and callback_url take effect. The same parameter under metadata takes precedence.": "按火山方舟影片介面寫的請求體可以直接送到這裡：content 和 generate_audio、watermark、return_last_frame、draft、tools、callback_url 等官方頂層參數都會生效。metadata 裡的同名參數優先。"
   }
 }

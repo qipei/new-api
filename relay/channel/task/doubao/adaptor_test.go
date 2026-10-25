@@ -220,11 +220,25 @@ func TestValidateModelSpecificFailures(t *testing.T) {
 			want: "requires at least one image or video",
 		},
 		{
-			name: "Seedance 2.5 rejects 1080p",
-			payload: &requestPayload{Model: "doubao-seedance-2-5-260628", Resolution: "1080p", Content: []ContentItem{
+			name: "Seedance 2.5 rejects 4k",
+			payload: &requestPayload{Model: "doubao-seedance-2-5-260628", Resolution: "4k", Content: []ContentItem{
 				{Type: "text", Text: "test"},
 			}},
 			want: "does not support resolution",
+		},
+		{
+			name: "Seedance 2.0 rejects draft",
+			payload: &requestPayload{Model: "doubao-seedance-2-0-260128", Draft: boolValue(true), Resolution: "480p", Content: []ContentItem{
+				{Type: "text", Text: "test"},
+			}},
+			want: "does not support draft mode",
+		},
+		{
+			name: "forwarded 2.5 model name keeps 2.5 duration bounds",
+			payload: &requestPayload{Model: "seedance2.5-huoshan", Duration: intValue(31), Content: []ContentItem{
+				{Type: "text", Text: "test"},
+			}},
+			want: "does not support duration 31",
 		},
 		{
 			name: "edit requires video",
@@ -458,4 +472,63 @@ func TestConvertToRequestPayloadAcceptsTopLevelOfficialFields(t *testing.T) {
 	}, payload.Content)
 	assert.Equal(t, "1080p", payload.Resolution)
 	assert.Equal(t, "9:16", payload.Ratio)
+}
+
+// 火山官方文档：Seedance 2.5 支持 1080p 与样片模式（仅 480p）以及基于样片的 draft_task。
+func TestValidateSeedance25ResolutionAndDraft(t *testing.T) {
+	for _, payload := range []*requestPayload{
+		{Model: "doubao-seedance-2-5-260628", Resolution: "1080p", Content: []ContentItem{{Type: "text", Text: "test"}}},
+		{Model: "seedance2.5-huoshan", Draft: boolValue(true), Resolution: "480p", ReturnLastFrame: boolValue(true), Content: []ContentItem{{Type: "text", Text: "test"}}},
+		{Model: "seedance2.5-huoshan", Content: []ContentItem{{Type: "draft_task", DraftTask: &DraftTask{ID: "cgt-1"}}}},
+	} {
+		assert.NoError(t, validateRequestPayload(payload, ""), payload.Model)
+	}
+}
+
+// 平台对外名与第三方转发名里的版本号写法各不相同，都要识别出型号族，型号专属的校验才不会被跳过。
+func TestIdentifySeedanceFamilyAcceptsDottedNames(t *testing.T) {
+	for name, want := range map[string]seedanceFamily{
+		"doubao-seedance-2-5-260628":     seedance25,
+		"seedance2.5-huoshan":            seedance25,
+		"Doubao-Seedance-2.5":            seedance25,
+		"Seedance 2.0/uP":                seedance20,
+		"seedance2.0-fast-huoshan":       seedance20,
+		"doubao-seedance-1-5-pro-251215": seedance15,
+		"doubao-seedance-1-0-lite-t2v":   seedance10,
+		"some-other-video-model":         seedanceUnknown,
+	} {
+		assert.Equal(t, want, identifySeedanceFamily(name), name)
+	}
+}
+
+// 按火山方舟官方写法放在顶层的参数原样生效；metadata 里的同名参数优先。
+func TestConvertToRequestPayloadAcceptsVolcTopLevelParams(t *testing.T) {
+	var req relaycommon.TaskSubmitReq
+	require.NoError(t, common.Unmarshal([]byte(`{
+		"model":"seedance2.5-huoshan",
+		"content":[{"type":"text","text":"p"}],
+		"generate_audio":false,"watermark":true,"return_last_frame":true,"draft":true,
+		"omni_reference_task_type":"reference","output_format":"mov","priority":3,
+		"tools":[{"type":"web_search"}],"callback_url":"https://hook/x","safety_identifier":"u1",
+		"metadata":{"watermark":false}
+	}`), &req))
+
+	payload, err := (&TaskAdaptor{}).convertToRequestPayload(&req)
+	require.NoError(t, err)
+	require.NotNil(t, payload.GenerateAudio)
+	assert.False(t, bool(*payload.GenerateAudio))
+	require.NotNil(t, payload.Watermark)
+	assert.False(t, bool(*payload.Watermark))
+	require.NotNil(t, payload.ReturnLastFrame)
+	assert.True(t, bool(*payload.ReturnLastFrame))
+	require.NotNil(t, payload.Draft)
+	assert.True(t, bool(*payload.Draft))
+	require.NotNil(t, payload.Priority)
+	assert.Equal(t, 3, int(*payload.Priority))
+	assert.Equal(t, "reference", payload.OmniReferenceTaskType)
+	assert.Equal(t, "mov", payload.OutputFormat)
+	require.Len(t, payload.Tools, 1)
+	assert.Equal(t, "web_search", payload.Tools[0].Type)
+	assert.Equal(t, "https://hook/x", payload.CallbackURL)
+	assert.Equal(t, "u1", payload.SafetyIdentifier)
 }

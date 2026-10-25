@@ -228,6 +228,8 @@ const MEDIA_STYLE_NOTE =
   'For images, use either image, images and input_reference, or first_frame_url, last_frame_url and reference_images, not both. Reference videos and audio can be passed as video and audio or as video_urls and audio_urls; both are sent. Each field can be written at the top level or in metadata.'
 const NATIVE_CONTENT =
   'Official content array with an explicit role on each item (text, image_url, video_url, audio_url), sent upstream as is. A text item can replace prompt. Do not combine it with the media fields above.'
+const VOLC_OFFICIAL_NOTE =
+  'Request bodies written for the Volcengine Ark video API work here as is: content and the official top-level parameters such as generate_audio, watermark, return_last_frame, draft, tools and callback_url take effect. The same parameter under metadata takes precedence.'
 const TOP_LEVEL_RATIO =
   'Aspect ratio of the generated video, for example 16:9. Same as metadata.ratio.'
 const MEDIA_FRAMES_OR_REFERENCES_NOTE =
@@ -958,6 +960,27 @@ const SEEDANCE_VIDEO: ModelApiSpec = {
         metadata: { ratio: '16:9' },
       },
       noteKey: MEDIA_FRAMES_OR_REFERENCES_NOTE,
+    },
+    {
+      titleKey: 'Volcengine Ark official format',
+      body: {
+        model: 'Doubao-Seedance-2.5',
+        content: [
+          { type: 'text', text: '镜头从首帧缓缓推进，人物转身微笑' },
+          {
+            type: 'image_url',
+            image_url: { url: 'https://example.com/first-frame.png' },
+            role: 'first_frame',
+          },
+        ],
+        resolution: '720p',
+        ratio: 'adaptive',
+        duration: 5,
+        generate_audio: true,
+        watermark: false,
+        return_last_frame: true,
+      },
+      noteKey: VOLC_OFFICIAL_NOTE,
     },
   ],
   applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),

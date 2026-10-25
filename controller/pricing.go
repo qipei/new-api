@@ -74,7 +74,7 @@ func GetPricing(c *gin.Context) {
 		"supported_endpoint": model.GetSupportedEndpointMap(),
 		"auto_groups":        service.GetUserAutoGroup(group),
 		// CUSTOM: 视频模型分档原价矩阵（模式×分辨率×音轨），供价格页展示
-		"video_pricing":   video_billing.GetAllTablesCopy(),
+		"video_pricing":   video_billing.PublicTables(usableGroup),
 		"pricing_version": "a42d372ccf0b5dd13ecf71203521f9d2",
 	})
 }

@@ -8,6 +8,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"unicode/utf8"
 
@@ -49,8 +50,13 @@ func resolveRelayPriceData(c *gin.Context, info *relaycommon.RelayInfo, promptTo
 		mode = video_billing.ModeImageToImage
 	}
 
-	outputPrice, _, matched := video_billing.GetPrice(info.OriginModelName, mode, imageRequest.Size, "")
-	if !matched {
+	outputPrice, _, err := video_billing.GetPrice(info.OriginModelName, info.UsingGroup, mode, imageRequest.Size, "")
+	if errors.Is(err, video_billing.ErrTierExcludedForGroup) {
+		return hosttypes.PriceData{}, fmt.Errorf(
+			"model %s does not support mode=%s size=%s in group %s; choose another size or a group that supports it",
+			info.OriginModelName, mode, imageRequest.Size, info.UsingGroup)
+	}
+	if err != nil {
 		return hosttypes.PriceData{}, fmt.Errorf(
 			"image pricing for model %s has no tier matching mode=%s size=%s; add a default tier or the missing tier in Video Pricing settings",
 			info.OriginModelName, mode, imageRequest.Size)
@@ -115,8 +121,11 @@ func resolveAudioMatrixPriceData(c *gin.Context, info *relaycommon.RelayInfo, pr
 	if !ok || (table.Unit != video_billing.UnitPerSecond && table.Unit != video_billing.UnitPer10kChars) {
 		return helper.ModelPriceHelper(c, info, promptTokens, meta)
 	}
-	price, _, matched := video_billing.GetPrice(info.OriginModelName, "", "", "")
-	if !matched {
+	price, _, err := video_billing.GetPrice(info.OriginModelName, info.UsingGroup, "", "", "")
+	if errors.Is(err, video_billing.ErrTierExcludedForGroup) {
+		return hosttypes.PriceData{}, fmt.Errorf("model %s is not available in group %s", info.OriginModelName, info.UsingGroup)
+	}
+	if err != nil {
 		return hosttypes.PriceData{}, fmt.Errorf(
 			"audio pricing for model %s has no default tier; add one in Video Pricing settings", info.OriginModelName)
 	}

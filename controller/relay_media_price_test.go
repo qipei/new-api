@@ -179,3 +179,42 @@ func TestResolveRelayPriceDataAudioCharsFollowChannelRule(t *testing.T) {
 		})
 	}
 }
+
+// 档位排除了当前分组时直接拒绝并说明原因，不落到默认档按兜底价收费；其他分组照常取价。
+func TestResolveRelayPriceDataRejectsTierExcludedForGroup(t *testing.T) {
+	withImageTables(t, map[string]video_billing.ModelPriceTable{
+		"image-model": {
+			Unit: video_billing.UnitPerImage,
+			Tiers: []video_billing.PriceTier{
+				{Price: 0.1},
+				{Resolution: "4k", Price: 0.5, ExcludedGroups: []string{"cheap"}},
+			},
+		},
+	})
+	request := &dto.ImageRequest{Model: "image-model", Size: "4096x4096"}
+
+	for _, tt := range []struct {
+		group     string
+		wantErr   bool
+		wantPrice float64
+	}{
+		{"cheap", true, 0},
+		{"vip", false, 0.5},
+	} {
+		t.Run(tt.group, func(t *testing.T) {
+			info := &relaycommon.RelayInfo{TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
+			info.RelayMode = relayconstant.RelayModeImagesGenerations
+			info.OriginModelName = "image-model"
+			info.UsingGroup = tt.group
+			priceData, err := resolveRelayPriceData(imageTestContext(t), info, 0, nil, request)
+			if tt.wantErr {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "does not support")
+				assert.Contains(t, err.Error(), "cheap")
+				return
+			}
+			require.NoError(t, err)
+			assert.InDelta(t, tt.wantPrice, priceData.ModelPrice, 1e-9)
+		})
+	}
+}

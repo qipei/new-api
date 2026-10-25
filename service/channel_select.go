@@ -11,6 +11,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// MatrixTierExcludedFunc 由 main 包注入（打破 service -> relay 的循环依赖）：本次请求要用的
+// 价格档位排除了该分组时返回 true。自动分组选路时据此跳过不支持的分组。
+var MatrixTierExcludedFunc func(c *gin.Context, modelName string, group string) bool
+
 type RetryParam struct {
 	Ctx          *gin.Context
 	TokenGroup   string
@@ -106,6 +110,21 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			autoGroups = GetRequestAutoGroups(param.Ctx, userGroup)
 			if len(autoGroups) == 0 {
 				return nil, selectGroup, errors.New("auto groups is not enabled")
+			}
+		}
+
+		// CUSTOM: 价格表档位可以排除分组（fork 扩展）。跳过不支持本次请求档位的分组，
+		// 顺延到下一个；全部被排除时保留原列表，由取价环节返回明确的「该分组不支持」。
+		// 同一请求的请求体不变，每次重试过滤出的列表相同，AutoGroupIndex 仍然有效。
+		if MatrixTierExcludedFunc != nil {
+			supported := make([]string, 0, len(autoGroups))
+			for _, group := range autoGroups {
+				if !MatrixTierExcludedFunc(param.Ctx, param.ModelName, group) {
+					supported = append(supported, group)
+				}
+			}
+			if len(supported) > 0 {
+				autoGroups = supported
 			}
 		}
 

@@ -35,7 +35,7 @@ describe('VideoPricingSection', () => {
     const markup = renderToStaticMarkup(
       <QueryClientProvider client={new QueryClient()}>
         <I18nextProvider i18n={i18n}>
-          <VideoPricingSection defaultValue='{}' />
+          <VideoPricingSection defaultValue='{}' groupRatio='{}' />
         </I18nextProvider>
       </QueryClientProvider>
     )
@@ -50,6 +50,7 @@ describe('VideoPricingSection', () => {
       <QueryClientProvider client={new QueryClient()}>
         <I18nextProvider i18n={i18n}>
           <VideoPricingSection
+            groupRatio='{}'
             defaultValue={JSON.stringify({
               image: {
                 unit: 'per_image',
@@ -75,6 +76,7 @@ describe('VideoPricingSection', () => {
       <QueryClientProvider client={new QueryClient()}>
         <I18nextProvider i18n={i18n}>
           <VideoPricingSection
+            groupRatio='{}'
             defaultValue={JSON.stringify({
               image: {
                 unit: 'per_image',

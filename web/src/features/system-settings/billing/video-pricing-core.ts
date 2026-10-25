@@ -28,6 +28,8 @@ export type VideoPriceTierPayload = {
   min_pixels?: number
   max_pixels?: number
   price: number
+  // CUSTOM: 不适用该档位的分组，为空表示所有分组都适用（fork 扩展）
+  excluded_groups?: string[]
 }
 
 export type VideoPriceTablePayload = {
@@ -51,6 +53,7 @@ export type EditableVideoTier = {
   minPixels: string
   maxPixels: string
   price: string
+  excludedGroups: string[]
 }
 
 export type EditableVideoTable = {
@@ -182,6 +185,11 @@ export function parseVideoPricingTables(raw: string): EditableVideoTable[] {
         maxPixels:
           typeof tier.max_pixels === 'number' ? String(tier.max_pixels) : '',
         price: typeof tier.price === 'number' ? String(tier.price) : '',
+        excludedGroups: Array.isArray(tier.excluded_groups)
+          ? tier.excluded_groups.filter(
+              (group): group is string => typeof group === 'string'
+            )
+          : [],
       })),
     })
   }
@@ -262,7 +270,11 @@ export function parseVideoPricingJsonDraft(
           (tier.audio !== undefined && typeof tier.audio !== 'string') ||
           (tier.min_pixels !== undefined &&
             typeof tier.min_pixels !== 'number') ||
-          (tier.max_pixels !== undefined && typeof tier.max_pixels !== 'number')
+          (tier.max_pixels !== undefined &&
+            typeof tier.max_pixels !== 'number') ||
+          (tier.excluded_groups !== undefined &&
+            (!Array.isArray(tier.excluded_groups) ||
+              tier.excluded_groups.some((group) => typeof group !== 'string')))
       )
     ) {
       return { tables: null, error: 'shape' }
@@ -340,6 +352,14 @@ export function serializeVideoPricingTables(
         }
       } else if (tier.audio) {
         payloadTier.audio = tier.audio
+      }
+      const excludedGroups = [
+        ...new Set(tier.excludedGroups.map((group) => group.trim())),
+      ]
+        .filter(Boolean)
+        .sort()
+      if (excludedGroups.length > 0) {
+        payloadTier.excluded_groups = excludedGroups
       }
       tiers.push(payloadTier)
     }

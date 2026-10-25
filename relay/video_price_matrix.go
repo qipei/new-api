@@ -7,6 +7,7 @@
 package relay
 
 import (
+	"errors"
 	"math"
 	"strconv"
 	"strings"
@@ -62,9 +63,9 @@ func resolveTaskPriceData(c *gin.Context, info *relaycommon.RelayInfo) (hosttype
 	if table.Unit != video_billing.UnitPer10kChars {
 		mode, resolution, audio, seconds = taskVideoDims(c, info)
 	}
-	price, unit, ok := video_billing.GetPrice(info.OriginModelName, mode, resolution, audio)
-	if !ok {
-		return hosttypes.PriceData{}, &videoPriceNotMatchedError{model: info.OriginModelName, mode: mode, resolution: resolution}
+	price, unit, err := video_billing.GetPrice(info.OriginModelName, info.UsingGroup, mode, resolution, audio)
+	if err != nil {
+		return hosttypes.PriceData{}, &videoPriceNotMatchedError{model: info.OriginModelName, group: info.UsingGroup, mode: mode, resolution: resolution, audio: audio, err: err}
 	}
 
 	groupRatioInfo := helper.HandleGroupRatio(c, info)
@@ -104,15 +105,71 @@ func resolveTaskPriceData(c *gin.Context, info *relaycommon.RelayInfo) (hosttype
 	return priceData, nil
 }
 
+// MatrixTierExcludedForGroup 判断本次请求要用的价格档位是否排除了该分组，供自动分组
+// 选路时跳过不支持的分组。只有价格表配置了不适用分组时才解析请求维度；remix 的维度
+// 取自原任务，选路时还拿不到，视为不排除，交给取价环节判断。
+func MatrixTierExcludedForGroup(c *gin.Context, modelName string, group string) bool {
+	table, ok := video_billing.GetPriceTable(modelName)
+	if !ok || !table.HasExcludedGroups() {
+		return false
+	}
+	path := c.Request.URL.Path
+	mode, resolution, audio := "", "", ""
+	switch {
+	case strings.Contains(path, "/remix"):
+		return false
+	case strings.HasPrefix(path, "/v1/audio/") || table.Unit == video_billing.UnitPer10kChars:
+		// 音频只有默认档，没有维度。
+	case table.Unit == video_billing.UnitPerImage:
+		storage, err := common.GetBodyStorage(c)
+		if err != nil {
+			return false
+		}
+		body, err := storage.Bytes()
+		if err != nil {
+			return false
+		}
+		mode = video_billing.ModeTextToImage
+		if strings.Contains(path, "/images/edits") || gjson.GetBytes(body, "image").Exists() || gjson.GetBytes(body, "images").Exists() {
+			mode = video_billing.ModeImageToImage
+		}
+		resolution = gjson.GetBytes(body, "size").String()
+	default:
+		// 选路发生在请求校验之前，任务请求还没放进上下文，这里自己解析一次（只读）。
+		var req relaycommon.TaskSubmitReq
+		if strings.Contains(c.GetHeader("Content-Type"), "multipart/form-data") {
+			return false
+		}
+		if err := common.UnmarshalBodyReusable(c, &req); err != nil {
+			return false
+		}
+		info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: modelName}}
+		mode, resolution, audio, _ = taskRequestVideoDims(c, info, req)
+	}
+	_, _, err := video_billing.GetPrice(modelName, group, mode, resolution, audio)
+	return errors.Is(err, video_billing.ErrTierExcludedForGroup)
+}
+
 type videoPriceNotMatchedError struct {
 	model      string
+	group      string
 	mode       string
 	resolution string
+	audio      string
+	err        error
 }
 
 func (e *videoPriceNotMatchedError) Error() string {
+	if errors.Is(e.err, video_billing.ErrTierExcludedForGroup) {
+		return "model " + e.model + " does not support mode=" + e.mode + " resolution=" + e.resolution +
+			" audio=" + e.audio + " in group " + e.group + "; choose another resolution or a group that supports it"
+	}
 	return "video pricing for model " + e.model + " has no tier matching mode=" + e.mode +
 		" resolution=" + e.resolution + "; add a default tier or the missing tier in Video Pricing settings"
+}
+
+func (e *videoPriceNotMatchedError) Unwrap() error {
+	return e.err
 }
 
 // taskVideoDims 提取本次请求的 (模式, 分辨率, 音轨, 时长秒数) 维度。
@@ -127,7 +184,11 @@ func taskVideoDims(c *gin.Context, info *relaycommon.RelayInfo) (string, string,
 	if err != nil {
 		return video_billing.ModeTextToVideo, "", "", 0
 	}
+	return taskRequestVideoDims(c, info, req)
+}
 
+// taskRequestVideoDims 从已解析的任务请求里取 (模式, 分辨率, 音轨, 时长秒数)。
+func taskRequestVideoDims(c *gin.Context, info *relaycommon.RelayInfo, req relaycommon.TaskSubmitReq) (string, string, string, int) {
 	// media 的 type 名在各家上游之间不通用，这里必须把用到的写全：漏一个就会
 	// 把图生/参考生的请求判成文生视频，落到另一个价格档。万相3.0 的参考类型是
 	// reference_video / reference_image。

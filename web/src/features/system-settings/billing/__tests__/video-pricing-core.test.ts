@@ -86,6 +86,7 @@ describe('video pricing core', () => {
               minPixels: '',
               maxPixels: '',
               price: '0.5',
+              excludedGroups: [],
             },
           ],
         },
@@ -94,6 +95,43 @@ describe('video pricing core', () => {
     assert.deepEqual(serialized, {
       m: { unit: 'per_second', tiers: [{ resolution: '1080p', price: 0.5 }] },
     })
+  })
+
+  // 不适用分组：保存时去重排序、空列表不写入，读回后与编辑态一致；类型不对的 JSON 拒绝。
+  test('round-trips excluded groups per tier', () => {
+    const raw = JSON.stringify({
+      video: {
+        unit: 'per_second',
+        tiers: [
+          { price: 0.1 },
+          {
+            resolution: '1080p',
+            price: 0.2,
+            excluded_groups: ['vip', 'cheap'],
+          },
+        ],
+      },
+    })
+    const tables = parseVideoPricingTables(raw)
+    assert.deepEqual(tables[0].tiers[1].excludedGroups, ['vip', 'cheap'])
+    assert.deepEqual(tables[0].tiers[0].excludedGroups, [])
+
+    tables[0].tiers[1].excludedGroups.push('cheap', ' ')
+    const payload = JSON.parse(serializeVideoPricingTables(tables))
+    assert.deepEqual(payload.video.tiers[1].excluded_groups, ['cheap', 'vip'])
+    assert.equal('excluded_groups' in payload.video.tiers[0], false)
+
+    assert.equal(
+      parseVideoPricingJsonDraft(
+        JSON.stringify({
+          video: {
+            unit: 'per_second',
+            tiers: [{ price: 1, excluded_groups: 'vip' }],
+          },
+        })
+      ).error,
+      'shape'
+    )
   })
 
   test('parse tolerates malformed input', () => {
@@ -143,6 +181,7 @@ describe('video pricing core', () => {
             minPixels: '',
             maxPixels: '',
             price: '1',
+            excludedGroups: [],
           },
         ],
       },
@@ -161,6 +200,7 @@ describe('video pricing core', () => {
             minPixels: '',
             maxPixels: '',
             price: '-1',
+            excludedGroups: [],
           },
           {
             uid: 't3',
@@ -170,6 +210,7 @@ describe('video pricing core', () => {
             minPixels: '',
             maxPixels: '',
             price: '5',
+            excludedGroups: [],
           },
           {
             uid: 't4',
@@ -179,6 +220,7 @@ describe('video pricing core', () => {
             minPixels: '',
             maxPixels: '',
             price: '6',
+            excludedGroups: [],
           },
         ],
       },
@@ -211,6 +253,7 @@ describe('video pricing core', () => {
             minPixels: '',
             maxPixels: '',
             price: '6.3',
+            excludedGroups: [],
           },
           {
             uid: 't6',
@@ -220,6 +263,7 @@ describe('video pricing core', () => {
             minPixels: '',
             maxPixels: '',
             price: '7',
+            excludedGroups: [],
           },
         ],
       },
@@ -244,6 +288,7 @@ describe('video pricing core', () => {
             minPixels: '',
             maxPixels: '',
             price: '0.6',
+            excludedGroups: [],
           },
           {
             uid: 'range',
@@ -253,6 +298,7 @@ describe('video pricing core', () => {
             minPixels: '2610001',
             maxPixels: '2610000',
             price: '0.6',
+            excludedGroups: [],
           },
         ],
       },
@@ -311,6 +357,7 @@ describe('video pricing core', () => {
             minPixels: '',
             maxPixels: '',
             price: '0.5',
+            excludedGroups: [],
           },
         ],
       },

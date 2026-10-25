@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/video_billing"
 
 	"github.com/gin-gonic/gin"
@@ -260,4 +261,48 @@ func TestTaskVideoDimsDefaultsWan3ToOfficialResolution(t *testing.T) {
 	assert.Equal(t, video_billing.ModeTextToVideo, mode)
 	assert.Equal(t, "1080p", resolution)
 	assert.Equal(t, 5, seconds)
+}
+
+// 自动分组选路时，按请求体里的档位判断该分组是否被排除；没有配置排除的价格表不解析请求。
+func TestMatrixTierExcludedForGroupReadsRequestDims(t *testing.T) {
+	settings, ok := config.GlobalConfig.Get("video_billing").(*video_billing.VideoBillingSettings)
+	require.True(t, ok)
+	original := settings.PriceTables
+	settings.PriceTables = map[string]video_billing.ModelPriceTable{
+		"video-model": {Unit: video_billing.UnitPerSecond, Tiers: []video_billing.PriceTier{
+			{Price: 0.1},
+			{Resolution: "768p", Price: 0.08},
+			{Resolution: "1080p", Price: 0.2, ExcludedGroups: []string{"cheap"}},
+		}},
+		"image-model": {Unit: video_billing.UnitPerImage, Tiers: []video_billing.PriceTier{
+			{Price: 0.1},
+			{Resolution: "4k", Price: 0.5, ExcludedGroups: []string{"cheap"}},
+		}},
+		"plain-model": {Unit: video_billing.UnitPerSecond, Tiers: []video_billing.PriceTier{{Price: 0.1}}},
+	}
+	t.Cleanup(func() { settings.PriceTables = original })
+
+	tests := []struct {
+		name  string
+		path  string
+		model string
+		group string
+		body  string
+		want  bool
+	}{
+		{"excluded video tier", "/v1/video/generations", "video-model", "cheap", `{"model":"video-model","prompt":"p","resolution":"1080p"}`, true},
+		{"other group keeps tier", "/v1/video/generations", "video-model", "vip", `{"model":"video-model","prompt":"p","resolution":"1080p"}`, false},
+		{"unrelated tier", "/v1/video/generations", "video-model", "cheap", `{"model":"video-model","prompt":"p","resolution":"768p"}`, false},
+		{"excluded image size", "/v1/images/generations", "image-model", "cheap", `{"model":"image-model","prompt":"p","size":"4096x4096"}`, true},
+		{"no exclusions configured", "/v1/video/generations", "plain-model", "cheap", `{"model":"plain-model","prompt":"p","resolution":"1080p"}`, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest("POST", tt.path, strings.NewReader(tt.body))
+			c.Request.Header.Set("Content-Type", "application/json")
+			assert.Equal(t, tt.want, MatrixTierExcludedForGroup(c, tt.model, tt.group))
+		})
+	}
 }

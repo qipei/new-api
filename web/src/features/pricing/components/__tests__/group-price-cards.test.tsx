@@ -156,6 +156,35 @@ describe('GroupPriceCards', () => {
     expect(cardOf(markup, 'default')).toContain('$3')
   })
 
+  // 档位排除了某分组：该分组显示「不支持」并提示可用档位，不退到更宽泛的档位；其他分组照常。
+  test('excluded tiers show as not supported only for the excluded group', () => {
+    const markup = render(baseModel(), {
+      matrixTable: {
+        unit: 'per_second',
+        tiers: [
+          { price: 9.99 },
+          { mode: 't2v', resolution: '768p', price: 0.1 },
+          {
+            mode: 't2v',
+            resolution: '1080p',
+            price: 0.2,
+            excluded_groups: ['default'],
+          },
+        ],
+      },
+    })
+
+    const defaultCard = cardOf(markup, 'default')
+    expect(defaultCard).toContain('This group only supports 768p')
+    expect(defaultCard).toContain('Not supported')
+    expect(defaultCard).not.toContain('$0.2<')
+
+    const vip = cardOf(markup, 'vip')
+    expect(vip).not.toContain('only supports')
+    expect(vip).not.toContain('Not supported')
+    expect(vip).toContain('$0.16')
+  })
+
   test('token prices list input, output and cache for each group', () => {
     const markup = render(
       baseModel({ model_ratio: 1.5, completion_ratio: 4, cache_ratio: 0.1 })

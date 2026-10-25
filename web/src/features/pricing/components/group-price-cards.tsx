@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils'
 import {
   buildGroupPriceBlocks,
   groupPriceText,
+  groupTierLimitNote,
   type GroupPriceBlock,
 } from '../lib/group-price-blocks'
 import { groupDisplayCost } from '../lib/group-price-rank'
@@ -107,6 +108,8 @@ type GroupCard = {
   priceCost: number
   /** 相对官方价省下的百分比；倍率不低于 1 时为 null。 */
   savingPercent: number | null
+  /** 档位对该分组的限制提示，没有限制时为 null。 */
+  limitNote: string | null
   blocks: GroupPriceBlock[]
   copyText: string
 }
@@ -164,6 +167,7 @@ export function GroupPriceCards(props: {
         const perf = perfByGroup.get(group)
         const successRate =
           perf && Number.isFinite(perf.success_rate) ? perf.success_rate : null
+        const limitNote = groupTierLimitNote(props.matrixTable, group, t)
         const blocks = buildGroupPriceBlocks({
           model: props.model,
           group,
@@ -191,9 +195,12 @@ export function GroupPriceCards(props: {
             ratio < 1 && Math.round((1 - ratio) * 100) > 0
               ? Math.round((1 - ratio) * 100)
               : null,
+          limitNote,
           blocks,
           copyText: groupPriceText(
-            `${t('Group:')} ${group} (×${formatRatio(ratio)})`,
+            [`${t('Group:')} ${group} (×${formatRatio(ratio)})`, limitNote]
+              .filter(Boolean)
+              .join('\n'),
             blocks,
             t
           ),
@@ -425,6 +432,11 @@ function GroupPriceCard(props: { card: GroupCard }) {
               : undefined
           }
         />
+        {card.limitNote && (
+          <span className='bg-background text-muted-foreground w-fit rounded-full border px-2 py-0.5 text-xs'>
+            {card.limitNote}
+          </span>
+        )}
         <Button
           variant='outline'
           size='sm'

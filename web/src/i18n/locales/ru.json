@@ -6113,6 +6113,12 @@
     "The response carries the hex-encoded audio in output.data.audio and the billable characters in usage.characters.": "The response carries the hex-encoded audio in output.data.audio and the billable characters in usage.characters.",
     "Mix voices and fix pronunciation": "Смешивание голосов и правка произношения",
     "The OpenAI-compatible endpoint decodes the audio for you and returns the audio bytes directly.": "The OpenAI-compatible endpoint decodes the audio for you and returns the audio bytes directly.",
-    "output.data.audio in the response is hex-encoded; decode it to get the audio file.": "output.data.audio in the response is hex-encoded; decode it to get the audio file."
+    "output.data.audio in the response is hex-encoded; decode it to get the audio file.": "output.data.audio in the response is hex-encoded; decode it to get the audio file.",
+    "Excluded groups": "Исключённые группы",
+    "All groups apply": "Все группы",
+    "This group only supports {{items}}": "Эта группа поддерживает только {{items}}",
+    "This group does not support this model": "Эта группа не поддерживает эту модель",
+    "Some tiers are not available in this group": "Некоторые тарифы недоступны в этой группе",
+    "Requests for a tier from one of its excluded groups are rejected instead of falling back to a wider tier. Auto routing skips to the next group that supports the tier.": "Requests for a tier from one of its excluded groups are rejected instead of falling back to a wider tier. Auto routing skips to the next group that supports the tier."
   }
 }

@@ -6113,6 +6113,12 @@
     "The response carries the hex-encoded audio in output.data.audio and the billable characters in usage.characters.": "回應裡 output.data.audio 是 hex 編碼的音訊，usage.characters 是計費字元數。",
     "Mix voices and fix pronunciation": "混合音色並校正發音",
     "The OpenAI-compatible endpoint decodes the audio for you and returns the audio bytes directly.": "OpenAI 相容入口會替你解碼音訊，直接返回音訊檔案內容。",
-    "output.data.audio in the response is hex-encoded; decode it to get the audio file.": "回應裡的 output.data.audio 是 hex 編碼，解碼後即為音訊檔案。"
+    "output.data.audio in the response is hex-encoded; decode it to get the audio file.": "回應裡的 output.data.audio 是 hex 編碼，解碼後即為音訊檔案。",
+    "Excluded groups": "不適用分組",
+    "All groups apply": "所有分組適用",
+    "This group only supports {{items}}": "該分組僅支援 {{items}}",
+    "This group does not support this model": "該分組不支援此模型",
+    "Some tiers are not available in this group": "部分檔位在該分組不可用",
+    "Requests for a tier from one of its excluded groups are rejected instead of falling back to a wider tier. Auto routing skips to the next group that supports the tier.": "不適用分組請求該檔位時會被直接拒絕，不會退到更寬泛的檔位計價；自動分組（auto / auto_price）會跳過這些分組，順延到下一個支援該檔位的分組。"
   }
 }

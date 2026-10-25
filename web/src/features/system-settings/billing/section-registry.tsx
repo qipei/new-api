@@ -154,6 +154,7 @@ const BILLING_SECTIONS = [
     build: (settings: BillingSettings) => (
       <VideoPricingSection
         defaultValue={settings['video_billing.price_tables']}
+        groupRatio={settings.GroupRatio}
       />
     ),
   },

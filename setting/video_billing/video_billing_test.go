@@ -57,8 +57,8 @@ func TestGetPriceMatchingAndFallback(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			price, unit, ok := GetPrice(tt.model, tt.mode, tt.resolution, tt.audio)
-			require.True(t, ok)
+			price, unit, err := GetPrice(tt.model, "default", tt.mode, tt.resolution, tt.audio)
+			require.NoError(t, err)
 			assert.InDelta(t, tt.wantPrice, price, 1e-9)
 			assert.Equal(t, tt.wantUnit, unit)
 		})
@@ -73,24 +73,83 @@ func TestGetPriceUnconfiguredOrInvalid(t *testing.T) {
 		"only-invalid": {Unit: UnitPerSecond, Tiers: []PriceTier{{Price: 0}}},
 	})
 
-	_, _, ok := GetPrice("missing-model", ModeTextToVideo, "720p", "")
-	assert.False(t, ok)
+	_, _, err := GetPrice("missing-model", "default", ModeTextToVideo, "720p", "")
+	assert.ErrorIs(t, err, ErrNoMatchingTier)
 
-	_, _, ok = GetPrice("bad-unit", ModeTextToVideo, "720p", "")
-	assert.False(t, ok, "非法单位视为未配置")
+	_, _, err = GetPrice("bad-unit", "default", ModeTextToVideo, "720p", "")
+	assert.ErrorIs(t, err, ErrNoMatchingTier, "非法单位视为未配置")
 
-	_, _, ok = GetPrice("no-tiers", ModeTextToVideo, "720p", "")
-	assert.False(t, ok)
+	_, _, err = GetPrice("no-tiers", "default", ModeTextToVideo, "720p", "")
+	assert.ErrorIs(t, err, ErrNoMatchingTier)
 
 	// 无默认档且维度未命中 → 拒绝，避免漏配错价
-	_, _, ok = GetPrice("no-default", ModeTextToVideo, "480p", "")
-	assert.False(t, ok)
-	price, _, ok := GetPrice("no-default", ModeTextToVideo, "1080p", "")
-	require.True(t, ok)
+	_, _, err = GetPrice("no-default", "default", ModeTextToVideo, "480p", "")
+	assert.ErrorIs(t, err, ErrNoMatchingTier)
+	price, _, err := GetPrice("no-default", "default", ModeTextToVideo, "1080p", "")
+	require.NoError(t, err)
 	assert.InDelta(t, 0.5, price, 1e-9)
 
-	_, _, ok = GetPrice("only-invalid", ModeTextToVideo, "720p", "")
-	assert.False(t, ok)
+	_, _, err = GetPrice("only-invalid", "default", ModeTextToVideo, "720p", "")
+	assert.ErrorIs(t, err, ErrNoMatchingTier)
+}
+
+// 档位排除分组：被排除的分组请求该档位时拒绝，不能退到默认档按兜底价收费；
+// 被排除的档位本来就不匹配的请求不受影响，其他分组照常取价。
+func TestGetPriceExcludedGroups(t *testing.T) {
+	withTables(t, map[string]ModelPriceTable{
+		"video": {
+			Unit: UnitPerSecond,
+			Tiers: []PriceTier{
+				{Price: 9.99}, // 默认档
+				{Resolution: "768p", Price: 0.08},
+				{Resolution: "1080p", Price: 0.2, ExcludedGroups: []string{"cheap"}},
+				{Resolution: "4k", Audio: AudioOn, Price: 0.5, ExcludedGroups: []string{"cheap"}},
+				{Resolution: "4k", Price: 0.4},
+			},
+		},
+		"speech": {Unit: UnitPer10kChars, Tiers: []PriceTier{{Price: 3, ExcludedGroups: []string{"cheap"}}}},
+	})
+
+	tests := []struct {
+		name       string
+		model      string
+		group      string
+		resolution string
+		audio      string
+		wantPrice  float64
+		wantErr    error
+	}{
+		{"excluded group rejected instead of default tier", "video", "cheap", "1080p", "", 0, ErrTierExcludedForGroup},
+		{"other groups keep the tier", "video", "vip", "1080p", "", 0.2, nil},
+		{"unrelated tier unaffected", "video", "cheap", "768p", "", 0.08, nil},
+		{"more specific excluded tier blocks the wider one", "video", "cheap", "4k", AudioOn, 0, ErrTierExcludedForGroup},
+		{"wider tier still serves requests the excluded tier does not match", "video", "cheap", "4k", AudioOff, 0.4, nil},
+		{"flat table excluded for group", "speech", "cheap", "", "", 0, ErrTierExcludedForGroup},
+		{"flat table for other groups", "speech", "vip", "", "", 3, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			price, _, err := GetPrice(tt.model, tt.group, ModeTextToVideo, tt.resolution, tt.audio)
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.InDelta(t, tt.wantPrice, price, 1e-9)
+		})
+	}
+}
+
+// 公开接口只下发查看者可见的不适用分组，不对外的分组名不能泄露。
+func TestPublicTablesHidesInvisibleExcludedGroups(t *testing.T) {
+	withTables(t, map[string]ModelPriceTable{
+		"video": {Unit: UnitPerSecond, Tiers: []PriceTier{
+			{Resolution: "1080p", Price: 0.2, ExcludedGroups: []string{"cheap", "internal"}},
+		}},
+	})
+	tables := PublicTables(map[string]string{"cheap": "Cheap", "default": "Default"})
+	assert.Equal(t, []string{"cheap"}, tables["video"].Tiers[0].ExcludedGroups)
+	assert.Equal(t, []string{"cheap", "internal"}, videoBillingSettings.PriceTables["video"].Tiers[0].ExcludedGroups, "配置本身不能被改写")
 }
 
 func TestNormalizeResolution(t *testing.T) {
@@ -166,8 +225,8 @@ func TestGetPriceMatchesArbitraryImageSizeByShortEdge(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.resolution, func(t *testing.T) {
-			price, unit, ok := GetPrice("resolution-priced-image", ModeTextToImage, tt.resolution, "")
-			require.True(t, ok)
+			price, unit, err := GetPrice("resolution-priced-image", "default", ModeTextToImage, tt.resolution, "")
+			require.NoError(t, err)
 			assert.Equal(t, UnitPerImage, unit)
 			assert.InDelta(t, tt.want, price, 1e-9)
 		})
@@ -206,8 +265,8 @@ func TestGetPricePrefersConfiguredResolutionBuckets(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			price, unit, ok := GetPrice("vidu-image", ModeTextToImage, tt.resolution, "")
-			require.True(t, ok)
+			price, unit, err := GetPrice("vidu-image", "default", ModeTextToImage, tt.resolution, "")
+			require.NoError(t, err)
 			assert.Equal(t, UnitPerImage, unit)
 			assert.InDelta(t, tt.want, price, 1e-9)
 		})
@@ -243,8 +302,8 @@ func TestGetPriceMatchesImagePixelRanges(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			price, unit, ok := GetPrice("pixel-priced-image", ModeTextToImage, tt.resolution, "")
-			require.True(t, ok)
+			price, unit, err := GetPrice("pixel-priced-image", "default", ModeTextToImage, tt.resolution, "")
+			require.NoError(t, err)
 			assert.Equal(t, UnitPerImage, unit)
 			assert.InDelta(t, tt.want, price, 1e-9)
 		})
@@ -271,14 +330,14 @@ func TestGetPriceUsesResolutionBucketsForPerSecondTables(t *testing.T) {
 	})
 
 	for _, size := range []string{"1024*576", "1024*1024", "960*528", "540p"} {
-		price, unit, ok := GetPrice("vidu-bucketed", "", size, "")
-		require.True(t, ok, "size %s must match a tier", size)
+		price, unit, err := GetPrice("vidu-bucketed", "default", "", size, "")
+		require.NoError(t, err, "size %s must match a tier", size)
 		assert.Equal(t, UnitPerSecond, unit)
 		assert.Equal(t, 0.3125, price, "size %s must price at the 540p tier", size)
 	}
 
 	// Sizes outside the bucket keep the generic short-edge classification.
-	price, _, ok := GetPrice("vidu-bucketed", "", "1920*1080", "")
-	require.True(t, ok)
+	price, _, err := GetPrice("vidu-bucketed", "default", "", "1920*1080", "")
+	require.NoError(t, err)
 	assert.Equal(t, 0.9375, price)
 }

@@ -127,3 +127,50 @@ func TestCacheGetRandomSatisfiedChannelUsesTokenAutoGroupsWhenGlobalAutoIsEmpty(
 	assert.Equal(t, "default", selectedGroup)
 	assert.Equal(t, "default", common.GetContextKeyString(ctx, constant.ContextKeyAutoGroup))
 }
+
+// 价格档位排除了某分组时，自动分组跳过它顺延到下一个；全部被排除时保留原顺序，
+// 交给取价环节返回明确的「该分组不支持」，而不是报「无可用渠道」。
+func TestCacheGetRandomSatisfiedChannelSkipsGroupsExcludedByPriceTier(t *testing.T) {
+	tests := []struct {
+		name      string
+		excluded  map[string]bool
+		wantID    int
+		wantGroup string
+	}{
+		{"skip excluded group", map[string]bool{"vip": true}, 2202, "default"},
+		{"all excluded keeps original order", map[string]bool{"vip": true, "default": true}, 2201, "vip"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := setupChannelSelectAutoGroupsTest(t)
+			const modelName = "tier-excluded-model"
+			createChannelSelectAutoGroupsChannel(t, db, 2201, "vip", modelName)
+			createChannelSelectAutoGroupsChannel(t, db, 2202, "default", modelName)
+			model.InitChannelCache()
+
+			original := MatrixTierExcludedFunc
+			MatrixTierExcludedFunc = func(_ *gin.Context, name string, group string) bool {
+				return name == modelName && tt.excluded[group]
+			}
+			t.Cleanup(func() { MatrixTierExcludedFunc = original })
+
+			gin.SetMode(gin.TestMode)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			common.SetContextKey(ctx, constant.ContextKeyUserGroup, "default")
+			common.SetContextKey(ctx, constant.ContextKeyTokenAutoGroups, []string{"vip", "default"})
+
+			retry := 0
+			channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+				Ctx:         ctx,
+				TokenGroup:  "auto",
+				ModelName:   modelName,
+				RequestPath: "/v1/video/generations",
+				Retry:       &retry,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, channel)
+			assert.Equal(t, tt.wantID, channel.Id)
+			assert.Equal(t, tt.wantGroup, selectedGroup)
+		})
+	}
+}

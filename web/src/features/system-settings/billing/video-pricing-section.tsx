@@ -40,6 +40,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { JsonCodeEditor } from '@/components/json-code-editor'
+import { MultiSelect } from '@/components/multi-select'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -116,8 +117,24 @@ const ISSUE_LABEL_KEYS: Record<string, string> = {
 
 type PricingEditorMode = 'visual' | 'json'
 
-export function VideoPricingSection(props: { defaultValue: string }) {
+export function VideoPricingSection(props: {
+  defaultValue: string
+  /** GroupRatio 的 JSON，提供「不适用分组」的可选分组 */
+  groupRatio: string
+}) {
   const { t } = useTranslation()
+  const groupOptions = useMemo(() => {
+    let ratios: Record<string, unknown> = {}
+    try {
+      ratios = JSON.parse(props.groupRatio || '{}') as Record<string, unknown>
+    } catch {
+      ratios = {}
+    }
+    return Object.keys(ratios)
+      .filter((group) => group !== 'auto')
+      .sort((a, b) => a.localeCompare(b))
+      .map((group) => ({ label: group, value: group }))
+  }, [props.groupRatio])
   // 下拉框需要传入选项列表，选中后才会显示中文名称而不是原始取值；
   // 空值在下拉里对应 any。
   const selectItems = (labelKeys: Record<string, string>) =>
@@ -223,6 +240,7 @@ export function VideoPricingSection(props: { defaultValue: string }) {
             minPixels: '',
             maxPixels: '',
             price: '',
+            excludedGroups: [],
           },
         ],
       },
@@ -246,6 +264,7 @@ export function VideoPricingSection(props: { defaultValue: string }) {
               minPixels: '',
               maxPixels: '',
               price: '',
+              excludedGroups: [],
             },
           ],
         }
@@ -599,8 +618,8 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                   <table
                     className={
                       table.unit === 'per_image'
-                        ? 'w-full min-w-[800px] text-sm'
-                        : 'w-full min-w-[560px] text-sm'
+                        ? 'w-full min-w-[1040px] text-sm'
+                        : 'w-full min-w-[800px] text-sm'
                     }
                   >
                     <thead>
@@ -626,6 +645,9 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                           </th>
                         )}
                         <th className='py-1 pr-3 font-normal'>{t('Price')}</th>
+                        <th className='py-1 pr-3 font-normal'>
+                          {t('Excluded groups')}
+                        </th>
                         <th className='w-10 py-1' />
                       </tr>
                     </thead>
@@ -748,6 +770,20 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                               }
                             />
                           </td>
+                          <td className='py-1 pr-3'>
+                            <MultiSelect
+                              className='w-56'
+                              options={groupOptions}
+                              selected={tier.excludedGroups}
+                              onChange={(excludedGroups) =>
+                                patchTier(tableIndex, tierIndex, {
+                                  excludedGroups,
+                                })
+                              }
+                              placeholder={t('All groups apply')}
+                              maxVisibleChips={2}
+                            />
+                          </td>
                           <td className='py-1'>
                             <Button
                               type='button'
@@ -770,6 +806,11 @@ export function VideoPricingSection(props: { defaultValue: string }) {
                     </tbody>
                   </table>
                 </div>
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'Requests for a tier from one of its excluded groups are rejected instead of falling back to a wider tier. Auto routing skips to the next group that supports the tier.'
+                  )}
+                </p>
                 <Button
                   type='button'
                   variant='outline'

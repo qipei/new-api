@@ -185,7 +185,9 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	// CUSTOM: 视频价格矩阵优先，未配置矩阵的模型走原有按次价格逻辑
 	priceData, err := resolveTaskPriceData(c, info)
 	if err != nil {
-		return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
+		// 取价失败（档位未配置、档位对当前分组不适用）是请求或配置的问题，与渠道无关，
+		// 按本地错误处理：不记渠道错误、不计入渠道性能统计。
+		return nil, service.TaskErrorWrapperLocal(err, "model_price_error", http.StatusBadRequest)
 	}
 	info.PriceData = priceData
 

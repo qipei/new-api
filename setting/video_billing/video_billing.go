@@ -11,6 +11,7 @@
 package video_billing
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -59,6 +60,20 @@ type PriceTier struct {
 	MinPixels  int64   `json:"min_pixels,omitempty"`
 	MaxPixels  int64   `json:"max_pixels,omitempty"`
 	Price      float64 `json:"price"`
+	// CUSTOM: 不适用该档位的分组（fork 扩展），为空表示所有分组都适用。
+	// 同一模型挂在不同分组的线路能力不同（例如某条线路只出 768P），这里排除的
+	// 分组请求该档位时直接拒绝，而不是落到默认档或交给上游失败。
+	ExcludedGroups []string `json:"excluded_groups,omitempty"`
+}
+
+// excludes 该分组是否不适用此档位。
+func (tier PriceTier) excludes(group string) bool {
+	for _, excluded := range tier.ExcludedGroups {
+		if excluded == group {
+			return true
+		}
+	}
+	return false
 }
 
 // ResolutionBucket 将平台或模型自定义的具体尺寸归入一个计费档位。
@@ -127,23 +142,36 @@ func GetPriceTable(modelName string) (ModelPriceTable, bool) {
 	return table, true
 }
 
-// GetPrice 返回模型在给定 (模式, 分辨率, 音轨) 下命中的原价与计价单位。
-// 第二个返回值为计价单位；第三个返回值表示是否命中（模型未配置、或没有任何
-// 档位匹配且没有默认档时为 false，调用方应拒绝请求或走原有计费逻辑）。
+// ErrNoMatchingTier 模型未配置价格表，或没有档位匹配且没有默认档。
+var ErrNoMatchingTier = errors.New("no matching price tier")
+
+// ErrTierExcludedForGroup 请求的档位对当前分组不适用。
+var ErrTierExcludedForGroup = errors.New("price tier is not available for this group")
+
+// GetPrice 返回模型在给定分组与 (模式, 分辨率, 音轨) 下命中的原价与计价单位。
 // 分辨率匹配优先级：精确尺寸串（如 "1440x1440"）> 归档标签（1k/2k/...）> 任意。
-func GetPrice(modelName, mode, resolution, audio string) (float64, string, bool) {
+//
+// 分组排除：最具体的匹配档位排除了该分组时返回 ErrTierExcludedForGroup，不退到
+// 更宽泛的档位（尤其是默认档）——否则「这条线路不出 1080P」会变成按兜底价收费、
+// 再交给上游失败。只有更宽泛的档位本来就是最佳匹配时（被排除的档位不匹配该请求）
+// 才按它取价。
+func GetPrice(modelName, group, mode, resolution, audio string) (float64, string, error) {
 	table, ok := GetPriceTable(modelName)
 	if !ok {
-		return 0, "", false
+		return 0, "", ErrNoMatchingTier
 	}
 
 	rawResolution := strings.ToLower(strings.TrimSpace(resolution))
 	normResolution := normalizeForTable(rawResolution, table)
-	bestScore := -1
+	bestScore, excludedScore := -1, -1
 	bestPrice := 0.0
 	for _, tier := range table.Tiers {
 		score := tierMatchScore(tier, mode, rawResolution, normResolution, audio, table)
 		if score < 0 || tier.Price <= 0 {
+			continue
+		}
+		if tier.excludes(group) {
+			excludedScore = max(excludedScore, score)
 			continue
 		}
 		if score > bestScore {
@@ -151,10 +179,23 @@ func GetPrice(modelName, mode, resolution, audio string) (float64, string, bool)
 			bestPrice = tier.Price
 		}
 	}
-	if bestScore < 0 || bestPrice <= 0 {
-		return 0, "", false
+	if excludedScore > bestScore {
+		return 0, "", ErrTierExcludedForGroup
 	}
-	return bestPrice, table.Unit, true
+	if bestScore < 0 || bestPrice <= 0 {
+		return 0, "", ErrNoMatchingTier
+	}
+	return bestPrice, table.Unit, nil
+}
+
+// HasExcludedGroups 价格表是否有档位排除了分组。没有时调用方可以跳过按请求解析维度。
+func (table ModelPriceTable) HasExcludedGroups() bool {
+	for _, tier := range table.Tiers {
+		if len(tier.ExcludedGroups) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // tierMatchScore 返回档位与请求维度的匹配度：-1 不匹配；否则数值越大越具体
@@ -344,13 +385,28 @@ func parseSize(res string) (int, int, bool) {
 	return w, h, true
 }
 
-// GetAllTablesCopy 返回全部价格表的浅拷贝，供定价接口对外展示。
-func GetAllTablesCopy() map[string]ModelPriceTable {
+// PublicTables 返回供定价接口对外展示的价格表。档位的不适用分组只保留查看者
+// 可见的分组：不对外的分组名不能出现在公开接口里，而且它们本来就与查看者无关。
+func PublicTables(visibleGroups map[string]string) map[string]ModelPriceTable {
 	if len(videoBillingSettings.PriceTables) == 0 {
 		return nil
 	}
 	copied := make(map[string]ModelPriceTable, len(videoBillingSettings.PriceTables))
 	for name, table := range videoBillingSettings.PriceTables {
+		if table.HasExcludedGroups() {
+			tiers := make([]PriceTier, len(table.Tiers))
+			for i, tier := range table.Tiers {
+				var visible []string
+				for _, group := range tier.ExcludedGroups {
+					if _, ok := visibleGroups[group]; ok {
+						visible = append(visible, group)
+					}
+				}
+				tier.ExcludedGroups = visible
+				tiers[i] = tier
+			}
+			table.Tiers = tiers
+		}
 		copied[name] = table
 	}
 	return copied

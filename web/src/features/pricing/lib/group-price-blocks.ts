@@ -62,6 +62,46 @@ export function isDefaultMatrixTier(tier: VideoPriceTier): boolean {
   )
 }
 
+function excludesGroup(tier: VideoPriceTier, group: string): boolean {
+  return tier.excluded_groups?.includes(group) ?? false
+}
+
+/**
+ * 分组卡片左侧的档位限制提示；该分组没有被任何档位排除时返回 null。
+ * 与后端取价一致：某个档位排除了该分组，就不能退到更宽泛的档位使用。
+ */
+export function groupTierLimitNote(
+  table: VideoPriceTable | undefined,
+  group: string,
+  t: TFunction
+): string | null {
+  const tiers = table?.tiers ?? []
+  if (!tiers.some((tier) => excludesGroup(tier, group))) return null
+  const dimensional = tiers.filter((tier) => !isDefaultMatrixTier(tier))
+  if (dimensional.length === 0) {
+    return t('This group does not support this model')
+  }
+  const dimensions = [
+    ...new Set(dimensional.map((tier) => formatMatrixTierDimension(tier, t))),
+  ]
+  const supported = dimensions.filter((dimension) =>
+    dimensional.some(
+      (tier) =>
+        formatMatrixTierDimension(tier, t) === dimension &&
+        !excludesGroup(tier, group)
+    )
+  )
+  if (supported.length === 0) {
+    return t('This group does not support this model')
+  }
+  if (supported.length < dimensions.length) {
+    return t('This group only supports {{items}}', {
+      items: supported.join(' / '),
+    })
+  }
+  return t('Some tiers are not available in this group')
+}
+
 export function matrixUnitLabel(unit: string, t: TFunction): string {
   if (unit === 'per_million_tokens') return t('per 1M tokens')
   if (unit === 'per_image') return t('per image')
@@ -313,7 +353,13 @@ function buildMatrixBlocks(
   if (dimensional.length === 0) {
     // 只有默认档的价格表（音频按秒、按字等），默认档就是唯一价格。
     const flat = tiers.find(isDefaultMatrixTier)
-    if (flat) {
+    if (flat && excludesGroup(flat, options.group)) {
+      blocks.push({
+        kind: 'list',
+        unit,
+        rows: [{ label: t('Unit price'), value: t('Not supported') }],
+      })
+    } else if (flat) {
       blocks.push({
         kind: 'list',
         unit,
@@ -363,7 +409,9 @@ function buildMatrixBlocks(
           const tier =
             sameDimension.find((item) => (item.audio ?? '') === audio) ??
             sameDimension.find((item) => !item.audio)
-          return tier ? formatUSD(tier.price) : null
+          // 命中的档位排除了该分组时，后端直接拒绝，不会退到更宽泛的档位。
+          if (!tier || excludesGroup(tier, options.group)) return null
+          return formatUSD(tier.price)
         }),
       })),
     })

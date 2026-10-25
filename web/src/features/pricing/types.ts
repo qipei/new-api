@@ -109,6 +109,8 @@ export type VideoPriceTier = {
   min_pixels?: number
   max_pixels?: number
   price: number
+  /** 不适用该档位的分组（只含当前查看者可见的分组），为空表示所有分组都适用。 */
+  excluded_groups?: string[]
 }
 
 export type VideoPriceTable = {

@@ -403,3 +403,59 @@ func TestBuildRequestBodyUsesMappedModel(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(encoded), `"model":"doubao-seedance-2-5-260628"`)
 }
+
+// 按用途区分的素材字段直接带上 role，不按张数推断：单张图写在 reference_images 里就是参考图。
+func TestConvertToRequestPayloadUsesRoleMediaFields(t *testing.T) {
+	var req relaycommon.TaskSubmitReq
+	require.NoError(t, common.Unmarshal([]byte(`{
+		"model":"doubao-seedance-2-0","prompt":"p",
+		"reference_images":["https://a/r.png"],
+		"metadata":{"video_urls":["https://a/v.mp4"],"audio_url":"https://a/a.mp3"}
+	}`), &req))
+
+	payload, err := (&TaskAdaptor{}).convertToRequestPayload(&req)
+	require.NoError(t, err)
+	require.Len(t, payload.Content, 4)
+	assert.Equal(t, ContentItem{Type: "image_url", ImageURL: &MediaURL{URL: "https://a/r.png"}, Role: "reference_image"}, payload.Content[0])
+	assert.Equal(t, ContentItem{Type: "video_url", VideoURL: &MediaURL{URL: "https://a/v.mp4"}, Role: "reference_video"}, payload.Content[1])
+	assert.Equal(t, ContentItem{Type: "audio_url", AudioURL: &MediaURL{URL: "https://a/a.mp3"}, Role: "reference_audio"}, payload.Content[2])
+	assert.Equal(t, "text", payload.Content[3].Type)
+}
+
+// tokease 文档里「图 + 参考音频」的写法：带参考视频/音频时图片整体按参考图组装（首尾帧与参考
+// 素材不能同用），metadata 里的参考视频/音频一并送出。
+func TestConvertToRequestPayloadKeepsLegacyImagesWithReferenceMedia(t *testing.T) {
+	var req relaycommon.TaskSubmitReq
+	require.NoError(t, common.Unmarshal([]byte(`{
+		"model":"doubao-seedance-2-0","prompt":"p","images":["https://a/f.png","https://a/l.png"],
+		"metadata":{"video_urls":["https://a/v1.mp4","https://a/v2.mp4"],"audio_urls":["https://a/a.mp3"]}
+	}`), &req))
+
+	payload, err := (&TaskAdaptor{}).convertToRequestPayload(&req)
+	require.NoError(t, err)
+	require.Len(t, payload.Content, 6)
+	assert.Equal(t, ContentItem{Type: "image_url", ImageURL: &MediaURL{URL: "https://a/f.png"}, Role: "reference_image"}, payload.Content[0])
+	assert.Equal(t, ContentItem{Type: "image_url", ImageURL: &MediaURL{URL: "https://a/l.png"}, Role: "reference_image"}, payload.Content[1])
+	assert.Equal(t, ContentItem{Type: "video_url", VideoURL: &MediaURL{URL: "https://a/v1.mp4"}, Role: "reference_video"}, payload.Content[2])
+	assert.Equal(t, ContentItem{Type: "video_url", VideoURL: &MediaURL{URL: "https://a/v2.mp4"}, Role: "reference_video"}, payload.Content[3])
+	assert.Equal(t, ContentItem{Type: "audio_url", AudioURL: &MediaURL{URL: "https://a/a.mp3"}, Role: "reference_audio"}, payload.Content[4])
+	assert.Equal(t, "text", payload.Content[5].Type)
+}
+
+// 火山官方写法：顶层 content、resolution、ratio 原样生效。
+func TestConvertToRequestPayloadAcceptsTopLevelOfficialFields(t *testing.T) {
+	var req relaycommon.TaskSubmitReq
+	require.NoError(t, common.Unmarshal([]byte(`{
+		"model":"doubao-seedance-2-0","resolution":"1080P","ratio":"9:16",
+		"content":[{"type":"text","text":"p"},{"type":"image_url","image_url":{"url":"https://a/f.png"},"role":"first_frame"}]
+	}`), &req))
+
+	payload, err := (&TaskAdaptor{}).convertToRequestPayload(&req)
+	require.NoError(t, err)
+	assert.Equal(t, []ContentItem{
+		{Type: "text", Text: "p"},
+		{Type: "image_url", ImageURL: &MediaURL{URL: "https://a/f.png"}, Role: "first_frame"},
+	}, payload.Content)
+	assert.Equal(t, "1080p", payload.Resolution)
+	assert.Equal(t, "9:16", payload.Ratio)
+}

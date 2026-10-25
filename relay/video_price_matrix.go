@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/task/hailuo"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/setting/video_billing"
@@ -192,11 +193,14 @@ func taskRequestVideoDims(c *gin.Context, info *relaycommon.RelayInfo, req relay
 	// media 的 type 名在各家上游之间不通用，这里必须把用到的写全：漏一个就会
 	// 把图生/参考生的请求判成文生视频，落到另一个价格档。万相3.0 的参考类型是
 	// reference_video / reference_image。
+	// 按用途区分的素材字段（含 metadata 里的单数写法）同样决定生成模式。
+	roleMedia := req.RoleMedia()
 	mode := video_billing.ModeTextToVideo
-	if req.HasVideo() || metadataContentHasMedia(req.Metadata, "video_url") ||
+	if req.HasVideo() || len(roleMedia.ReferenceVideos) > 0 || nativeContentHasMedia(&req, "video_url") ||
 		metadataInputHasMedia(req.Metadata, "video", "base", "feature", "reference_video") {
 		mode = video_billing.ModeVideoToVideo
-	} else if req.HasImage() || strings.TrimSpace(req.Image) != "" || metadataContentHasMedia(req.Metadata, "image_url") ||
+	} else if req.HasImage() || strings.TrimSpace(req.Image) != "" || roleMedia.FirstFrame != "" ||
+		roleMedia.LastFrame != "" || len(roleMedia.ReferenceImages) > 0 || nativeContentHasMedia(&req, "image_url") ||
 		metadataInputHasMedia(req.Metadata, "image", "first_frame", "last_frame", "refer", "reference_image") {
 		mode = video_billing.ModeImageToVideo
 	}
@@ -218,6 +222,14 @@ func taskRequestVideoDims(c *gin.Context, info *relaycommon.RelayInfo, req relay
 			if resolution == "" {
 				resolution = klingModeResolution(metadataParameterString(req.Metadata, "mode"))
 			}
+		}
+	}
+	// CUSTOM: MiniMax 官方 H3 的档位是 480P/768P/2K，「宽x高」按长边归档，不传时上游
+	// 按 768P 出片；取价必须用同一套归档（fork 扩展）。
+	if info.ChannelMeta != nil && hailuo.IsV2Model(info.UpstreamModelName) {
+		resolution = hailuo.ResolutionTier(resolution)
+		if resolution == "" {
+			resolution = "768P"
 		}
 	}
 	if resolution == "" && (strings.HasPrefix(info.UpstreamModelName, "happyhorse-") ||
@@ -357,15 +369,9 @@ func originTaskSecondsAndSize(info *relaycommon.RelayInfo) (int, string) {
 	return seconds, data.Size
 }
 
-// metadataContentHasMedia 检查 metadata 的 content 数组是否包含指定类型的媒体条目。
-func metadataContentHasMedia(metadata map[string]interface{}, mediaType string) bool {
-	if metadata == nil {
-		return false
-	}
-	contentSlice, ok := metadata["content"].([]interface{})
-	if !ok {
-		return false
-	}
+// nativeContentHasMedia 检查原生 content 数组（metadata.content 或顶层 content）是否包含指定类型的媒体条目。
+func nativeContentHasMedia(req *relaycommon.TaskSubmitReq, mediaType string) bool {
+	contentSlice, _ := req.NativeContent()
 	for _, item := range contentSlice {
 		itemMap, ok := item.(map[string]interface{})
 		if !ok {

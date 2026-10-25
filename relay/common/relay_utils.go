@@ -269,11 +269,18 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 		hasInputReference = true
 	}
 
-	if taskErr := validatePrompt(prompt); taskErr != nil {
-		return taskErr
+	// 原生 content 数组里的 text 项同样是提示词（火山、MiniMax 官方的透传写法）。
+	if !nativeContentHasText(req) {
+		if taskErr := validatePrompt(prompt); taskErr != nil {
+			return taskErr
+		}
 	}
 
 	if taskErr := validateTaskDurationBounds(req, false); taskErr != nil {
+		return taskErr
+	}
+
+	if taskErr := validateTaskRoleMedia(req); taskErr != nil {
 		return taskErr
 	}
 
@@ -349,7 +356,7 @@ func validateTaskRequest(c *gin.Context, info *RelayInfo, action string, allowMe
 		return createTaskError(err, "invalid_request", http.StatusBadRequest, true)
 	}
 
-	if strings.TrimSpace(req.Prompt) == "" {
+	if strings.TrimSpace(req.Prompt) == "" && !nativeContentHasText(req) {
 		if !allowMediaOnly || !taskRequestHasMedia(req) {
 			if taskErr := validatePrompt(req.Prompt); taskErr != nil {
 				return taskErr
@@ -358,6 +365,10 @@ func validateTaskRequest(c *gin.Context, info *RelayInfo, action string, allowMe
 	}
 
 	if taskErr := validateTaskDurationBounds(req, allowAutoDuration); taskErr != nil {
+		return taskErr
+	}
+
+	if taskErr := validateTaskRoleMedia(req); taskErr != nil {
 		return taskErr
 	}
 
@@ -370,11 +381,62 @@ func validateTaskRequest(c *gin.Context, info *RelayInfo, action string, allowMe
 	return nil
 }
 
+// 按用途区分的素材字段的通用上限，取各模型里最宽的（Seedance 2.5：30 张图、10 条视频、
+// 10 条音频）。这是网关的兜底，各模型更严格的数量和组合规则由对应渠道的适配器校验。
+const (
+	maxTaskReferenceImages = 30
+	maxTaskReferenceVideos = 10
+	maxTaskReferenceAudios = 10
+)
+
+// validateTaskRoleMedia 校验首帧/尾帧/参考图/参考视频/参考音频字段：不能和
+// image/images/video/audio(s) 或原生 metadata.content 混用（两种写法的角色推断不同，
+// 混用时无法确定用户意图），数量不能超过通用上限。
+func validateTaskRoleMedia(req TaskSubmitReq) *dto.TaskError {
+	if req.roleMedia(false).IsEmpty() {
+		return nil
+	}
+	if req.MixesMediaStyles() {
+		return createTaskError(fmt.Errorf("use either image/images/input_reference or first_frame_url/last_frame_url/reference_images for images, not both"), "invalid_request", http.StatusBadRequest, true)
+	}
+	if _, hasNativeContent := req.NativeContent(); hasNativeContent {
+		return createTaskError(fmt.Errorf("content already lists the media; do not combine it with first_frame_url/last_frame_url/reference_images/video_urls/audio_urls"), "invalid_request", http.StatusBadRequest, true)
+	}
+	media := req.RoleMedia()
+	switch {
+	case len(media.ReferenceImages) > maxTaskReferenceImages:
+		return createTaskError(fmt.Errorf("reference_images accepts at most %d items, got %d", maxTaskReferenceImages, len(media.ReferenceImages)), "invalid_request", http.StatusBadRequest, true)
+	case len(media.ReferenceVideos) > maxTaskReferenceVideos:
+		return createTaskError(fmt.Errorf("video_urls accepts at most %d items, got %d", maxTaskReferenceVideos, len(media.ReferenceVideos)), "invalid_request", http.StatusBadRequest, true)
+	case len(media.ReferenceAudios) > maxTaskReferenceAudios:
+		return createTaskError(fmt.Errorf("audio_urls accepts at most %d items, got %d", maxTaskReferenceAudios, len(media.ReferenceAudios)), "invalid_request", http.StatusBadRequest, true)
+	}
+	return nil
+}
+
+// nativeContentHasText 原生 content 数组里是否有非空的 text 项。
+func nativeContentHasText(req TaskSubmitReq) bool {
+	content, _ := req.NativeContent()
+	for _, rawItem := range content {
+		item, ok := rawItem.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if typeName, _ := item["type"].(string); typeName != "text" {
+			continue
+		}
+		if text, _ := item["text"].(string); strings.TrimSpace(text) != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func taskRequestHasMedia(req TaskSubmitReq) bool {
 	if req.HasImage() || strings.TrimSpace(req.Image) != "" || req.HasVideo() || req.HasAudio() {
 		return true
 	}
-	content, ok := req.Metadata["content"].([]interface{})
+	content, ok := req.NativeContent()
 	if !ok {
 		return false
 	}

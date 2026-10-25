@@ -17,6 +17,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	"github.com/QuantumNous/new-api/relay"
+	"github.com/QuantumNous/new-api/relay/channel/task/hailuo"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -595,7 +596,13 @@ func RelayTask(c *gin.Context) {
 		task.PrivateData.TokenId = relayInfo.TokenId
 		task.PrivateData.NodeName = common.NodeName
 		settleOnComplete := false
-		if relayInfo.ChannelType == constant.ChannelTypeAli {
+		// CUSTOM: MiniMax 官方 V2 同样在完成时回报实际秒数（含参考视频）与输入图数（fork 扩展）；
+		// 经 OpenAI/Sora 类型渠道转发的 MiniMax-H3 用量格式相同。其他转发模型的用量可能只有
+		// token，不能打开，否则按秒计费会被改成按 token 重算。
+		reportsSecondsUsage := relayInfo.ChannelType == constant.ChannelTypeAli || relayInfo.ChannelType == constant.ChannelTypeMiniMax ||
+			((relayInfo.ChannelType == constant.ChannelTypeOpenAI || relayInfo.ChannelType == constant.ChannelTypeSora) &&
+				hailuo.IsV2Model(relayInfo.UpstreamModelName))
+		if reportsSecondsUsage {
 			if table, ok := video_billing.GetPriceTable(relayInfo.OriginModelName); ok && table.Unit == video_billing.UnitPerSecond {
 				settleOnComplete = true
 			}

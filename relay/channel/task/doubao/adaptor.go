@@ -202,6 +202,9 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 	}
 	hasVideo := req.HasVideo() || contentHasMedia(req.Metadata, "video_url")
 	resolution := req.Size
+	if strings.TrimSpace(req.Resolution) != "" {
+		resolution = req.Resolution
+	}
 	if metadataResolution, ok := req.Metadata["resolution"].(string); ok && metadataResolution != "" {
 		resolution = metadataResolution
 	}
@@ -362,13 +365,61 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 		Content: []ContentItem{},
 	}
 
-	if _, hasNativeContent := req.Metadata["content"]; !hasNativeContent {
+	_, hasNativeContent := req.Metadata["content"]
+	// CUSTOM: 火山官方的顶层 content 写法（fork 扩展）；metadata.content 仍优先，由下方解析 metadata 时填入。
+	if !hasNativeContent && len(req.Content) > 0 {
+		contentBytes, err := common.Marshal(req.Content)
+		if err == nil {
+			err = common.Unmarshal(contentBytes, &r.Content)
+		}
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid content")
+		}
+		hasNativeContent = true
+	}
+	// CUSTOM: 按用途区分的素材字段直接带上 role（fork 扩展），不再按张数推断。
+	if media := req.RoleMedia(); !hasNativeContent && req.UsesRoleMedia() {
+		appendMedia := func(itemType, role, url string) {
+			item := ContentItem{Type: itemType, Role: role}
+			switch itemType {
+			case "image_url":
+				item.ImageURL = &MediaURL{URL: url}
+			case "video_url":
+				item.VideoURL = &MediaURL{URL: url}
+			case "audio_url":
+				item.AudioURL = &MediaURL{URL: url}
+			}
+			r.Content = append(r.Content, item)
+		}
+		if media.FirstFrame != "" {
+			appendMedia("image_url", "first_frame", media.FirstFrame)
+		}
+		if media.LastFrame != "" {
+			appendMedia("image_url", "last_frame", media.LastFrame)
+		}
+		for _, url := range media.ReferenceImages {
+			appendMedia("image_url", "reference_image", url)
+		}
+		for _, url := range media.ReferenceVideos {
+			appendMedia("video_url", "reference_video", url)
+		}
+		for _, url := range media.ReferenceAudios {
+			appendMedia("audio_url", "reference_audio", url)
+		}
+	} else if !hasNativeContent {
 		images := append([]string(nil), req.Images...)
 		if len(images) == 0 && strings.TrimSpace(req.Image) != "" {
 			images = append(images, strings.TrimSpace(req.Image))
 		}
+		// 带参考视频或音频时首尾帧不能同用（上游规则），图片整体按参考图组装，
+		// 与 tokease、百炼、MiniMax 官方的处理一致；显式指定了 mode 时仍以 mode 为准。
+		media := req.RoleMedia()
+		imageMode := req.Mode
+		if strings.TrimSpace(imageMode) == "" && (len(media.ReferenceVideos) > 0 || len(media.ReferenceAudios) > 0) {
+			imageMode = "reference"
+		}
 		for index, imgURL := range images {
-			role := imageRole(req.Mode, index, len(images))
+			role := imageRole(imageMode, index, len(images))
 			r.Content = append(r.Content, ContentItem{
 				Type: "image_url",
 				ImageURL: &MediaURL{
@@ -377,18 +428,16 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 				Role: role,
 			})
 		}
-		if strings.TrimSpace(req.Video) != "" {
+		// 旧写法传图时，参考视频/音频也可以写成 video_urls/audio_urls（与 tokease 写法一致），
+		// RoleMedia 已把两种写法合并，旧写法排在前面。
+		for _, videoURL := range media.ReferenceVideos {
 			r.Content = append(r.Content, ContentItem{
 				Type:     "video_url",
-				VideoURL: &MediaURL{URL: strings.TrimSpace(req.Video)},
+				VideoURL: &MediaURL{URL: videoURL},
 				Role:     "reference_video",
 			})
 		}
-		audios := append([]string(nil), req.Audios...)
-		if strings.TrimSpace(req.Audio) != "" {
-			audios = append([]string{strings.TrimSpace(req.Audio)}, audios...)
-		}
-		for _, audioURL := range audios {
+		for _, audioURL := range media.ReferenceAudios {
 			r.Content = append(r.Content, ContentItem{
 				Type:     "audio_url",
 				AudioURL: &MediaURL{URL: audioURL},
@@ -421,6 +470,13 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 		r.Duration = lo.ToPtr(dto.IntValue(duration))
 	}
 
+	// 顶层 resolution/ratio 与火山官方写法一致，metadata 里的同名参数优先。
+	if r.Resolution == "" {
+		r.Resolution = strings.ToLower(strings.TrimSpace(req.Resolution))
+	}
+	if r.Ratio == "" {
+		r.Ratio = strings.TrimSpace(req.Ratio)
+	}
 	if r.Resolution == "" || r.Ratio == "" {
 		resolution, ratio := normalizeVideoSize(req.Size)
 		if r.Resolution == "" {

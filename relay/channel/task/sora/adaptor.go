@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/task/hailuo"
 	taskcommon "github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
@@ -54,9 +55,13 @@ type responseTask struct {
 	RemixedFromVideoID string `json:"remixed_from_video_id,omitempty"`
 	// CUSTOM: 兼容按 token 计费的上游（如第三方网关转发的 Seedance），
 	// 任务态响应携带 usage 时用于完成后的差额结算。
+	// MiniMax-H3 经第三方平台转发时 usage 带输出秒数、参考视频秒数和输入图张数。
 	Usage *struct {
-		CompletionTokens int `json:"completion_tokens"`
-		TotalTokens      int `json:"total_tokens"`
+		CompletionTokens int     `json:"completion_tokens"`
+		TotalTokens      int     `json:"total_tokens"`
+		OutputSeconds    float64 `json:"output_seconds"`
+		InputSeconds     float64 `json:"input_seconds"`
+		InputImageCount  int     `json:"input_image_count"`
 	} `json:"usage,omitempty"`
 	Error *struct {
 		Message string `json:"message"`
@@ -206,6 +211,25 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		var bodyMap map[string]interface{}
 		if err := common.Unmarshal(cachedBody, &bodyMap); err == nil {
 			bodyMap["model"] = info.UpstreamModelName
+			// CUSTOM: 网关允许把参考图/参考视频/参考音频写在顶层，而对接的平台只认
+			// metadata 里的写法；在 metadata 里补一份（只补缺的），原字段保持不动（fork 扩展）。
+			for _, key := range []string{"reference_images", "video_url", "video_urls", "audio_url", "audio_urls"} {
+				value, ok := bodyMap[key]
+				if !ok {
+					continue
+				}
+				metadata, _ := bodyMap["metadata"].(map[string]interface{})
+				if metadata == nil {
+					metadata = map[string]interface{}{}
+					bodyMap["metadata"] = metadata
+				}
+				if _, exists := metadata[key]; !exists {
+					metadata[key] = value
+				}
+			}
+			if req, err := relaycommon.GetTaskRequest(c); err == nil {
+				supplementPlatformFields(bodyMap, req, info.UpstreamModelName)
+			}
 			if newBody, err := common.Marshal(bodyMap); err == nil {
 				return bytes.NewReader(newBody), nil
 			}
@@ -265,6 +289,74 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	}
 
 	return common.NewReplayableBodyReader(storage), nil
+}
+
+// supplementPlatformFields 按 tokease 等平台转换模式（简化请求体）的写法补字段，只补缺的，原字段不动：
+//   - 首尾帧各平台都认 first_frame_url/last_frame_url，且与 images 互斥，不能再补进 images；
+//     OpenAI 的 input_reference 是首帧，补成 first_frame_url。
+//   - Seedance、可灵等的参考图只认 images（images 一律按参考图处理），reference_images 补进去；
+//     MiniMax-H3 的参考图在 metadata.reference_images（已在上面补齐），不再补进 images。
+//   - MiniMax-H3 的分辨率与宽高比：平台只认顶层 resolution 与 ratio/metadata.ratio，按 size
+//     推断分辨率的规则也与网关计费不同（1920x1080 会被当成 768P）。按网关计费所用的档位写明
+//     resolution；宽高比从 metadata.parameters.ratio 补到顶层，文生视频未指定时按 16:9
+//     （平台要求文生视频必须给出非 adaptive 的比例，与直连官方的默认一致）。
+//
+// 调用方给了原生 content 时按官方格式透传，不做任何补充。
+func supplementPlatformFields(bodyMap map[string]interface{}, req relaycommon.TaskSubmitReq, upstreamModel string) {
+	if _, ok := req.NativeContent(); ok {
+		return
+	}
+	media := req.RoleMedia()
+	metadata := req.Metadata
+	parameters, _ := metadata["parameters"].(map[string]interface{})
+	isMiniMax := hailuo.IsV2Model(upstreamModel)
+	if isMiniMax {
+		if _, ok := bodyMap["resolution"]; !ok {
+			size := req.Size
+			for _, value := range []any{metadata["resolution"], parameters["resolution"]} {
+				if text, _ := value.(string); size == "" && strings.TrimSpace(text) != "" {
+					size = text
+				}
+			}
+			if tier := hailuo.ResolutionTier(size); tier != "" {
+				bodyMap["resolution"] = tier
+			}
+		}
+		_, hasRatio := bodyMap["ratio"]
+		_, hasMetadataRatio := metadata["ratio"]
+		if !hasRatio && !hasMetadataRatio {
+			ratio, _ := parameters["ratio"].(string)
+			if ratio == "" {
+				ratio, _ = metadata["aspect_ratio"].(string)
+			}
+			textToVideo := !req.HasLegacyImages() && media.IsEmpty()
+			if strings.TrimSpace(ratio) == "" && textToVideo {
+				ratio = "16:9"
+			}
+			if strings.TrimSpace(ratio) != "" {
+				bodyMap["ratio"] = strings.TrimSpace(ratio)
+			}
+		}
+	}
+
+	if _, ok := bodyMap["images"]; ok {
+		return
+	}
+	if _, ok := bodyMap["image"]; ok {
+		return
+	}
+	if inputReference := strings.TrimSpace(req.InputReference); inputReference != "" {
+		if media.FirstFrame == "" {
+			bodyMap["first_frame_url"] = inputReference
+		}
+		return
+	}
+	if isMiniMax || !req.UsesRoleMedia() {
+		return
+	}
+	if media.FirstFrame == "" && media.LastFrame == "" && len(media.ReferenceImages) > 0 {
+		bodyMap["images"] = media.ReferenceImages
+	}
 }
 
 // DoRequest delegates to common helper.
@@ -357,6 +449,12 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		if resTask.Usage != nil {
 			taskResult.CompletionTokens = resTask.Usage.CompletionTokens
 			taskResult.TotalTokens = resTask.Usage.TotalTokens
+			// 按秒计费的 MiniMax-H3：参考视频秒数同档计价，输入图扣掉免费额度后按张计价，
+			// 与直连 MiniMax 官方的结算一致。
+			if hailuo.IsV2Model(resTask.Model) {
+				taskResult.BillingDuration = hailuo.V2BillingSeconds(resTask.Usage.OutputSeconds, resTask.Usage.InputSeconds)
+				taskResult.BillableImageCount = hailuo.V2BillableImages(resTask.Model, resTask.Usage.InputImageCount)
+			}
 		}
 	case "failed", "cancelled":
 		taskResult.Status = model.TaskStatusFailure

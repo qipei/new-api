@@ -1,6 +1,7 @@
 package ali
 
 import (
+	"fmt"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -1277,4 +1278,93 @@ func TestBuildRequestBodyLeavesValidRequestUnmarked(t *testing.T) {
 	_, err := adaptor.BuildRequestBody(c, testRelayInfo())
 
 	require.NoError(t, err)
+}
+
+// 按用途区分的素材字段：同一份请求在不同模型上组装成各自的 media 类型；
+// 模型不支持的用途直接拒绝，不悄悄丢掉。
+func TestConvertToAliRequestAssemblesRoleMediaPerModel(t *testing.T) {
+	const body = `{"prompt":"p","duration":5,%s}`
+	tests := []struct {
+		name    string
+		model   string
+		fields  string
+		want    []AliVideoMedia
+		wantErr string
+	}{
+		{
+			name:   "MiniMax reference media uses MiniMax type names",
+			model:  "MiniMax/MiniMax-H3",
+			fields: `"metadata":{"reference_images":["i"],"video_urls":["v"],"audio_urls":["a"]}`,
+			want:   []AliVideoMedia{{Type: "image_url", URL: "i"}, {Type: "feature", URL: "v"}, {Type: "driving_audio", URL: "a"}},
+		},
+		{
+			name:   "MiniMax last frame alone",
+			model:  "MiniMax/MiniMax-H3",
+			fields: `"last_frame_url":"l"`,
+			want:   []AliVideoMedia{{Type: "last_frame", URL: "l"}},
+		},
+		{
+			name:   "wan3 keeps role names",
+			model:  "wan3.0-video",
+			fields: `"first_frame_url":"f","last_frame_url":"l"`,
+			want:   []AliVideoMedia{{Type: "first_frame", URL: "f"}, {Type: "last_frame", URL: "l"}},
+		},
+		{
+			name:   "kling omni mixes frame and reference",
+			model:  "kling/kling-v3-omni-video-generation",
+			fields: `"first_frame_url":"f","reference_images":["r"]`,
+			want:   []AliVideoMedia{{Type: "first_frame", URL: "f"}, {Type: "refer", URL: "r"}},
+		},
+		{
+			name:    "kling video rejects reference images",
+			model:   "kling/kling-v3-video-generation",
+			fields:  `"reference_images":["r"]`,
+			wantErr: "does not support reference_images",
+		},
+		{
+			name:    "happyhorse t2v rejects any media",
+			model:   "happyhorse-1.1-t2v",
+			fields:  `"first_frame_url":"f"`,
+			wantErr: "does not support first_frame_url",
+		},
+		{
+			name:   "MiniMax legacy image with reference audio and videos",
+			model:  "MiniMax/MiniMax-H3",
+			fields: `"image":"i","metadata":{"video_urls":["v1","v2"],"audio_urls":["a"]}`,
+			want: []AliVideoMedia{
+				{Type: "image_url", URL: "i"}, {Type: "feature", URL: "v1"}, {Type: "feature", URL: "v2"}, {Type: "driving_audio", URL: "a"},
+			},
+		},
+		{
+			name:   "wan3 legacy images with reference videos",
+			model:  "wan3.0-video",
+			fields: `"images":["i1","i2"],"video":"v0","video_urls":["v1"]`,
+			want: []AliVideoMedia{
+				{Type: "reference_image", URL: "i1"}, {Type: "reference_image", URL: "i2"},
+				{Type: "reference_video", URL: "v0"}, {Type: "reference_video", URL: "v1"},
+			},
+		},
+		{
+			name:    "native media cannot be combined",
+			model:   "wan3.0-video",
+			fields:  `"first_frame_url":"f","metadata":{"input":{"media":[{"type":"first_frame","url":"x"}]}}`,
+			wantErr: "already lists the media",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var req relaycommon.TaskSubmitReq
+			require.NoError(t, common.Unmarshal([]byte(fmt.Sprintf(body, tt.fields)), &req))
+			req.Model = tt.model
+			aliReq, err := (&TaskAdaptor{}).convertToAliRequest(testRelayInfo(), req)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, aliReq.Input.Media)
+			assert.Empty(t, aliReq.Input.ImgURL)
+		})
+	}
 }

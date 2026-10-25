@@ -150,6 +150,57 @@ describe('model API specs', () => {
     )
   })
 
+  // 首帧/尾帧/参考图/参考视频/参考音频字段按各族实际支持的用途列出，不多不少。
+  test('documents the media role fields each video family supports', () => {
+    const roleFields = (family: string) =>
+      MODEL_API_SPECS.find((spec) => spec.family === family)
+        ?.params.map((param) => param.name)
+        .filter((name) =>
+          [
+            'first_frame_url',
+            'last_frame_url',
+            'reference_images',
+            'video_urls',
+            'audio_urls',
+          ].includes(name)
+        )
+    const all = [
+      'first_frame_url',
+      'last_frame_url',
+      'reference_images',
+      'video_urls',
+      'audio_urls',
+    ]
+    assert.deepEqual(roleFields('minimax-video'), all)
+    assert.deepEqual(roleFields('seedance-video'), all)
+    assert.deepEqual(roleFields('wan3-video'), all)
+    assert.deepEqual(roleFields('kling-video'), [
+      'first_frame_url',
+      'last_frame_url',
+      'reference_images',
+      'video_urls',
+    ])
+    assert.deepEqual(roleFields('vidu-reference'), ['reference_images'])
+    assert.deepEqual(roleFields('vidu-img2video'), ['first_frame_url'])
+    assert.deepEqual(roleFields('happyhorse-video'), [
+      'first_frame_url',
+      'reference_images',
+      'video_urls',
+    ])
+  })
+
+  // OpenAI 视频接口只定义了 input_reference（首帧），支持首帧的族都要列出这种写法。
+  test('lists input_reference wherever a first frame is supported', () => {
+    for (const spec of MODEL_API_SPECS) {
+      const names = spec.params.map((param) => param.name)
+      assert.equal(
+        names.includes('input_reference'),
+        names.includes('first_frame_url'),
+        spec.family
+      )
+    }
+  })
+
   // 参数放错层级会被静默忽略，所以每条都必须声明位置，且名字要带上完整路径。
   test('every parameter declares where it belongs in the request body', () => {
     for (const spec of MODEL_API_SPECS) {

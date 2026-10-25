@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,6 +22,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/video_billing"
 )
 
 // https://platform.minimaxi.com/docs/api-reference/video-generation-intro
@@ -42,6 +44,10 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
+	// CUSTOM: H3 系列只有 V2 接口（fork 扩展）
+	if IsV2Model(info.UpstreamModelName) {
+		return fmt.Sprintf("%s%s", a.baseURL, v2CreateEndpoint), nil
+	}
 	return fmt.Sprintf("%s%s", a.baseURL, TextToVideoEndpoint), nil
 }
 
@@ -60,6 +66,18 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	req, ok := v.(relaycommon.TaskSubmitReq)
 	if !ok {
 		return nil, fmt.Errorf("invalid request type in context")
+	}
+
+	if IsV2Model(info.UpstreamModelName) {
+		v2Body, err := buildV2Request(req, info.UpstreamModelName)
+		if err != nil {
+			return nil, err
+		}
+		data, err := common.Marshal(v2Body)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(data), nil
 	}
 
 	body, err := a.convertToRequestPayload(&req, info)
@@ -119,6 +137,10 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	}
 
 	uri := fmt.Sprintf("%s%s?task_id=%s", baseUrl, QueryTaskEndpoint, taskID)
+	// 轮询时带上了提交时的上游模型名，H3 系列走 V2 查询接口。
+	if model, _ := body["model"].(string); IsV2Model(model) {
+		uri = fmt.Sprintf("%s%s%s", baseUrl, v2QueryEndpoint, taskID)
+	}
 
 	req, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {
@@ -182,7 +204,78 @@ func (a *TaskAdaptor) parseResolutionFromSize(size string, modelConfig ModelConf
 	}
 }
 
+// EstimateBilling 价格矩阵按秒计费时，预扣按本次请求的输出时长估算；参考视频时长与
+// 超出免费额度的输入图在任务完成后按上游用量结算。
+func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
+	if !IsV2Model(info.UpstreamModelName) {
+		return nil
+	}
+	table, ok := video_billing.GetPriceTable(info.OriginModelName)
+	if !ok || table.Unit != video_billing.UnitPerSecond {
+		return nil
+	}
+	req, err := relaycommon.GetTaskRequest(c)
+	if err != nil {
+		return nil
+	}
+	v2Body, err := buildV2Request(req, info.UpstreamModelName)
+	if err != nil {
+		return nil
+	}
+	return map[string]float64{"seconds": float64(min(v2Body.Duration, relaycommon.MaxTaskDurationSeconds))}
+}
+
+func (a *TaskAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *relaycommon.TaskInfo) int {
+	return taskcommon.VideoMatrixQuotaOnComplete(task, taskResult)
+}
+
+// parseV2TaskResult 解析 V2 查询结果；不是 V2 结构时第二个返回值为 false。
+func parseV2TaskResult(respBody []byte) (*relaycommon.TaskInfo, bool, error) {
+	var resp v2QueryResponse
+	if err := common.Unmarshal(respBody, &resp); err != nil {
+		return nil, false, nil
+	}
+	if resp.Task.Status == "" {
+		if resp.Error != nil && resp.Error.Message != "" {
+			// 查询本身出错（限流、鉴权等），任务状态未知，交给下一轮轮询。
+			return nil, true, fmt.Errorf("minimax query failed: %s", resp.Error.Message)
+		}
+		return nil, false, nil
+	}
+	task := resp.Task
+	result := &relaycommon.TaskInfo{TaskID: task.ID}
+	switch task.Status {
+	case "queued":
+		result.Status = model.TaskStatusQueued
+		result.Progress = "20%"
+	case "running":
+		result.Status = model.TaskStatusInProgress
+		result.Progress = "50%"
+	case "succeeded":
+		result.Status = model.TaskStatusSuccess
+		result.Progress = "100%"
+		result.Url = task.Content.URL
+		result.Duration = int(math.Min(math.Max(task.Usage.OutputSeconds, 0), float64(relaycommon.MaxTaskDurationSeconds)))
+		result.BillingDuration = V2BillingSeconds(task.Usage.OutputSeconds, task.Usage.InputSeconds)
+		result.BillableImageCount = V2BillableImages(task.Model, task.Usage.InputImageCount)
+	case "failed", "cancelled":
+		result.Status = model.TaskStatusFailure
+		result.Progress = "100%"
+		result.Reason = "task " + task.Status
+		if task.Error != nil && task.Error.Message != "" {
+			result.Reason = task.Error.Message
+		}
+	default:
+		result.Status = model.TaskStatusInProgress
+		result.Progress = "30%"
+	}
+	return result, true, nil
+}
+
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {
+	if result, isV2, err := parseV2TaskResult(respBody); isV2 {
+		return result, err
+	}
 	resTask := QueryTaskResponse{}
 	if err := common.Unmarshal(respBody, &resTask); err != nil {
 		return nil, errors.Wrap(err, "unmarshal task result failed")
@@ -231,6 +324,10 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, erro
 	}
 
 	openAIVideo := originTask.ToOpenAIVideo()
+	if result, isV2, _ := parseV2TaskResult(originTask.Data); isV2 && result != nil &&
+		result.Status == model.TaskStatusFailure {
+		openAIVideo.Error = &dto.OpenAIVideoError{Message: result.Reason}
+	}
 	if hailuoResp.BaseResp.StatusCode != StatusSuccess {
 		openAIVideo.Error = &dto.OpenAIVideoError{
 			Message: hailuoResp.BaseResp.StatusMsg,

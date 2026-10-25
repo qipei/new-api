@@ -8,6 +8,11 @@ var ModelList = []string{
 	"MiniMax-Hailuo-2.3",
 	"MiniMax-Hailuo-2.3-Fast",
 	"MiniMax-Hailuo-02",
+	// CUSTOM: H3 系列走 V2 接口（fork 扩展）
+	"MiniMax-H3",
+	"MiniMax-H3-Highspeed",
+	"MiniMax-H3-Lite",
+	"MiniMax-H3-Max",
 	"T2V-01-Director",
 	"T2V-01",
 	"I2V-01-Director",

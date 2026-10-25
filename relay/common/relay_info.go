@@ -879,6 +879,202 @@ type TaskSubmitReq struct {
 	Seconds        string                 `json:"seconds,omitempty"`
 	InputReference string                 `json:"input_reference,omitempty"`
 	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+
+	// CUSTOM: 按用途区分的素材字段（fork 扩展）。与 image/images/video/audio(s) 冗余并存，
+	// 各字段也可以写在 metadata 里（与 tokease 等平台的写法一致），网关两处都认。
+	FirstFrameURL   string   `json:"first_frame_url,omitempty"`
+	LastFrameURL    string   `json:"last_frame_url,omitempty"`
+	ReferenceImages []string `json:"reference_images,omitempty"`
+	VideoURL        string   `json:"video_url,omitempty"`
+	VideoURLs       []string `json:"video_urls,omitempty"`
+	AudioURL        string   `json:"audio_url,omitempty"`
+	AudioURLs       []string `json:"audio_urls,omitempty"`
+
+	// CUSTOM: 与火山、MiniMax 官方及 tokease 一致的顶层写法（fork 扩展），与 metadata 里的
+	// 同名参数冗余并存：resolution/ratio 为输出规格，content 为带 role 的原生素材数组。
+	Resolution string        `json:"resolution,omitempty"`
+	Ratio      string        `json:"ratio,omitempty"`
+	Content    []interface{} `json:"content,omitempty"`
+
+	// legacyImages 调用方是否用了 image/images/input_reference 传图，在补齐旧字段之前记录。
+	// 旧写法按张数推断首帧/参考图，和按用途区分的图片字段同时出现时用途说不清，需要拒绝；
+	// 视频、音频只有「参考」一种用途，两种写法合并即可。
+	legacyImages bool
+}
+
+// TaskMedia 按用途区分的输入素材：首帧、尾帧、参考图、参考视频、参考音频。
+type TaskMedia struct {
+	FirstFrame      string
+	LastFrame       string
+	ReferenceImages []string
+	ReferenceVideos []string
+	ReferenceAudios []string
+}
+
+func (m TaskMedia) IsEmpty() bool {
+	return m.FirstFrame == "" && m.LastFrame == "" && len(m.ReferenceImages) == 0 &&
+		len(m.ReferenceVideos) == 0 && len(m.ReferenceAudios) == 0
+}
+
+// RoleMedia 汇总按用途区分的素材：请求体顶层与 metadata 里的同名字段都认（单数与复数
+// 形式合并），去掉空白与重复。参考视频、参考音频再并入旧写法 video/audio/audios（排在前面），
+// 两种写法同时出现时一并送出。供按角色组装素材的渠道使用。
+func (t *TaskSubmitReq) RoleMedia() TaskMedia {
+	media := t.roleMedia(true)
+	media.ReferenceVideos = uniqueNonBlank([]string{t.Video}, media.ReferenceVideos)
+	media.ReferenceAudios = uniqueNonBlank([]string{t.Audio}, t.Audios, media.ReferenceAudios)
+	return media
+}
+
+// UsesRoleMedia 是否按用途组装素材：用了按用途区分的字段且没用旧写法传图。
+// 旧写法传图时仍按各渠道原有的张数规则推断，已有请求的行为不变。
+func (t *TaskSubmitReq) UsesRoleMedia() bool {
+	return !t.legacyImages && !t.roleMedia(true).IsEmpty()
+}
+
+// HasLegacyImages 调用方是否用了 image/images/input_reference 传图（不含网关补齐的部分）。
+func (t *TaskSubmitReq) HasLegacyImages() bool {
+	return t.legacyImages
+}
+
+// NativeContent 返回调用方直接给出的原生 content 数组：metadata.content 优先，其次顶层 content。
+func (t *TaskSubmitReq) NativeContent() ([]interface{}, bool) {
+	if content, ok := t.Metadata["content"].([]interface{}); ok {
+		return content, true
+	}
+	if _, ok := t.Metadata["content"]; ok {
+		return nil, true
+	}
+	if len(t.Content) > 0 {
+		return t.Content, true
+	}
+	return nil, false
+}
+
+// roleMedia 的 withMetadataSingular 控制是否读取 metadata 里的 first_frame_url、
+// last_frame_url、video_url、audio_url。百炼老版万相的原生参数在 metadata 顶层也用这些
+// 名字，补旧字段、混用检查只看不会和原生参数撞名的来源，免得改变已有请求的行为。
+func (t *TaskSubmitReq) roleMedia(withMetadataSingular bool) TaskMedia {
+	singular := func(key string) []string {
+		if !withMetadataSingular {
+			return nil
+		}
+		return metadataStrings(t.Metadata, key)
+	}
+	return TaskMedia{
+		FirstFrame:      firstNonBlank(append([]string{t.FirstFrameURL}, singular("first_frame_url")...)),
+		LastFrame:       firstNonBlank(append([]string{t.LastFrameURL}, singular("last_frame_url")...)),
+		ReferenceImages: uniqueNonBlank(t.ReferenceImages, metadataStrings(t.Metadata, "reference_images")),
+		ReferenceVideos: uniqueNonBlank([]string{t.VideoURL}, t.VideoURLs,
+			singular("video_url"), metadataStrings(t.Metadata, "video_urls")),
+		ReferenceAudios: uniqueNonBlank([]string{t.AudioURL}, t.AudioURLs,
+			singular("audio_url"), metadataStrings(t.Metadata, "audio_urls")),
+	}
+}
+
+// metadataStrings 读取 metadata 里的字符串或字符串数组。
+func metadataStrings(metadata map[string]interface{}, key string) []string {
+	switch value := metadata[key].(type) {
+	case string:
+		return []string{value}
+	case []interface{}:
+		values := make([]string, 0, len(value))
+		for _, item := range value {
+			if text, ok := item.(string); ok {
+				values = append(values, text)
+			}
+		}
+		return values
+	}
+	return nil
+}
+
+func firstNonBlank(values []string) string {
+	for _, value := range values {
+		if trimmed := strings.TrimSpace(value); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+func uniqueNonBlank(groups ...[]string) []string {
+	var values []string
+	seen := map[string]bool{}
+	for _, group := range groups {
+		for _, value := range group {
+			value = strings.TrimSpace(value)
+			if value == "" || seen[value] {
+				continue
+			}
+			seen[value] = true
+			values = append(values, value)
+		}
+	}
+	return values
+}
+
+// fillLegacyMedia 按种类补齐 image/images/video/audios：某一种素材只用了按用途区分的
+// 新字段时补上对应的旧字段，让还没按角色适配的渠道也能拿到素材、计费也能识别图生/视频生。
+// 只用于补空，调用方自己传的旧字段原样保留。只有尾帧没有首帧时旧字段无法表达，不补。
+func (t *TaskSubmitReq) fillLegacyMedia() {
+	t.legacyImages = strings.TrimSpace(t.Image) != "" || len(t.Images) > 0 || strings.TrimSpace(t.InputReference) != ""
+	media := t.roleMedia(false)
+	// OpenAI 视频接口的 input_reference 是首帧，只认 images 的渠道同样要拿到它。
+	if len(t.Images) == 0 && strings.TrimSpace(t.Image) == "" && strings.TrimSpace(t.InputReference) != "" {
+		t.Images = []string{strings.TrimSpace(t.InputReference)}
+	}
+	if !t.legacyImages {
+		switch {
+		case media.FirstFrame != "":
+			t.Images = []string{media.FirstFrame}
+			if media.LastFrame != "" {
+				t.Images = append(t.Images, media.LastFrame)
+			}
+		case media.LastFrame == "" && len(media.ReferenceImages) > 0:
+			t.Images = append([]string(nil), media.ReferenceImages...)
+		}
+	}
+	if strings.TrimSpace(t.Video) == "" && len(media.ReferenceVideos) > 0 {
+		t.Video = media.ReferenceVideos[0]
+	}
+	if strings.TrimSpace(t.Audio) == "" && len(t.Audios) == 0 && len(media.ReferenceAudios) > 0 {
+		t.Audios = append([]string(nil), media.ReferenceAudios...)
+	}
+}
+
+// MixesMediaStyles 是否同时用了旧写法传图（image/images/input_reference）与按用途区分的
+// 图片字段（first_frame_url/last_frame_url/reference_images）。
+func (t *TaskSubmitReq) MixesMediaStyles() bool {
+	if !t.legacyImages {
+		return false
+	}
+	media := t.roleMedia(false)
+	return media.FirstFrame != "" || media.LastFrame != "" || len(media.ReferenceImages) > 0
+}
+
+// parseInputReference 读取 OpenAI 视频接口的 input_reference：字符串，或
+// {"image_url": "..."} / {"file_id": "..."} 对象。只有 file_id 时网关无法取图，
+// 留空交给透传渠道原样转发。
+func parseInputReference(raw json.RawMessage) string {
+	var text string
+	if err := common.Unmarshal(raw, &text); err == nil {
+		return strings.TrimSpace(text)
+	}
+	var ref struct {
+		ImageURL any `json:"image_url"`
+	}
+	if err := common.Unmarshal(raw, &ref); err != nil {
+		return ""
+	}
+	switch value := ref.ImageURL.(type) {
+	case string:
+		return strings.TrimSpace(value)
+	case map[string]interface{}:
+		url, _ := value["url"].(string)
+		return strings.TrimSpace(url)
+	}
+	return ""
 }
 
 func (t *TaskSubmitReq) GetPrompt() string {
@@ -886,22 +1082,27 @@ func (t *TaskSubmitReq) GetPrompt() string {
 }
 
 func (t *TaskSubmitReq) HasImage() bool {
-	return len(t.Images) > 0
+	if len(t.Images) > 0 {
+		return true
+	}
+	media := t.roleMedia(false)
+	return media.FirstFrame != "" || media.LastFrame != "" || len(media.ReferenceImages) > 0
 }
 
 func (t *TaskSubmitReq) HasVideo() bool {
-	return strings.TrimSpace(t.Video) != ""
+	return strings.TrimSpace(t.Video) != "" || len(t.roleMedia(false).ReferenceVideos) > 0
 }
 
 func (t *TaskSubmitReq) HasAudio() bool {
-	return strings.TrimSpace(t.Audio) != "" || len(t.Audios) > 0
+	return strings.TrimSpace(t.Audio) != "" || len(t.Audios) > 0 || len(t.roleMedia(false).ReferenceAudios) > 0
 }
 
 func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 	type Alias TaskSubmitReq
 	aux := &struct {
-		Metadata json.RawMessage `json:"metadata,omitempty"`
-		Duration json.RawMessage `json:"duration,omitempty"`
+		Metadata       json.RawMessage `json:"metadata,omitempty"`
+		Duration       json.RawMessage `json:"duration,omitempty"`
+		InputReference json.RawMessage `json:"input_reference,omitempty"`
 		*Alias
 	}{
 		Alias: (*Alias)(t),
@@ -909,6 +1110,10 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 
 	if err := common.Unmarshal(data, &aux); err != nil {
 		return err
+	}
+
+	if len(aux.InputReference) > 0 {
+		t.InputReference = parseInputReference(aux.InputReference)
 	}
 
 	if len(aux.Duration) > 0 {
@@ -931,6 +1136,7 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 			var metadataObj map[string]interface{}
 			if err := common.Unmarshal([]byte(metadataStr), &metadataObj); err == nil {
 				t.Metadata = metadataObj
+				t.fillLegacyMedia()
 				return nil
 			}
 		}
@@ -941,6 +1147,7 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 		}
 	}
 
+	t.fillLegacyMedia()
 	return nil
 }
 func (t *TaskSubmitReq) UnmarshalMetadata(v any) error {

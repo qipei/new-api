@@ -663,19 +663,15 @@ func normalizeWan3Input(aliReq *AliVideoRequest, req relaycommon.TaskSubmitReq) 
 
 	if len(aliReq.Input.Media) == 0 {
 		images := taskImages(req)
-		video := strings.TrimSpace(req.Video)
-		audios := make([]string, 0, len(req.Audios)+1)
-		for _, item := range append([]string{req.Audio}, req.Audios...) {
-			if item = strings.TrimSpace(item); item != "" {
-				audios = append(audios, item)
-			}
-		}
+		// 参考视频/音频的旧写法与 video_urls/audio_urls 合并，旧写法排在前面。
+		media := req.RoleMedia()
+		videos, audios := media.ReferenceVideos, media.ReferenceAudios
 
-		if video != "" || len(audios) > 0 || len(images) > 2 {
+		if len(videos) > 0 || len(audios) > 0 || len(images) > 2 {
 			for _, image := range images {
 				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "reference_image", URL: image})
 			}
-			if video != "" {
+			for _, video := range videos {
 				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "reference_video", URL: video})
 			}
 			for _, audio := range audios {
@@ -790,19 +786,16 @@ func normalizeAliThirdPartyMedia(aliReq *AliVideoRequest, req relaycommon.TaskSu
 		if isAliMiniMaxVideoModel(aliReq.Model) {
 			// 带参考视频或音频时按多模态参考生视频组装，否则按首尾帧。
 			// 两种组合互斥，混用会被上游拒绝。
-			video := strings.TrimSpace(req.Video)
-			audio := strings.TrimSpace(req.Audio)
-			if video != "" || audio != "" || len(req.Audios) > 0 {
+			media := req.RoleMedia()
+			if len(media.ReferenceVideos) > 0 || len(media.ReferenceAudios) > 0 {
 				for _, image := range images {
 					aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "image_url", URL: image})
 				}
-				if video != "" {
+				for _, video := range media.ReferenceVideos {
 					aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "feature", URL: video})
 				}
-				for _, item := range append([]string{audio}, req.Audios...) {
-					if item = strings.TrimSpace(item); item != "" {
-						aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "driving_audio", URL: item})
-					}
+				for _, audio := range media.ReferenceAudios {
+					aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "driving_audio", URL: audio})
 				}
 			} else if len(images) > 0 {
 				aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: "first_frame", URL: images[0]})
@@ -1337,6 +1330,104 @@ func normalizeWan27I2VInput(aliReq *AliVideoRequest, req relaycommon.TaskSubmitR
 	return nil
 }
 
+// 素材用途 → 请求字段名，用于报错时告诉调用方是哪个字段不被支持。
+var aliRoleFieldNames = map[string]string{
+	"first_frame":     "first_frame_url",
+	"last_frame":      "last_frame_url",
+	"reference_image": "reference_images",
+	"reference_video": "video_urls",
+	"reference_audio": "audio_urls",
+}
+
+// aliRoleMediaTypes 返回模型的素材用途到百炼 input.media 类型名的对应；没有 media
+// 协议的模型（老版万相等）返回 false。各家在百炼上的类型名不同，例如参考视频在万相
+// 叫 reference_video，在 MiniMax 和可灵 Omni 叫 feature。
+func aliRoleMediaTypes(model string) (map[string]string, bool) {
+	switch {
+	case isWan3VideoModel(model):
+		return map[string]string{
+			"first_frame": "first_frame", "last_frame": "last_frame", "reference_image": "reference_image",
+			"reference_video": "reference_video", "reference_audio": "reference_audio",
+		}, true
+	case isWan27I2VModel(model):
+		return map[string]string{"first_frame": "first_frame", "last_frame": "last_frame", "reference_audio": "driving_audio"}, true
+	case isAliMiniMaxVideoModel(model):
+		return map[string]string{
+			"first_frame": "first_frame", "last_frame": "last_frame", "reference_image": "image_url",
+			"reference_video": "feature", "reference_audio": "driving_audio",
+		}, true
+	case model == "kling/kling-v3-omni-video-generation":
+		return map[string]string{
+			"first_frame": "first_frame", "last_frame": "last_frame", "reference_image": "refer", "reference_video": "feature",
+		}, true
+	case isAliKlingVideoModel(model):
+		return map[string]string{"first_frame": "first_frame", "last_frame": "last_frame"}, true
+	case isAliViduImg2VideoModel(model):
+		return map[string]string{"first_frame": "image"}, true
+	case isAliViduReferenceVideoModel(model):
+		return map[string]string{"reference_image": "image"}, true
+	case isAliHappyHorseI2VModel(model):
+		return map[string]string{"first_frame": "first_frame"}, true
+	case isAliHappyHorseR2VModel(model):
+		return map[string]string{"reference_image": "reference_image"}, true
+	case isAliHappyHorseVideoEditModel(model):
+		return map[string]string{"reference_video": "video", "reference_image": "reference_image"}, true
+	case isAliHappyHorseT2VModel(model):
+		return map[string]string{}, true
+	}
+	return nil, false
+}
+
+// applyAliRoleMedia 把按用途区分的素材字段组装进 input.media。模型不支持的用途直接
+// 拒绝，不悄悄丢掉；调用方已在 metadata.input.media 里写了原生素材时不能再混用。
+// 没有 media 协议的老模型只支持首帧/首尾帧（已补到 image/images），其余用途拒绝。
+// 旧写法传图时按各模型原有规则组装（参考视频/音频在那里合并），这里不处理。
+func applyAliRoleMedia(aliReq *AliVideoRequest, req relaycommon.TaskSubmitReq) error {
+	if !req.UsesRoleMedia() {
+		return nil
+	}
+	media := req.RoleMedia()
+	types, ok := aliRoleMediaTypes(aliReq.Model)
+	if !ok {
+		if len(media.ReferenceImages) > 0 || len(media.ReferenceVideos) > 0 || len(media.ReferenceAudios) > 0 ||
+			(media.LastFrame != "" && media.FirstFrame == "") {
+			return fmt.Errorf("%s only supports first_frame_url and last_frame_url", aliReq.Model)
+		}
+		return nil
+	}
+	if len(aliReq.Input.Media) > 0 {
+		return fmt.Errorf("%s: metadata.input.media already lists the media; do not combine it with first_frame_url/last_frame_url/reference_images/video_urls/audio_urls", aliReq.Model)
+	}
+	add := func(role string, urls ...string) error {
+		for _, url := range urls {
+			if url == "" {
+				continue
+			}
+			mediaType := types[role]
+			if mediaType == "" {
+				return fmt.Errorf("%s does not support %s", aliReq.Model, aliRoleFieldNames[role])
+			}
+			aliReq.Input.Media = append(aliReq.Input.Media, AliVideoMedia{Type: mediaType, URL: url})
+		}
+		return nil
+	}
+	for _, item := range []struct {
+		role string
+		urls []string
+	}{
+		{"first_frame", []string{media.FirstFrame}},
+		{"last_frame", []string{media.LastFrame}},
+		{"reference_image", media.ReferenceImages},
+		{"reference_video", media.ReferenceVideos},
+		{"reference_audio", media.ReferenceAudios},
+	} {
+		if err := add(item.role, item.urls...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relaycommon.TaskSubmitReq) (*AliVideoRequest, error) {
 	upstreamModel := req.Model
 	if info.IsModelMapped {
@@ -1473,6 +1564,12 @@ func (a *TaskAdaptor) convertToAliRequest(info *relaycommon.RelayInfo, req relay
 
 	if aliReq.Model != upstreamModel {
 		return nil, errors.New("can't change model with metadata")
+	}
+
+	// CUSTOM: 首帧/尾帧/参考图/参考视频/参考音频字段按各模型的 media 类型组装（fork 扩展），
+	// 后面各模型的组装逻辑看到 media 已有内容就不再按张数推断，校验照常执行。
+	if err := applyAliRoleMedia(aliReq, req); err != nil {
+		return nil, err
 	}
 
 	if err := normalizeWan27I2VInput(aliReq, req); err != nil {

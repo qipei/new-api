@@ -139,6 +139,101 @@ function withMatrixResolution(
 }
 
 // ---------------------------------------------------------------------------
+// 按用途区分的素材字段（首帧/尾帧/参考图/参考视频/参考音频），各视频模型族共用。
+// 依据：relay/common/relay_info.go TaskSubmitReq.RoleMedia 与各渠道适配器的组装。
+// 与 image/images/video/audio 冗余并存：图片两种写法二选一，参考视频/音频两种写法合并；
+// 字段写在顶层或 metadata 里都认。支持首帧的族同时列出 OpenAI 视频接口的 input_reference。
+// ---------------------------------------------------------------------------
+
+type MediaRoleSupport = {
+  firstFrame?: string
+  lastFrame?: string
+  referenceImages?: string
+  referenceVideos?: string
+  referenceAudios?: string
+  /** 各用途的数量上限，例如 '≤ 9'。 */
+  ranges?: Partial<
+    Record<'referenceImages' | 'referenceVideos' | 'referenceAudios', string>
+  >
+}
+
+/** 该族支持的用途才生成参数；值是参数说明（完整句子，同时作为 i18n key）。 */
+function mediaRoleParams(support: MediaRoleSupport): ModelApiParam[] {
+  const params: ModelApiParam[] = []
+  if (support.firstFrame) {
+    params.push({
+      name: 'first_frame_url',
+      location: 'body',
+      type: 'string',
+      descriptionKey: support.firstFrame,
+    })
+    params.push({
+      name: 'input_reference',
+      location: 'body',
+      type: 'string',
+      descriptionKey: MEDIA_INPUT_REFERENCE,
+    })
+  }
+  if (support.lastFrame) {
+    params.push({
+      name: 'last_frame_url',
+      location: 'body',
+      type: 'string',
+      descriptionKey: support.lastFrame,
+    })
+  }
+  if (support.referenceImages) {
+    params.push({
+      name: 'reference_images',
+      location: 'body',
+      type: 'array',
+      range: support.ranges?.referenceImages,
+      descriptionKey: support.referenceImages,
+    })
+  }
+  if (support.referenceVideos) {
+    params.push({
+      name: 'video_urls',
+      location: 'body',
+      type: 'array',
+      range: support.ranges?.referenceVideos,
+      descriptionKey: support.referenceVideos,
+    })
+  }
+  if (support.referenceAudios) {
+    params.push({
+      name: 'audio_urls',
+      location: 'body',
+      type: 'array',
+      range: support.ranges?.referenceAudios,
+      descriptionKey: support.referenceAudios,
+    })
+  }
+  return params
+}
+
+const MEDIA_FIRST_FRAME =
+  'First-frame image URL. Can also be written as metadata.first_frame_url. Prefer it over images when the image must be the first frame.'
+const MEDIA_LAST_FRAME =
+  'Last-frame image URL, usually paired with first_frame_url. Can also be written as metadata.last_frame_url.'
+const MEDIA_REFERENCE_IMAGES =
+  'Reference image URLs for reference-to-video. Can also be written as metadata.reference_images.'
+const MEDIA_REFERENCE_VIDEOS =
+  'Reference video URLs. Pass a single video as video_url instead if you like; both can also be written in metadata.'
+const MEDIA_REFERENCE_AUDIOS =
+  'Reference audio URLs. Pass a single clip as audio_url instead if you like; both can also be written in metadata.'
+const MEDIA_INPUT_REFERENCE =
+  'OpenAI-compatible first-frame image: a URL string or an object such as {"image_url": "https://..."}. Works like image; do not combine it with first_frame_url or reference_images.'
+const MEDIA_STYLE_NOTE =
+  'For images, use either image, images and input_reference, or first_frame_url, last_frame_url and reference_images, not both. Reference videos and audio can be passed as video and audio or as video_urls and audio_urls; both are sent. Each field can be written at the top level or in metadata.'
+const NATIVE_CONTENT =
+  'Official content array with an explicit role on each item (text, image_url, video_url, audio_url), sent upstream as is. A text item can replace prompt. Do not combine it with the media fields above.'
+const TOP_LEVEL_RATIO =
+  'Aspect ratio of the generated video, for example 16:9. Same as metadata.ratio.'
+const MEDIA_FRAMES_OR_REFERENCES_NOTE =
+  'First and last frames cannot be combined with reference images, videos or audio in the same request.'
+
+// ---------------------------------------------------------------------------
 // MiniMax 视频（百炼）
 // 依据：relay/channel/task/ali/adaptor.go validateAliMiniMaxRequest
 // ---------------------------------------------------------------------------
@@ -153,7 +248,8 @@ const MINIMAX_VIDEO: ModelApiSpec = {
       location: 'body',
       type: 'string',
       required: true,
-      descriptionKey: 'Model name, e.g. MiniMax-H3.',
+      descriptionKey:
+        'Model name, e.g. MiniMax-H3. MiniMax-H3-Highspeed, MiniMax-H3-Lite and MiniMax-H3-Max are available on the MiniMax official route.',
     },
     {
       name: 'prompt',
@@ -179,7 +275,7 @@ const MINIMAX_VIDEO: ModelApiSpec = {
       location: 'body',
       type: 'enum',
       descriptionKey:
-        'Resolution tier. Accepts a tier name such as 768P or 2K, or a WxH size that is mapped to the nearest tier by its long edge.',
+        'Resolution tier: 768P or 2K for MiniMax-H3, 768P for Highspeed, 480P or 768P for Lite and Max. A WxH size is mapped to the nearest tier by its long edge.',
     },
     {
       name: 'metadata.parameters.ratio',
@@ -198,6 +294,16 @@ const MINIMAX_VIDEO: ModelApiSpec = {
         'First-frame image URL. Supplying it switches the request to image-to-video; a second image becomes the last frame.',
     },
     {
+      name: 'metadata.prompt_expansion_mode',
+      location: 'metadata',
+      type: 'enum',
+      enumValues: ['disabled', 'balanced', 'quality'],
+      defaultValue: 'balanced',
+      partialRoutes: true,
+      descriptionKey:
+        'Prompt expansion mode, MiniMax-H3-Max only: disabled, balanced or quality.',
+    },
+    {
       name: 'metadata.parameters.watermark',
       location: 'metadata.parameters',
       type: 'boolean',
@@ -205,6 +311,39 @@ const MINIMAX_VIDEO: ModelApiSpec = {
       descriptionKey:
         'Adds an "AI generated" watermark to the bottom-right corner of the output.',
     },
+    {
+      name: 'resolution',
+      location: 'body',
+      type: 'string',
+      partialRoutes: true,
+      descriptionKey: 'Resolution tier, same as size.',
+    },
+    {
+      name: 'ratio',
+      location: 'body',
+      type: 'string',
+      partialRoutes: true,
+      descriptionKey: TOP_LEVEL_RATIO,
+    },
+    {
+      name: 'content',
+      location: 'body',
+      type: 'array',
+      partialRoutes: true,
+      descriptionKey: NATIVE_CONTENT,
+    },
+    ...mediaRoleParams({
+      firstFrame: MEDIA_FIRST_FRAME,
+      lastFrame: MEDIA_LAST_FRAME,
+      referenceImages: MEDIA_REFERENCE_IMAGES,
+      referenceVideos: MEDIA_REFERENCE_VIDEOS,
+      referenceAudios: MEDIA_REFERENCE_AUDIOS,
+      ranges: {
+        referenceImages: '≤ 9',
+        referenceVideos: '≤ 3',
+        referenceAudios: '≤ 3',
+      },
+    }),
   ],
   samples: [
     {
@@ -226,6 +365,32 @@ const MINIMAX_VIDEO: ModelApiSpec = {
         size: '768P',
         duration: 5,
       },
+    },
+    {
+      titleKey: 'Image to video (first and last frame)',
+      body: {
+        model: 'MiniMax-H3',
+        prompt: '镜头从清晨的街道平滑过渡到夜晚的灯火',
+        first_frame_url: 'https://example.com/morning.png',
+        last_frame_url: 'https://example.com/night.png',
+        size: '768P',
+        duration: 5,
+      },
+      noteKey: MEDIA_STYLE_NOTE,
+    },
+    {
+      titleKey: 'Reference to video',
+      body: {
+        model: 'MiniMax-H3',
+        prompt: '角色说话：Follow the wind, live free，音色参考音频1',
+        reference_images: ['https://example.com/role.png'],
+        video_urls: ['https://example.com/motion.mp4'],
+        audio_urls: ['https://example.com/voice.mp3'],
+        size: '768P',
+        duration: 5,
+        metadata: { parameters: { ratio: '16:9' } },
+      },
+      noteKey: MEDIA_FRAMES_OR_REFERENCES_NOTE,
     },
   ],
   applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
@@ -307,6 +472,15 @@ const KLING_VIDEO: ModelApiSpec = {
       descriptionKey:
         'Also returns a watermarked copy of the video alongside the clean one.',
     },
+    ...mediaRoleParams({
+      firstFrame: MEDIA_FIRST_FRAME,
+      lastFrame: MEDIA_LAST_FRAME,
+      referenceImages:
+        'Reference image URLs. Only kling-3.0-Omni supports them. Can also be written as metadata.reference_images.',
+      referenceVideos:
+        'Reference video URL. Only kling-3.0-Omni supports it, and not together with last_frame_url. Pass one URL in video_urls or video_url.',
+      ranges: { referenceImages: '≤ 7', referenceVideos: '≤ 1' },
+    }),
   ],
   samples: [
     {
@@ -328,6 +502,17 @@ const KLING_VIDEO: ModelApiSpec = {
         size: 'std',
         duration: 5,
       },
+    },
+    {
+      titleKey: 'Image to video (first and last frame)',
+      body: {
+        model: 'kling-3.0-video',
+        prompt: '花朵从含苞到绽放',
+        first_frame_url: 'https://example.com/bud.png',
+        last_frame_url: 'https://example.com/bloom.png',
+        duration: 5,
+      },
+      noteKey: MEDIA_STYLE_NOTE,
     },
   ],
   applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
@@ -391,6 +576,11 @@ const VIDU_REFERENCE: ModelApiSpec = {
       descriptionKey:
         'Random seed. Fixing it improves reproducibility but does not guarantee identical output.',
     },
+    ...mediaRoleParams({
+      referenceImages:
+        'Reference image URLs whose subjects are composed into the generated scene. Equivalent to images; can also be written as metadata.reference_images.',
+      ranges: { referenceImages: '1 ~ 7' },
+    }),
   ],
   samples: [
     {
@@ -405,6 +595,19 @@ const VIDU_REFERENCE: ModelApiSpec = {
         size: '720P',
         duration: 5,
       },
+    },
+    {
+      titleKey: 'Reference to video',
+      body: {
+        model: 'vidu-q3-ad',
+        prompt: '模特手持产品在阳光下展示',
+        reference_images: [
+          'https://example.com/model.png',
+          'https://example.com/product.png',
+        ],
+        duration: 5,
+      },
+      noteKey: MEDIA_STYLE_NOTE,
     },
   ],
   applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
@@ -466,6 +669,10 @@ const VIDU_IMG2VIDEO: ModelApiSpec = {
       descriptionKey: 'Generates a soundtrack. Only the q3 family supports it.',
       partialRoutes: true,
     },
+    ...mediaRoleParams({
+      firstFrame:
+        'The single input image, used as the first frame. Equivalent to image; can also be written as metadata.first_frame_url.',
+    }),
   ],
   samples: [
     {
@@ -477,6 +684,16 @@ const VIDU_IMG2VIDEO: ModelApiSpec = {
         size: '720P',
         duration: 5,
       },
+    },
+    {
+      titleKey: 'Image to video (first frame)',
+      body: {
+        model: 'vidu-q3-pro',
+        prompt: '小海龟慢慢爬向大海',
+        first_frame_url: 'https://example.com/turtle.webp',
+        duration: 5,
+      },
+      noteKey: MEDIA_STYLE_NOTE,
     },
   ],
   applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
@@ -647,6 +864,25 @@ const SEEDANCE_VIDEO: ModelApiSpec = {
       descriptionKey: 'Aspect ratio of the generated video, for example 16:9.',
     },
     {
+      name: 'resolution',
+      location: 'body',
+      type: 'string',
+      descriptionKey: 'Resolution tier, same as size.',
+    },
+    {
+      name: 'ratio',
+      location: 'body',
+      type: 'string',
+      descriptionKey: TOP_LEVEL_RATIO,
+    },
+    {
+      name: 'content',
+      location: 'body',
+      type: 'array',
+      partialRoutes: true,
+      descriptionKey: NATIVE_CONTENT,
+    },
+    {
       name: 'metadata.generate_audio',
       location: 'metadata',
       type: 'boolean',
@@ -676,6 +912,18 @@ const SEEDANCE_VIDEO: ModelApiSpec = {
       descriptionKey:
         'Adds an "AI generated" watermark to the bottom-right corner of the output.',
     },
+    ...mediaRoleParams({
+      firstFrame: MEDIA_FIRST_FRAME,
+      lastFrame: MEDIA_LAST_FRAME,
+      referenceImages: MEDIA_REFERENCE_IMAGES,
+      referenceVideos: MEDIA_REFERENCE_VIDEOS,
+      referenceAudios: MEDIA_REFERENCE_AUDIOS,
+      ranges: {
+        referenceImages: '2.0 ≤ 9 / 2.5 ≤ 30',
+        referenceVideos: '2.0 ≤ 3 / 2.5 ≤ 10',
+        referenceAudios: '2.0 ≤ 3 / 2.5 ≤ 10',
+      },
+    }),
   ],
   samples: [
     {
@@ -697,6 +945,19 @@ const SEEDANCE_VIDEO: ModelApiSpec = {
         size: '720p',
         duration: 5,
       },
+    },
+    {
+      titleKey: 'Reference to video',
+      body: {
+        model: 'Doubao-Seedance-2.0',
+        prompt: '参考图中的角色在参考视频的场景里跳舞，配上参考音频的音乐',
+        reference_images: ['https://example.com/role.png'],
+        video_urls: ['https://example.com/scene.mp4'],
+        audio_urls: ['https://example.com/music.mp3'],
+        duration: 5,
+        metadata: { ratio: '16:9' },
+      },
+      noteKey: MEDIA_FRAMES_OR_REFERENCES_NOTE,
     },
   ],
   applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
@@ -846,6 +1107,15 @@ const HAPPYHORSE_VIDEO: ModelApiSpec = {
         'Input video URL. Only the video-edit model uses it, and its duration decides the billed length.',
       partialRoutes: true,
     },
+    ...mediaRoleParams({
+      firstFrame:
+        'First-frame image URL. Only the i2v model uses it. Equivalent to image; can also be written as metadata.first_frame_url.',
+      referenceImages:
+        'Reference image URLs, used by the r2v and video-edit models. Can also be written as metadata.reference_images.',
+      referenceVideos:
+        'The video to edit. Only the video-edit model uses it; pass one URL in video_urls or video_url.',
+      ranges: { referenceVideos: '1' },
+    }),
   ],
   samples: [
     {
@@ -866,6 +1136,16 @@ const HAPPYHORSE_VIDEO: ModelApiSpec = {
         size: '1080P',
         duration: 5,
       },
+    },
+    {
+      titleKey: 'Reference to video',
+      body: {
+        model: 'happyhorse-1.1-r2v',
+        prompt: '参考图中的小狗在草地上追蝴蝶',
+        reference_images: ['https://example.com/dog.png'],
+        duration: 5,
+      },
+      noteKey: MEDIA_STYLE_NOTE,
     },
   ],
   applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),
@@ -990,6 +1270,18 @@ const WAN3_VIDEO: ModelApiSpec = {
       descriptionKey:
         'Raw media list, each entry carrying a type and a url. Use it when the plain fields cannot express what you need, such as documents and web pages. Types are first_frame and last_frame, or reference_image, reference_video, reference_audio, file and link. The two sets cannot be mixed, and file and link are mutually exclusive.',
     },
+    ...mediaRoleParams({
+      firstFrame: MEDIA_FIRST_FRAME,
+      lastFrame: MEDIA_LAST_FRAME,
+      referenceImages: MEDIA_REFERENCE_IMAGES,
+      referenceVideos: MEDIA_REFERENCE_VIDEOS,
+      referenceAudios: MEDIA_REFERENCE_AUDIOS,
+      ranges: {
+        referenceImages: '≤ 10',
+        referenceVideos: '≤ 5',
+        referenceAudios: '≤ 5',
+      },
+    }),
   ],
   samples: [
     {
@@ -1039,6 +1331,17 @@ const WAN3_VIDEO: ModelApiSpec = {
         duration: -1,
         metadata: { parameters: { ratio: 'adaptive' } },
       },
+    },
+    {
+      titleKey: 'Image to video (first and last frame)',
+      body: {
+        model: 'wan3.0-video',
+        prompt: '镜头从清晨的街道平滑过渡到夜晚的灯火',
+        first_frame_url: 'https://example.com/morning.png',
+        last_frame_url: 'https://example.com/night.png',
+        duration: 5,
+      },
+      noteKey: MEDIA_STYLE_NOTE,
     },
   ],
   applyMatrix: (params, table) => withMatrixResolution(params, table, 'size'),

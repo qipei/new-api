@@ -6119,6 +6119,27 @@
     "This group only supports {{items}}": "该分组仅支持 {{items}}",
     "This group does not support this model": "该分组不支持此模型",
     "Some tiers are not available in this group": "部分档位在该分组不可用",
-    "Requests for a tier from one of its excluded groups are rejected instead of falling back to a wider tier. Auto routing skips to the next group that supports the tier.": "不适用分组请求该档位时会被直接拒绝，不会退到更宽泛的档位计价；自动分组（auto / auto_price）会跳过这些分组，顺延到下一个支持该档位的分组。"
+    "Requests for a tier from one of its excluded groups are rejected instead of falling back to a wider tier. Auto routing skips to the next group that supports the tier.": "不适用分组请求该档位时会被直接拒绝，不会退到更宽泛的档位计价；自动分组（auto / auto_price）会跳过这些分组，顺延到下一个支持该档位的分组。",
+    "First and last frames cannot be combined with reference images, videos or audio in the same request.": "同一个请求里，首帧/尾帧不能和参考图、参考视频、参考音频混用。",
+    "First-frame image URL. Can also be written as metadata.first_frame_url. Prefer it over images when the image must be the first frame.": "首帧图片 URL，也可以写成 metadata.first_frame_url。图片必须作为首帧时用它，不要用 images。",
+    "First-frame image URL. Only the i2v model uses it. Equivalent to image; can also be written as metadata.first_frame_url.": "首帧图片 URL，只有图生视频（i2v）模型使用；等价于 image，也可以写成 metadata.first_frame_url。",
+    "Last-frame image URL, usually paired with first_frame_url. Can also be written as metadata.last_frame_url.": "尾帧图片 URL，一般与 first_frame_url 搭配做首尾帧；也可以写成 metadata.last_frame_url。",
+    "Model name, e.g. MiniMax-H3. MiniMax-H3-Highspeed, MiniMax-H3-Lite and MiniMax-H3-Max are available on the MiniMax official route.": "模型名称，例如 MiniMax-H3。MiniMax 官方线路另有 MiniMax-H3-Highspeed、MiniMax-H3-Lite、MiniMax-H3-Max。",
+    "Prompt expansion mode, MiniMax-H3-Max only: disabled, balanced or quality.": "提示词扩写模式，仅 MiniMax-H3-Max 支持：disabled（关闭）、balanced（均衡，默认）、quality（质量优先）。",
+    "Reference audio URLs. Pass a single clip as audio_url instead if you like; both can also be written in metadata.": "参考音频 URL 列表；只有一段时也可以用 audio_url，两者都可以写在 metadata 里。",
+    "Reference image URLs for reference-to-video. Can also be written as metadata.reference_images.": "参考图 URL 列表，用于参考生视频；也可以写成 metadata.reference_images。",
+    "Reference image URLs whose subjects are composed into the generated scene. Equivalent to images; can also be written as metadata.reference_images.": "参考图 URL 列表，图中主体会被组合进生成的画面；等价于 images，也可以写成 metadata.reference_images。",
+    "Reference image URLs, used by the r2v and video-edit models. Can also be written as metadata.reference_images.": "参考图 URL 列表，参考生视频（r2v）和视频编辑模型使用；也可以写成 metadata.reference_images。",
+    "Reference image URLs. Only kling-3.0-Omni supports them. Can also be written as metadata.reference_images.": "参考图 URL 列表，仅 kling-3.0-Omni 支持；也可以写成 metadata.reference_images。",
+    "Reference video URL. Only kling-3.0-Omni supports it, and not together with last_frame_url. Pass one URL in video_urls or video_url.": "参考视频 URL，仅 kling-3.0-Omni 支持，且不能与 last_frame_url 同时使用；用 video_urls 或 video_url 传一条。",
+    "Reference video URLs. Pass a single video as video_url instead if you like; both can also be written in metadata.": "参考视频 URL 列表；只有一条时也可以用 video_url，两者都可以写在 metadata 里。",
+    "Resolution tier: 768P or 2K for MiniMax-H3, 768P for Highspeed, 480P or 768P for Lite and Max. A WxH size is mapped to the nearest tier by its long edge.": "分辨率档位：MiniMax-H3 支持 768P、2K，Highspeed 支持 768P，Lite 和 Max 支持 480P、768P。传「宽x高」时按长边归到最接近的档位。",
+    "The single input image, used as the first frame. Equivalent to image; can also be written as metadata.first_frame_url.": "唯一的输入图片，作为首帧；等价于 image，也可以写成 metadata.first_frame_url。",
+    "The video to edit. Only the video-edit model uses it; pass one URL in video_urls or video_url.": "待编辑的视频，只有视频编辑模型使用；用 video_urls 或 video_url 传一条。",
+    "For images, use either image, images and input_reference, or first_frame_url, last_frame_url and reference_images, not both. Reference videos and audio can be passed as video and audio or as video_urls and audio_urls; both are sent. Each field can be written at the top level or in metadata.": "图片二选一：用 image、images、input_reference，或用 first_frame_url、last_frame_url、reference_images，不要混用。参考视频和音频写成 video、audio 或 video_urls、audio_urls 都可以，两种写法会一并送出。每个字段写在顶层或 metadata 里都可以。",
+    "OpenAI-compatible first-frame image: a URL string or an object such as {\"image_url\": \"https://...\"}. Works like image; do not combine it with first_frame_url or reference_images.": "兼容 OpenAI 的首帧图片：可以是图片 URL 字符串，也可以是 {\"image_url\": \"https://...\"} 这样的对象。作用同 image，不要和 first_frame_url、reference_images 混用。",
+    "Official content array with an explicit role on each item (text, image_url, video_url, audio_url), sent upstream as is. A text item can replace prompt. Do not combine it with the media fields above.": "官方的 content 数组，每项带明确的 role（text、image_url、video_url、audio_url），原样发给上游。其中的 text 项可以代替 prompt。不要和上面的素材字段一起用。",
+    "Aspect ratio of the generated video, for example 16:9. Same as metadata.ratio.": "生成视频的宽高比，例如 16:9。同 metadata.ratio。",
+    "Resolution tier, same as size.": "分辨率档位，同 size。"
   }
 }

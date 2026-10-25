@@ -119,6 +119,12 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 		)
 		return
 	}
+	// 没有任务号就无法轮询：200 响应里缺 task_id（例如 V2 风格的错误体）也按提交失败处理，
+	// 否则会留下一个查不到结果、要等超时才退款的任务。
+	if strings.TrimSpace(hResp.TaskID) == "" {
+		taskErr = service.TaskErrorWrapper(fmt.Errorf("task_id is empty, body: %.500s", responseBody), "invalid_response", http.StatusInternalServerError)
+		return
+	}
 
 	ov := dto.NewOpenAIVideo()
 	ov.ID = info.PublicTaskID

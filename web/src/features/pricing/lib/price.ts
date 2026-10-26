@@ -20,7 +20,7 @@ import { formatCurrencyFromUSD } from '@/lib/currency'
 
 import { QUOTA_TYPE_VALUES, TOKEN_UNIT_DIVISORS } from '../constants'
 import type { PricingModel, TokenUnit, PriceType } from '../types'
-import { displayGroupRatio } from './group-price-rank'
+import { displayGroupRatio, resolveDisplayGroup } from './group-price-rank'
 import { getConfiguredGroupRatio } from './model-helpers'
 
 // ----------------------------------------------------------------------------
@@ -219,13 +219,13 @@ export function getMatrixTokenPriceSummary(
 
 export type MatrixUnitPriceSummary = {
   price: string
-  unit: 'per_second' | 'per_10k_chars'
+  unit: 'per_second' | 'per_10k_chars' | 'per_image'
 }
 
 /**
- * Summarize a matrix table that only has the default tier, such as audio
- * models priced per second of output or per 10K input characters. Unlike video
- * tables, the default tier is then the one and only price, so it is shown.
+ * 卡片和列表上按秒、按张、按万字符计价的单价：展示分组（所选分组，未选时是最便宜
+ * 的分组）能用的档位里最便宜的那一档。默认档也算——没命中其它档位的请求就按它
+ * 计费（例如文生图），它同样是用户能付到的价格；排除了该分组的档位对它不可用。
  */
 export function getMatrixUnitPriceSummary(
   model: PricingModel,
@@ -236,22 +236,27 @@ export function getMatrixUnitPriceSummary(
 ): MatrixUnitPriceSummary | null {
   const table = model.matrix_price_table
   const unit = table?.unit
-  if (unit !== 'per_second' && unit !== 'per_10k_chars') return null
-  const tiers = table?.tiers ?? []
-  const hasDimensions = tiers.some(
-    (tier) =>
-      tier.mode ||
-      tier.resolution ||
-      tier.audio ||
-      tier.min_pixels ||
-      tier.max_pixels
+  if (
+    unit !== 'per_second' &&
+    unit !== 'per_10k_chars' &&
+    unit !== 'per_image'
+  ) {
+    return null
+  }
+  const group = resolveDisplayGroup(model, selectedGroup)
+  const candidates = (table?.tiers ?? []).filter(
+    (tier) => !(group && tier.excluded_groups?.includes(group))
   )
-  if (tiers.length === 0 || hasDimensions) return null
-  const price = Number(tiers[0].price)
-  if (!Number.isFinite(price) || price <= 0) return null
+
+  let minimum = Number.POSITIVE_INFINITY
+  for (const tier of candidates) {
+    const price = Number(tier.price)
+    if (Number.isFinite(price) && price > 0 && price < minimum) minimum = price
+  }
+  if (!Number.isFinite(minimum)) return null
 
   const displayPrice = applyRechargeRate(
-    price * displayGroupRatio(model, selectedGroup),
+    minimum * displayGroupRatio(model, selectedGroup),
     showWithRecharge,
     priceRate,
     usdExchangeRate

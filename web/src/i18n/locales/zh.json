@@ -6147,6 +6147,7 @@
     "free input images must be a whole number from 0 to 100": "免费张数必须是 0 到 100 之间的整数",
     "Optional additive component charged per input image sent upstream.": "可选的附加计价：按发给上游的每张输入图计费。",
     "The first N input images of each request are free; leave it empty to charge every image.": "每次请求前 N 张输入图免费；不填则每张都计费。",
-    "per input image, first {{free}} free": "每张输入图，前 {{free}} 张免费"
+    "per input image, first {{free}} free": "每张输入图，前 {{free}} 张免费",
+    "image": "张"
   }
 }

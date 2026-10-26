@@ -6147,6 +6147,7 @@
     "free input images must be a whole number from 0 to 100": "free input images must be a whole number from 0 to 100",
     "Optional additive component charged per input image sent upstream.": "Optional additive component charged per input image sent upstream.",
     "The first N input images of each request are free; leave it empty to charge every image.": "The first N input images of each request are free; leave it empty to charge every image.",
-    "per input image, first {{free}} free": "per input image, first {{free}} free"
+    "per input image, first {{free}} free": "per input image, first {{free}} free",
+    "image": "image"
   }
 }

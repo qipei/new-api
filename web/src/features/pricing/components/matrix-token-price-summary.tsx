@@ -103,11 +103,13 @@ export function MatrixTokenPriceSummary(props: MatrixTokenPriceSummaryProps) {
 const MATRIX_UNIT_LABEL_KEYS: Record<string, string> = {
   per_second: 'second',
   per_10k_chars: '10K characters',
+  per_image: 'image',
 }
 
 /**
- * Single unit price for matrix tables without dimensions (audio per second or
- * per 10K characters). Returns null when the model is not priced that way.
+ * Unit price for per-second, per-image and per-10K-character matrix tables: the
+ * cheapest tier available to the displayed group. Returns null when the model
+ * is not priced that way.
  */
 export function MatrixUnitPrice(props: MatrixTokenPriceSummaryProps) {
   const { t } = useTranslation()
@@ -121,11 +123,11 @@ export function MatrixUnitPrice(props: MatrixTokenPriceSummaryProps) {
   if (!summary) return null
   const unitLabel = t(MATRIX_UNIT_LABEL_KEYS[summary.unit])
 
+  // 卡片与按次计费的价格同一种写法：价格加粗，后面跟计价单位。
   if (props.layout === 'card') {
     return (
       <span className='text-muted-foreground whitespace-nowrap'>
-        {t('Price')} <PriceRange minimum={summary.price} />{' '}
-        <span className='text-muted-foreground/60 text-xs'>/ {unitLabel}</span>
+        <PriceRange minimum={summary.price} /> / {unitLabel}
       </span>
     )
   }

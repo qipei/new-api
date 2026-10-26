@@ -6148,6 +6148,11 @@
     "Optional additive component charged per input image sent upstream.": "Optional additive component charged per input image sent upstream.",
     "The first N input images of each request are free; leave it empty to charge every image.": "The first N input images of each request are free; leave it empty to charge every image.",
     "per input image, first {{free}} free": "per input image, first {{free}} free",
-    "image": "image"
+    "image": "image",
+    "Input video price": "Input video price",
+    "Same as output": "Same as output",
+    "input video price must be 0 or greater when set; 0 means free": "input video price must be 0 or greater when set; 0 means free",
+    "Input video is charged per second of reference video; leave it empty to charge it at the matched output tier price, or enter 0 to make it free.": "Input video is charged per second of reference video; leave it empty to charge it at the matched output tier price, or enter 0 to make it free.",
+    "per second of input video": "per second of input video"
   }
 }

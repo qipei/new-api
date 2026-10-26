@@ -68,7 +68,11 @@ func VideoMatrixQuotaOnComplete(task *model.Task, taskResult *relaycommon.TaskIn
 			billableImages = table.BillableInputImages(taskResult.InputImageCount)
 		}
 		imageCost := float64(clampBillableImageCount(billableImages)) * inputImagePrice
-		quota, clamp := common.QuotaFromFloatChecked((billingDuration*bc.ModelPrice + imageCost) * common.QuotaPerUnit * bc.GroupRatio)
+		// 计费秒数里输入视频那部分按价格表的输入视频单价计；没配置时与输出同价。
+		inputVideoSeconds := min(relaycommon.ClampUsageSeconds(taskResult.InputVideoSeconds), billingDuration)
+		videoCost := (billingDuration-inputVideoSeconds)*bc.ModelPrice +
+			inputVideoSeconds*table.InputVideoSecondPrice(bc.ModelPrice)
+		quota, clamp := common.QuotaFromFloatChecked((videoCost + imageCost) * common.QuotaPerUnit * bc.GroupRatio)
 		taskResult.QuotaClamp = clamp
 		return quota
 	}

@@ -632,6 +632,8 @@ func TestParseTaskResultCarriesFractionalHappyHorseBillingDuration(t *testing.T)
 	require.NoError(t, err)
 	assert.Equal(t, 14, result.Duration)
 	assert.Equal(t, 13.24, result.BillingDuration)
+	// duration 含输入视频秒数，输入部分单独记下，价格表配了输入视频单价时按它计费。
+	assert.Equal(t, 6.62, result.InputVideoSeconds)
 }
 
 func TestParseTaskResultAcceptsStringDuration(t *testing.T) {

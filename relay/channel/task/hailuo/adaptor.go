@@ -263,6 +263,7 @@ func parseV2TaskResult(respBody []byte) (*relaycommon.TaskInfo, bool, error) {
 		result.Url = task.Content.URL
 		result.Duration = int(math.Min(math.Max(task.Usage.OutputSeconds, 0), float64(relaycommon.MaxTaskDurationSeconds)))
 		result.BillingDuration = V2BillingSeconds(task.Usage.OutputSeconds, task.Usage.InputSeconds)
+		result.InputVideoSeconds = relaycommon.ClampUsageSeconds(task.Usage.InputSeconds)
 		result.InputImageCount = task.Usage.InputImageCount
 	case "failed", "cancelled":
 		result.Status = model.TaskStatusFailure

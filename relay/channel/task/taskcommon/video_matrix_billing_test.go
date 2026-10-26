@@ -224,3 +224,39 @@ func TestVideoMatrixQuotaOnCompleteAppliesConfiguredFreeInputImages(t *testing.T
 		})
 	}
 }
+
+// 计费秒数里输入视频那部分：价格表没配输入视频单价时与输出同价（MiniMax、百炼的规则），
+// 配了就按它单独计费，配 0 为免费；负数按未配置处理，不会变成减项。
+func TestVideoMatrixQuotaOnCompletePricesInputVideoSeconds(t *testing.T) {
+	price := func(v float64) *float64 { return &v }
+	tests := []struct {
+		name       string
+		inputVideo *float64
+		inputSecs  float64
+		wantUSD    float64
+	}{
+		{"unset prices input video like output", nil, 8, 13 * 0.5},
+		{"configured price", price(0.3), 8, 5*0.5 + 8*0.3},
+		{"free input video", price(0), 8, 5 * 0.5},
+		{"negative price falls back to output price", price(-1), 8, 13 * 0.5},
+		{"input seconds never exceed billed seconds", price(0), 99, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			withTables(t, map[string]video_billing.ModelPriceTable{
+				"seedance-matrix": {
+					Unit:            video_billing.UnitPerSecond,
+					Tiers:           []video_billing.PriceTier{{Price: 0.5}},
+					InputVideoPrice: tt.inputVideo,
+				},
+			})
+			task := matrixTask(0.5, 0.16, true)
+			task.PrivateData.BillingContext.SettleOnComplete = true
+			result := &relaycommon.TaskInfo{BillingDuration: 13, InputVideoSeconds: tt.inputSecs}
+
+			quota := VideoMatrixQuotaOnComplete(task, result)
+
+			assert.Equal(t, common.QuotaFromFloat(tt.wantUSD*common.QuotaPerUnit*0.16), quota)
+		})
+	}
+}

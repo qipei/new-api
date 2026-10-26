@@ -1762,6 +1762,9 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 					taskResult.Duration = int(math.Ceil(duration))
 					taskResult.BillingDuration = duration
 				}
+				// duration 是输入视频与输出视频秒数之和，输入部分单独记下，价格表配了
+				// 输入视频单价时按它计费。
+				taskResult.InputVideoSeconds = min(relaycommon.ClampUsageSeconds(float64(usage.InputVideoDuration)), taskResult.BillingDuration)
 			}
 		}
 	case "FAILED", "CANCELED", "UNKNOWN":

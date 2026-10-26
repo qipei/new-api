@@ -110,6 +110,8 @@ const ISSUE_LABEL_KEYS: Record<string, string> = {
   missing_default: 'a default tier with no dimensions is required',
   input_price: 'input prices must be greater than 0 when set',
   free_input_images: 'free input images must be a whole number from 0 to 100',
+  input_video_price:
+    'input video price must be 0 or greater when set; 0 means free',
   pixel_range: 'pixel limits must be positive integers in ascending order',
   resolution_bucket: 'resolution bucket names and sizes must be valid',
   duplicate_bucket_size:
@@ -231,6 +233,7 @@ export function VideoPricingSection(props: {
         inputImagePrice: '',
         inputTokenPrice: '',
         freeInputImages: '',
+        inputVideoPrice: '',
         resolutionTemplate: '',
         resolutionBuckets: [],
         tiers: [
@@ -465,6 +468,25 @@ export function VideoPricingSection(props: {
                           }
                         />
                       </div>
+                      {table.unit === 'per_second' && (
+                        <div className='flex items-center gap-2'>
+                          <span className='text-muted-foreground text-sm'>
+                            {t('Input video price')}
+                          </span>
+                          <Input
+                            className='w-28'
+                            inputMode='decimal'
+                            placeholder={t('Same as output')}
+                            value={table.inputVideoPrice}
+                            aria-label={`${table.model} ${t('Input video price')}`}
+                            onChange={(e) =>
+                              patchTable(tableIndex, {
+                                inputVideoPrice: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      )}
                       {table.unit === 'per_image' && (
                         <div className='flex items-center gap-2'>
                           <span className='text-muted-foreground text-sm'>
@@ -495,6 +517,14 @@ export function VideoPricingSection(props: {
                         {t(
                           'The first N input images of each request are free; leave it empty to charge every image.'
                         )}
+                        {table.unit === 'per_second' ? (
+                          <>
+                            {' '}
+                            {t(
+                              'Input video is charged per second of reference video; leave it empty to charge it at the matched output tier price, or enter 0 to make it free.'
+                            )}
+                          </>
+                        ) : null}
                       </span>
                     </div>
                     <div className='space-y-2 rounded-md border p-3'>

@@ -453,6 +453,7 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 			// 输入图按提交时的张数与价格表的免费张数结算，这里的总张数只给旧任务兜底。
 			if hailuo.IsV2Model(resTask.Model) {
 				taskResult.BillingDuration = hailuo.V2BillingSeconds(resTask.Usage.OutputSeconds, resTask.Usage.InputSeconds)
+				taskResult.InputVideoSeconds = relaycommon.ClampUsageSeconds(resTask.Usage.InputSeconds)
 				taskResult.InputImageCount = resTask.Usage.InputImageCount
 			}
 		}

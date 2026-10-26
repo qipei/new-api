@@ -1240,6 +1240,9 @@ type TaskInfo struct {
 	// （百炼对输入图 5 张以内返回 0，超出时只返回超出部分）。只用于提交时没记录
 	// 输入图张数的旧任务。
 	BillableImageCount int `json:"billable_image_count,omitempty"`
+	// InputVideoSeconds 是 BillingDuration 里属于输入（参考/待编辑）视频的秒数。价格表
+	// 配了输入视频单价时这部分按它单独计费，否则与输出一起按档位单价计费。
+	InputVideoSeconds float64 `json:"input_video_seconds,omitempty"`
 	// InputImageCount 是上游报告的输入图总张数（未扣免费额度），同样只用于旧任务。
 	InputImageCount int                `json:"input_image_count,omitempty"`
 	QuotaClamp      *common.QuotaClamp `json:"-"` // 完成结算额度饱和审计标记

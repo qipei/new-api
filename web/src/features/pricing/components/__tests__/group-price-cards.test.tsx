@@ -166,6 +166,26 @@ describe('GroupPriceCards', () => {
     expect(withoutFree).not.toContain('free')
   })
 
+  // 输入视频单价只在配置了时列出：配置为 0 显示免费，没配置时与输出同价、不另列。
+  test('input video price is listed only when configured', () => {
+    const tiers = [{ price: 0.5 }]
+    const priced = render(baseModel(), {
+      matrixTable: { unit: 'per_second', tiers, input_video_price: 0.3 },
+    })
+    expect(cardOf(priced, 'vip')).toContain('per second of input video')
+    expect(cardOf(priced, 'vip')).toContain('$0.24')
+
+    const free = render(baseModel(), {
+      matrixTable: { unit: 'per_second', tiers, input_video_price: 0 },
+    })
+    expect(cardOf(free, 'default')).toContain('Free of charge')
+
+    const unset = render(baseModel(), {
+      matrixTable: { unit: 'per_second', tiers },
+    })
+    expect(unset).not.toContain('per second of input video')
+  })
+
   test('a matrix with only the default tier shows it as the single unit price', () => {
     const markup = render(baseModel({ quota_type: 1 }), {
       matrixTable: { unit: 'per_10k_chars', tiers: [{ price: 3 }] },

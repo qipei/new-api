@@ -58,7 +58,15 @@ export function VideoPriceSection(props: {
     : dimensionalTiers
   const hasInputImagePrice = Number(table.input_image_price) > 0
   const hasInputTokenPrice = Number(table.input_token_price) > 0
-  if (visibleTiers.length === 0 && !hasInputImagePrice && !hasInputTokenPrice) {
+  // 输入视频单价只在配置了时展示（0 为免费）：没配置时与输出同价，不另列一行。
+  const hasInputVideoPrice =
+    typeof table.input_video_price === 'number' && table.input_video_price >= 0
+  if (
+    visibleTiers.length === 0 &&
+    !hasInputImagePrice &&
+    !hasInputTokenPrice &&
+    !hasInputVideoPrice
+  ) {
     return null
   }
 
@@ -126,6 +134,14 @@ export function VideoPriceSection(props: {
           price: Number(table.input_image_price),
         }
       : null,
+    hasInputVideoPrice
+      ? {
+          key: 'video',
+          label: t('Input video price'),
+          unit: t('per second of input video'),
+          price: Number(table.input_video_price),
+        }
+      : null,
     hasInputTokenPrice
       ? {
           key: 'token',
@@ -159,7 +175,9 @@ export function VideoPriceSection(props: {
                       {row.unit}
                     </td>
                     <td className='py-1.5 text-right font-mono tabular-nums'>
-                      {formatPrice(row.price)}
+                      {row.price === 0
+                        ? t('Free of charge')
+                        : formatPrice(row.price)}
                     </td>
                   </tr>
                 ))}

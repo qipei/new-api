@@ -6148,6 +6148,11 @@
     "Optional additive component charged per input image sent upstream.": "可选的附加计价：按发给上游的每张输入图计费。",
     "The first N input images of each request are free; leave it empty to charge every image.": "每次请求前 N 张输入图免费；不填则每张都计费。",
     "per input image, first {{free}} free": "每张输入图，前 {{free}} 张免费",
-    "image": "张"
+    "image": "张",
+    "Input video price": "输入视频单价",
+    "Same as output": "同输出档位",
+    "input video price must be 0 or greater when set; 0 means free": "输入视频单价填写时必须大于等于 0；0 表示免费",
+    "Input video is charged per second of reference video; leave it empty to charge it at the matched output tier price, or enter 0 to make it free.": "输入视频按参考视频的秒数计费；不填则按命中的输出档位单价计费，填 0 为免费。",
+    "per second of input video": "每秒输入视频"
   }
 }

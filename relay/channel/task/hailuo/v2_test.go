@@ -167,18 +167,20 @@ func TestParseV2TaskResultBillingUsage(t *testing.T) {
 		body           string
 		wantStatus     string
 		wantBilling    float64
+		wantInputVideo float64
 		wantImages     int
 		wantReason     string
 		wantURL        string
 		wantRetryError bool
 	}{
 		{
-			name:        "succeeded with reference video and images",
-			body:        `{"task":{"id":"1","model":"MiniMax-H3","status":"succeeded","content":{"url":"https://v/out.mp4"},"usage":{"output_seconds":5,"input_seconds":6,"input_image_count":7}}}`,
-			wantStatus:  model.TaskStatusSuccess,
-			wantBilling: 11,
-			wantImages:  7,
-			wantURL:     "https://v/out.mp4",
+			name:           "succeeded with reference video and images",
+			body:           `{"task":{"id":"1","model":"MiniMax-H3","status":"succeeded","content":{"url":"https://v/out.mp4"},"usage":{"output_seconds":5,"input_seconds":6,"input_image_count":7}}}`,
+			wantStatus:     model.TaskStatusSuccess,
+			wantBilling:    11,
+			wantInputVideo: 6,
+			wantImages:     7,
+			wantURL:        "https://v/out.mp4",
 		},
 		{
 			name:        "max reports total input images",
@@ -189,11 +191,12 @@ func TestParseV2TaskResultBillingUsage(t *testing.T) {
 			wantURL:     "u",
 		},
 		{
-			name:        "absurd seconds are clamped",
-			body:        `{"task":{"id":"1","model":"MiniMax-H3","status":"succeeded","content":{"url":"u"},"usage":{"output_seconds":99999,"input_seconds":99999}}}`,
-			wantStatus:  model.TaskStatusSuccess,
-			wantBilling: 2 * relaycommon.MaxTaskDurationSeconds,
-			wantURL:     "u",
+			name:           "absurd seconds are clamped",
+			body:           `{"task":{"id":"1","model":"MiniMax-H3","status":"succeeded","content":{"url":"u"},"usage":{"output_seconds":99999,"input_seconds":99999}}}`,
+			wantStatus:     model.TaskStatusSuccess,
+			wantBilling:    2 * relaycommon.MaxTaskDurationSeconds,
+			wantInputVideo: relaycommon.MaxTaskDurationSeconds,
+			wantURL:        "u",
 		},
 		{
 			name:       "failed",
@@ -228,6 +231,7 @@ func TestParseV2TaskResultBillingUsage(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantStatus, result.Status)
 			assert.InDelta(t, tt.wantBilling, result.BillingDuration, 1e-9)
+			assert.InDelta(t, tt.wantInputVideo, result.InputVideoSeconds, 1e-9)
 			assert.Equal(t, tt.wantImages, result.InputImageCount)
 			assert.Equal(t, tt.wantReason, result.Reason)
 			assert.Equal(t, tt.wantURL, result.Url)

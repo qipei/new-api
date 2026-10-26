@@ -403,11 +403,5 @@ type v2QueryResponse struct {
 // V2BillingSeconds 计费秒数 = 输出秒数 + 参考视频秒数（参考视频按同档单价计时长）。
 // 两者都钳制在单次时长上限内，异常的上游数值放大不了计费乘数。
 func V2BillingSeconds(outputSeconds, inputSeconds float64) float64 {
-	clamp := func(value float64) float64 {
-		if math.IsNaN(value) || value <= 0 {
-			return 0
-		}
-		return math.Min(value, float64(relaycommon.MaxTaskDurationSeconds))
-	}
-	return clamp(outputSeconds) + clamp(inputSeconds)
+	return relaycommon.ClampUsageSeconds(outputSeconds) + relaycommon.ClampUsageSeconds(inputSeconds)
 }

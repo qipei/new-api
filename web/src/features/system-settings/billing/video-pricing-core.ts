@@ -40,6 +40,8 @@ export type VideoPriceTablePayload = {
   input_token_price?: number
   // CUSTOM: 每次请求免费的输入图张数，不填为 0，每张都计费（fork 扩展）
   free_input_images?: number
+  // CUSTOM: 输入视频每秒单价，仅按秒计费；不填与输出档位同价，0 为免费（fork 扩展）
+  input_video_price?: number
 }
 
 export type VideoResolutionBucketPayload = {
@@ -65,6 +67,7 @@ export type EditableVideoTable = {
   inputImagePrice: string
   inputTokenPrice: string
   freeInputImages: string
+  inputVideoPrice: string
   resolutionTemplate?: string
   resolutionBuckets: EditableResolutionBucket[]
 }
@@ -177,6 +180,10 @@ export function parseVideoPricingTables(raw: string): EditableVideoTable[] {
         typeof table.free_input_images === 'number'
           ? String(table.free_input_images)
           : '',
+      inputVideoPrice:
+        typeof table.input_video_price === 'number'
+          ? String(table.input_video_price)
+          : '',
       resolutionTemplate: '',
       resolutionBuckets: resolutionBuckets.map((bucket) => ({
         uid: nextEditableBucketUid(),
@@ -242,6 +249,12 @@ export function parseVideoPricingJsonDraft(
     if (
       table.free_input_images !== undefined &&
       typeof table.free_input_images !== 'number'
+    ) {
+      return { tables: null, error: 'shape' }
+    }
+    if (
+      table.input_video_price !== undefined &&
+      typeof table.input_video_price !== 'number'
     ) {
       return { tables: null, error: 'shape' }
     }
@@ -341,6 +354,16 @@ export function serializeVideoPricingTables(
           entry.free_input_images = freeInputImages
         }
       }
+      // 输入视频单价只对按秒计费有意义；0 是「免费」，与不填（同输出档位单价）不同。
+      const inputVideoPrice = Number(table.inputVideoPrice)
+      if (
+        table.unit === VIDEO_UNIT_PER_SECOND &&
+        table.inputVideoPrice.trim() &&
+        Number.isFinite(inputVideoPrice) &&
+        inputVideoPrice >= 0
+      ) {
+        entry.input_video_price = inputVideoPrice
+      }
       if (table.unit === VIDEO_UNIT_PER_IMAGE) {
         const inputTokenPrice = Number(table.inputTokenPrice)
         if (table.inputTokenPrice.trim() && inputTokenPrice > 0) {
@@ -403,6 +426,7 @@ export type VideoPricingIssue = {
     | 'missing_default'
     | 'input_price'
     | 'free_input_images'
+    | 'input_video_price'
     | 'pixel_range'
     | 'resolution_bucket'
     | 'duplicate_bucket_size'
@@ -426,6 +450,12 @@ export function validateVideoPricingTables(
     for (const value of [table.inputImagePrice, table.inputTokenPrice]) {
       if (value.trim() && !(Number(value) > 0)) {
         issues.push({ model, reason: 'input_price' })
+      }
+    }
+    if (table.inputVideoPrice.trim()) {
+      const price = Number(table.inputVideoPrice)
+      if (!Number.isFinite(price) || price < 0) {
+        issues.push({ model, reason: 'input_video_price' })
       }
     }
     if (table.freeInputImages.trim()) {

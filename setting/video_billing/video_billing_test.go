@@ -350,3 +350,12 @@ func TestBillableInputImages(t *testing.T) {
 		assert.Equal(t, tt.want, ModelPriceTable{FreeInputImages: tt.free}.BillableInputImages(tt.total), tt)
 	}
 }
+
+// 输入视频单价：不填与输出档位同价，0 为免费，负数按不填处理。
+func TestInputVideoSecondPrice(t *testing.T) {
+	price := func(v float64) *float64 { return &v }
+	assert.Equal(t, 0.5, ModelPriceTable{}.InputVideoSecondPrice(0.5))
+	assert.Equal(t, 0.3, ModelPriceTable{InputVideoPrice: price(0.3)}.InputVideoSecondPrice(0.5))
+	assert.Equal(t, 0.0, ModelPriceTable{InputVideoPrice: price(0)}.InputVideoSecondPrice(0.5))
+	assert.Equal(t, 0.5, ModelPriceTable{InputVideoPrice: price(-1)}.InputVideoSecondPrice(0.5))
+}

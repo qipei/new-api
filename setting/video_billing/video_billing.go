@@ -13,6 +13,7 @@ package video_billing
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -90,6 +91,9 @@ type ResolutionBucket struct {
 //     会漏掉这部分，导致平台净亏。
 //   - InputTokenPrice 目前只有 per_image 使用。
 //
+// InputVideoPrice 输入（参考/待编辑）视频每秒单价，仅 per_second：不填时与输出一起
+// 按命中档位的单价计费（MiniMax、百炼等上游的规则），填 0 为免费，填正数单独计价。
+//
 // FreeInputImages 每次请求前 N 张输入图免费，只对 InputImagePrice 生效；不填为 0，
 // 每张都计费。免费额度由各上游的价格规则决定（例如 MiniMax-H3 前 5 张免费），
 // 由管理员按对接的上游填写，网关结算与模型广场展示都读这一个值。
@@ -100,6 +104,7 @@ type ModelPriceTable struct {
 	InputImagePrice   float64            `json:"input_image_price,omitempty"` // USD/张，per_image 与 per_second
 	InputTokenPrice   float64            `json:"input_token_price,omitempty"` // USD/百万 token，仅 per_image
 	FreeInputImages   int                `json:"free_input_images,omitempty"` // 每次请求免费的输入图张数
+	InputVideoPrice   *float64           `json:"input_video_price,omitempty"` // USD/秒，仅 per_second；nil 为同输出档位单价
 }
 
 // VideoBillingSettings 由 config.GlobalConfig 管理。
@@ -136,6 +141,19 @@ func (table ModelPriceTable) AdditiveInputPrices() (imagePrice, tokenPrice float
 // 免费张数为负（改库或其他接口写入）按 0 处理，不会把计费张数放大。
 func (table ModelPriceTable) BillableInputImages(total int) int {
 	return max(total-max(table.FreeInputImages, 0), 0)
+}
+
+// InputVideoSecondPrice 输入视频每秒的单价：没配置时等于输出档位单价 tierPrice；
+// 配置为负（改库或其他接口写入）同样按未配置处理，不会变成减项。
+func (table ModelPriceTable) InputVideoSecondPrice(tierPrice float64) float64 {
+	if table.InputVideoPrice == nil {
+		return tierPrice
+	}
+	if price := *table.InputVideoPrice; price >= 0 && !math.IsInf(price, 0) && !math.IsNaN(price) {
+		return price
+	}
+	common.SysError(fmt.Sprintf("invalid input_video_price %v ignored", *table.InputVideoPrice))
+	return tierPrice
 }
 
 // GetPriceTable 返回指定模型的价格表；第二个返回值表示是否配置且单位合法。

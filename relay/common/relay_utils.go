@@ -2,6 +2,7 @@ package common
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -144,6 +145,15 @@ func validatePrompt(prompt string) *dto.TaskError {
 // as a billing multiplier (OtherRatio "seconds"); an unbounded value could
 // overflow quota calculation into a negative charge.
 const MaxTaskDurationSeconds = 3600
+
+// ClampUsageSeconds 把上游用量里报告的秒数收进 [0, MaxTaskDurationSeconds]：它是计费
+// 乘数，异常值（NaN、负数、极大值）不能放大一次结算。
+func ClampUsageSeconds(seconds float64) float64 {
+	if math.IsNaN(seconds) || seconds <= 0 {
+		return 0
+	}
+	return math.Min(seconds, float64(MaxTaskDurationSeconds))
+}
 
 // CUSTOM: 语音合成与音频生成的计费边界（fork 扩展），取值来自豆包、百炼官方文档与实测。
 const (

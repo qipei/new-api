@@ -119,6 +119,8 @@ export type VideoPriceTable = {
   input_image_price?: number
   /** 每次请求免费的输入图张数，0 或缺省表示每张都计费 */
   free_input_images?: number
+  /** 输入视频每秒单价（按秒计费）；未配置时与输出档位同价，0 表示免费 */
+  input_video_price?: number
   input_token_price?: number
 }
 

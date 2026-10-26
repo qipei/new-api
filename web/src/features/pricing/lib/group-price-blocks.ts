@@ -432,6 +432,24 @@ function buildMatrixBlocks(
       official: formatUSD(inputImagePrice, 1),
     })
   }
+  // 输入视频单价只在配置了时展示：没配置时与输出同价，不另列一行。
+  if (
+    typeof table.input_video_price === 'number' &&
+    table.input_video_price >= 0
+  ) {
+    inputRows.push({
+      label: t('Input video price'),
+      unit: t('per second of input video'),
+      value:
+        table.input_video_price === 0
+          ? t('Free of charge')
+          : formatUSD(table.input_video_price),
+      official:
+        table.input_video_price === 0
+          ? t('Free of charge')
+          : formatUSD(table.input_video_price, 1),
+    })
+  }
   const inputTokenPrice = Number(table.input_token_price)
   if (inputTokenPrice > 0) {
     inputRows.push({

@@ -109,6 +109,7 @@ const ISSUE_LABEL_KEYS: Record<string, string> = {
   duplicate_tier: 'duplicate tier dimensions',
   missing_default: 'a default tier with no dimensions is required',
   input_price: 'input prices must be greater than 0 when set',
+  free_input_images: 'free input images must be a whole number from 0 to 100',
   pixel_range: 'pixel limits must be positive integers in ascending order',
   resolution_bucket: 'resolution bucket names and sizes must be valid',
   duplicate_bucket_size:
@@ -229,6 +230,7 @@ export function VideoPricingSection(props: {
         unit: 'per_second',
         inputImagePrice: '',
         inputTokenPrice: '',
+        freeInputImages: '',
         resolutionTemplate: '',
         resolutionBuckets: [],
         tiers: [
@@ -446,6 +448,23 @@ export function VideoPricingSection(props: {
                           }
                         />
                       </div>
+                      <div className='flex items-center gap-2'>
+                        <span className='text-muted-foreground text-sm'>
+                          {t('Free input images')}
+                        </span>
+                        <Input
+                          className='w-20'
+                          inputMode='numeric'
+                          placeholder='0'
+                          value={table.freeInputImages}
+                          aria-label={`${table.model} ${t('Free input images')}`}
+                          onChange={(e) =>
+                            patchTable(tableIndex, {
+                              freeInputImages: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
                       {table.unit === 'per_image' && (
                         <div className='flex items-center gap-2'>
                           <span className='text-muted-foreground text-sm'>
@@ -471,8 +490,11 @@ export function VideoPricingSection(props: {
                               'Optional additive components: per input image, and per million prompt tokens.'
                             )
                           : t(
-                              'Optional additive component charged per billable input image reported by the provider.'
-                            )}
+                              'Optional additive component charged per input image sent upstream.'
+                            )}{' '}
+                        {t(
+                          'The first N input images of each request are free; leave it empty to charge every image.'
+                        )}
                       </span>
                     </div>
                     <div className='space-y-2 rounded-md border p-3'>

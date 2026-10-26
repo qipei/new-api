@@ -35,12 +35,10 @@ const (
 	v2MaxReferenceAudios = 3
 )
 
-// v2ModelConfig 各 H3 型号的取值范围与免费图片额度（见官方文档与价格页）。
+// v2ModelConfig 各 H3 型号的取值范围（见官方文档）。
 type v2ModelConfig struct {
 	resolutions []string
 	minDuration int
-	// freeImages 每次任务前 N 张输入图免费，超出部分按张计费。
-	freeImages int
 	// adaptiveReference 多模态参考生视频是否支持 adaptive 比例（Lite 不支持）。
 	adaptiveReference bool
 	// promptExpansion 是否支持 extra.prompt_expansion_mode（仅 Max）。
@@ -48,10 +46,10 @@ type v2ModelConfig struct {
 }
 
 var v2Models = map[string]v2ModelConfig{
-	"MiniMax-H3":           {resolutions: []string{"768P", "2K"}, minDuration: 4, freeImages: 5, adaptiveReference: true},
-	"MiniMax-H3-Highspeed": {resolutions: []string{"768P"}, minDuration: 4, freeImages: 5, adaptiveReference: true},
-	"MiniMax-H3-Lite":      {resolutions: []string{"480P", "768P"}, minDuration: 4, freeImages: 5},
-	"MiniMax-H3-Max":       {resolutions: []string{"480P", "768P"}, minDuration: 5, freeImages: 2, adaptiveReference: true, promptExpansion: true},
+	"MiniMax-H3":           {resolutions: []string{"768P", "2K"}, minDuration: 4, adaptiveReference: true},
+	"MiniMax-H3-Highspeed": {resolutions: []string{"768P"}, minDuration: 4, adaptiveReference: true},
+	"MiniMax-H3-Lite":      {resolutions: []string{"480P", "768P"}, minDuration: 4},
+	"MiniMax-H3-Max":       {resolutions: []string{"480P", "768P"}, minDuration: 5, adaptiveReference: true, promptExpansion: true},
 }
 
 var v2Ratios = []string{"adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"}
@@ -400,19 +398,6 @@ type v2QueryResponse struct {
 		Type    string `json:"type"`
 		Message string `json:"message"`
 	} `json:"error"`
-}
-
-// V2BillableImages 扣掉该型号的免费额度后需要计费的输入图数量。第三方平台转发时模型名
-// 可能带渠道后缀（MiniMax-H3/qy2）或衍生型号（MiniMax-H3-Max-Turbo），按最长的已知前缀取额度。
-func V2BillableImages(model string, inputImages int) int {
-	model, _, _ = strings.Cut(strings.TrimSpace(model), "/")
-	free, matched := v2Models["MiniMax-H3"].freeImages, ""
-	for name, config := range v2Models {
-		if strings.HasPrefix(model, name) && len(name) > len(matched) {
-			free, matched = config.freeImages, name
-		}
-	}
-	return max(inputImages-free, 0)
 }
 
 // V2BillingSeconds 计费秒数 = 输出秒数 + 参考视频秒数（参考视频按同档单价计时长）。

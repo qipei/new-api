@@ -6142,6 +6142,11 @@
     "Aspect ratio of the generated video, for example 16:9. Same as metadata.ratio.": "生成视频的宽高比，例如 16:9。同 metadata.ratio。",
     "Resolution tier, same as size.": "分辨率档位，同 size。",
     "Volcengine Ark official format": "火山方舟官方写法",
-    "Request bodies written for the Volcengine Ark video API work here as is: content and the official top-level parameters such as generate_audio, watermark, return_last_frame, draft, tools and callback_url take effect. The same parameter under metadata takes precedence.": "按火山方舟视频接口写的请求体可以直接发到这里：content 和 generate_audio、watermark、return_last_frame、draft、tools、callback_url 等官方顶层参数都会生效。metadata 里的同名参数优先。"
+    "Request bodies written for the Volcengine Ark video API work here as is: content and the official top-level parameters such as generate_audio, watermark, return_last_frame, draft, tools and callback_url take effect. The same parameter under metadata takes precedence.": "按火山方舟视频接口写的请求体可以直接发到这里：content 和 generate_audio、watermark、return_last_frame、draft、tools、callback_url 等官方顶层参数都会生效。metadata 里的同名参数优先。",
+    "Free input images": "免费张数",
+    "free input images must be a whole number from 0 to 100": "免费张数必须是 0 到 100 之间的整数",
+    "Optional additive component charged per input image sent upstream.": "可选的附加计价：按发给上游的每张输入图计费。",
+    "The first N input images of each request are free; leave it empty to charge every image.": "每次请求前 N 张输入图免费；不填则每张都计费。",
+    "per input image, first {{free}} free": "每张输入图，前 {{free}} 张免费"
   }
 }

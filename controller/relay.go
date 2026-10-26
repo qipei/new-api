@@ -616,6 +616,11 @@ func RelayTask(c *gin.Context) {
 			PerCallBilling:   common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName) || relayInfo.PriceData.UsePrice,
 			SettleOnComplete: settleOnComplete,
 		}
+		// 记下送给上游的输入图张数，完成结算时按价格表的免费张数扣减后计费。
+		if taskReq, err := relaycommon.GetTaskRequest(c); err == nil {
+			inputImages := taskReq.InputImageCount()
+			task.PrivateData.BillingContext.InputImages = &inputImages
+		}
 		task.Quota = result.Quota
 		task.Data = result.TaskData
 		task.Action = relayInfo.Action

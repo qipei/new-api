@@ -38,6 +38,8 @@ export type VideoPriceTablePayload = {
   resolution_buckets?: VideoResolutionBucketPayload[]
   input_image_price?: number
   input_token_price?: number
+  // CUSTOM: 每次请求免费的输入图张数，不填为 0，每张都计费（fork 扩展）
+  free_input_images?: number
 }
 
 export type VideoResolutionBucketPayload = {
@@ -62,6 +64,7 @@ export type EditableVideoTable = {
   tiers: EditableVideoTier[]
   inputImagePrice: string
   inputTokenPrice: string
+  freeInputImages: string
   resolutionTemplate?: string
   resolutionBuckets: EditableResolutionBucket[]
 }
@@ -81,6 +84,9 @@ export const VIDEO_UNIT_PER_MILLION_TOKENS = 'per_million_tokens'
 export const VIDEO_UNIT_PER_IMAGE = 'per_image'
 // 按字计价（语音合成）：原价为 USD/万字符，只用默认档。
 export const VIDEO_UNIT_PER_10K_CHARS = 'per_10k_chars'
+
+/** 免费张数的合理上限，与后端单次结算可计费张数的上限一致。 */
+export const MAX_FREE_INPUT_IMAGES = 100
 
 let editableTierSeq = 0
 let editableBucketSeq = 0
@@ -167,6 +173,10 @@ export function parseVideoPricingTables(raw: string): EditableVideoTable[] {
         typeof table.input_token_price === 'number'
           ? String(table.input_token_price)
           : '',
+      freeInputImages:
+        typeof table.free_input_images === 'number'
+          ? String(table.free_input_images)
+          : '',
       resolutionTemplate: '',
       resolutionBuckets: resolutionBuckets.map((bucket) => ({
         uid: nextEditableBucketUid(),
@@ -226,6 +236,12 @@ export function parseVideoPricingJsonDraft(
     if (
       table.input_token_price !== undefined &&
       typeof table.input_token_price !== 'number'
+    ) {
+      return { tables: null, error: 'shape' }
+    }
+    if (
+      table.free_input_images !== undefined &&
+      typeof table.free_input_images !== 'number'
     ) {
       return { tables: null, error: 'shape' }
     }
@@ -315,6 +331,15 @@ export function serializeVideoPricingTables(
       const inputImagePrice = Number(table.inputImagePrice)
       if (table.inputImagePrice.trim() && inputImagePrice > 0) {
         entry.input_image_price = inputImagePrice
+        // 免费张数只扣减输入图单价，没有单价时不写入。
+        const freeInputImages = Number(table.freeInputImages)
+        if (
+          table.freeInputImages.trim() &&
+          Number.isInteger(freeInputImages) &&
+          freeInputImages > 0
+        ) {
+          entry.free_input_images = freeInputImages
+        }
       }
       if (table.unit === VIDEO_UNIT_PER_IMAGE) {
         const inputTokenPrice = Number(table.inputTokenPrice)
@@ -377,6 +402,7 @@ export type VideoPricingIssue = {
     | 'duplicate_tier'
     | 'missing_default'
     | 'input_price'
+    | 'free_input_images'
     | 'pixel_range'
     | 'resolution_bucket'
     | 'duplicate_bucket_size'
@@ -400,6 +426,12 @@ export function validateVideoPricingTables(
     for (const value of [table.inputImagePrice, table.inputTokenPrice]) {
       if (value.trim() && !(Number(value) > 0)) {
         issues.push({ model, reason: 'input_price' })
+      }
+    }
+    if (table.freeInputImages.trim()) {
+      const free = Number(table.freeInputImages)
+      if (!Number.isInteger(free) || free < 0 || free > MAX_FREE_INPUT_IMAGES) {
+        issues.push({ model, reason: 'free_input_images' })
       }
     }
     if (table.unit === VIDEO_UNIT_PER_IMAGE) {

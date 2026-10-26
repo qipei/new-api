@@ -218,3 +218,40 @@ func TestResolveRelayPriceDataRejectsTierExcludedForGroup(t *testing.T) {
 		})
 	}
 }
+
+// 价格表配置的免费张数先从输入图里扣掉，剩下的才按输入图单价计费；不配置时每张都计费。
+func TestResolveRelayPriceDataImageMatrixAppliesFreeInputImages(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		free       int
+		wantImages int
+	}{
+		{"no free configured", 0, 3},
+		{"one free image", 1, 2},
+		{"free covers all images", 5, 0},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			withImageTables(t, map[string]video_billing.ModelPriceTable{
+				"qwen-image-3.0": {
+					Unit:            video_billing.UnitPerImage,
+					InputImagePrice: 0.02,
+					FreeInputImages: tt.free,
+					Tiers:           []video_billing.PriceTier{{Price: 0.18}},
+				},
+			})
+			c := imageTestContext(t)
+			info := &relaycommon.RelayInfo{TaskRelayInfo: &relaycommon.TaskRelayInfo{}}
+			info.RelayMode = relayconstant.RelayModeImagesGenerations
+			info.OriginModelName = "qwen-image-3.0"
+			info.UsingGroup = "nonexistent-group-ratio-defaults-to-1"
+			request := &dto.ImageRequest{
+				Model:  "qwen-image-3.0",
+				Images: []byte(`["https://example.com/a.png","https://example.com/b.png","https://example.com/c.png"]`),
+			}
+
+			priceData, err := resolveRelayPriceData(c, info, 0, nil, request)
+			require.NoError(t, err)
+			assert.InDelta(t, float64(tt.wantImages)*0.02, priceData.FixedPrice, 1e-9)
+		})
+	}
+}

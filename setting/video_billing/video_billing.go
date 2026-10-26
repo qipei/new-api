@@ -89,12 +89,17 @@ type ResolutionBucket struct {
 //     产生上游成本（例如百炼对超出免费额度的输入图按张计费），只按输出秒数计价
 //     会漏掉这部分，导致平台净亏。
 //   - InputTokenPrice 目前只有 per_image 使用。
+//
+// FreeInputImages 每次请求前 N 张输入图免费，只对 InputImagePrice 生效；不填为 0，
+// 每张都计费。免费额度由各上游的价格规则决定（例如 MiniMax-H3 前 5 张免费），
+// 由管理员按对接的上游填写，网关结算与模型广场展示都读这一个值。
 type ModelPriceTable struct {
 	Unit              string             `json:"unit"`
 	Tiers             []PriceTier        `json:"tiers,omitempty"`
 	ResolutionBuckets []ResolutionBucket `json:"resolution_buckets,omitempty"`
 	InputImagePrice   float64            `json:"input_image_price,omitempty"` // USD/张，per_image 与 per_second
 	InputTokenPrice   float64            `json:"input_token_price,omitempty"` // USD/百万 token，仅 per_image
+	FreeInputImages   int                `json:"free_input_images,omitempty"` // 每次请求免费的输入图张数
 }
 
 // VideoBillingSettings 由 config.GlobalConfig 管理。
@@ -125,6 +130,12 @@ func (table ModelPriceTable) AdditiveInputPrices() (imagePrice, tokenPrice float
 		tokenPrice = 0
 	}
 	return imagePrice, tokenPrice
+}
+
+// BillableInputImages 扣掉免费张数后需要按输入图单价计费的张数。
+// 免费张数为负（改库或其他接口写入）按 0 处理，不会把计费张数放大。
+func (table ModelPriceTable) BillableInputImages(total int) int {
+	return max(total-max(table.FreeInputImages, 0), 0)
 }
 
 // GetPriceTable 返回指定模型的价格表；第二个返回值表示是否配置且单位合法。

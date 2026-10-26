@@ -177,15 +177,15 @@ func TestParseV2TaskResultBillingUsage(t *testing.T) {
 			body:        `{"task":{"id":"1","model":"MiniMax-H3","status":"succeeded","content":{"url":"https://v/out.mp4"},"usage":{"output_seconds":5,"input_seconds":6,"input_image_count":7}}}`,
 			wantStatus:  model.TaskStatusSuccess,
 			wantBilling: 11,
-			wantImages:  2,
+			wantImages:  7,
 			wantURL:     "https://v/out.mp4",
 		},
 		{
-			name:        "max has two free images",
+			name:        "max reports total input images",
 			body:        `{"task":{"id":"1","model":"MiniMax-H3-Max","status":"succeeded","content":{"url":"u"},"usage":{"output_seconds":5,"input_image_count":3}}}`,
 			wantStatus:  model.TaskStatusSuccess,
 			wantBilling: 5,
-			wantImages:  1,
+			wantImages:  3,
 			wantURL:     "u",
 		},
 		{
@@ -228,18 +228,11 @@ func TestParseV2TaskResultBillingUsage(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantStatus, result.Status)
 			assert.InDelta(t, tt.wantBilling, result.BillingDuration, 1e-9)
-			assert.Equal(t, tt.wantImages, result.BillableImageCount)
+			assert.Equal(t, tt.wantImages, result.InputImageCount)
 			assert.Equal(t, tt.wantReason, result.Reason)
 			assert.Equal(t, tt.wantURL, result.Url)
 		})
 	}
-}
-
-// 第三方平台转发时模型名带渠道后缀或是衍生型号，按最长的已知前缀取免费图片额度。
-func TestV2BillableImagesMatchesModelPrefix(t *testing.T) {
-	assert.Equal(t, 2, V2BillableImages("MiniMax-H3/qy2", 7))
-	assert.Equal(t, 5, V2BillableImages("MiniMax-H3-Max-Turbo", 7))
-	assert.Equal(t, 0, V2BillableImages("MiniMax-H3-Lite", 3))
 }
 
 func TestResolutionTier(t *testing.T) {

@@ -117,7 +117,12 @@ export function VideoPriceSection(props: {
       ? {
           key: 'image',
           label: t('Input image price'),
-          unit: t('per input image'),
+          unit:
+            Number(table.free_input_images) > 0
+              ? t('per input image, first {{free}} free', {
+                  free: Number(table.free_input_images),
+                })
+              : t('per input image'),
           price: Number(table.input_image_price),
         }
       : null,

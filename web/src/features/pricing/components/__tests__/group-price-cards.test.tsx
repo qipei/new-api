@@ -144,6 +144,28 @@ describe('GroupPriceCards', () => {
     expect(markup).not.toContain('$9.99')
   })
 
+  // 免费张数随输入图单价一起显示；没配置时只写「每张输入图」，不暗示有免费额度。
+  test('input image price shows the configured free images', () => {
+    const tiers = [{ price: 0.5 }]
+    const withFree = render(baseModel(), {
+      matrixTable: {
+        unit: 'per_second',
+        tiers,
+        input_image_price: 0.2,
+        free_input_images: 5,
+      },
+    })
+    expect(cardOf(withFree, 'default')).toContain(
+      'per input image, first 5 free'
+    )
+
+    const withoutFree = render(baseModel(), {
+      matrixTable: { unit: 'per_second', tiers, input_image_price: 0.2 },
+    })
+    expect(cardOf(withoutFree, 'default')).toContain('per input image')
+    expect(withoutFree).not.toContain('free')
+  })
+
   test('a matrix with only the default tier shows it as the single unit price', () => {
     const markup = render(baseModel({ quota_type: 1 }), {
       matrixTable: { unit: 'per_10k_chars', tiers: [{ price: 3 }] },

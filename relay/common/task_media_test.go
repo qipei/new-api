@@ -170,3 +170,22 @@ func TestValidateTaskRequestRoleMedia(t *testing.T) {
 		})
 	}
 }
+
+// 按张计费的输入图张数：首帧、尾帧、参考图都算；原生 content 与百炼原生 input.media
+// 按其中的图片项计；旧写法传图时去重后计数。
+func TestTaskSubmitReqInputImageCount(t *testing.T) {
+	for body, want := range map[string]int{
+		`{"prompt":"p"}`: 0,
+		`{"first_frame_url":"f","last_frame_url":"l"}`:                                                                              2,
+		`{"reference_images":["r1","r2"],"metadata":{"reference_images":["r3","r1"]},"video_urls":["v"]}`:                           3,
+		`{"metadata":{"first_frame_url":"f"}}`:                                                                                      1,
+		`{"images":["i1","i2","i1"],"input_reference":"i3","metadata":{"audio_urls":["a"]}}`:                                        3,
+		`{"input_reference":{"image_url":"i"}}`:                                                                                     1,
+		`{"content":[{"type":"text","text":"p"},{"type":"image_url"},{"type":"image_url"},{"type":"video_url"}]}`:                   2,
+		`{"metadata":{"input":{"media":[{"type":"image_url","url":"a"},{"type":"feature","url":"v"},{"type":"refer","url":"b"}]}}}`: 2,
+	} {
+		var req TaskSubmitReq
+		require.NoError(t, common.Unmarshal([]byte(body), &req), body)
+		assert.Equal(t, want, req.InputImageCount(), body)
+	}
+}

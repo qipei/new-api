@@ -1053,6 +1053,51 @@ func (t *TaskSubmitReq) fillLegacyMedia() {
 	}
 }
 
+// aliImageMediaTypes 百炼原生 input.media 里属于图片的素材类型（各模型的命名不同）。
+var aliImageMediaTypes = map[string]bool{
+	"first_frame": true, "last_frame": true, "reference_image": true, "image_url": true, "refer": true, "image": true,
+}
+
+// InputImageCount 本次请求送给上游的输入图张数，首帧、尾帧、参考图都算，用于按张计费。
+// 原生 content 数组按其中的 image_url 项计；百炼原生 metadata.input.media 按图片类素材计；
+// 其余按网关字段计（旧写法传图时按 image/images/input_reference 去重后的张数）。
+func (t *TaskSubmitReq) InputImageCount() int {
+	if content, ok := t.NativeContent(); ok {
+		count := 0
+		for _, raw := range content {
+			if item, ok := raw.(map[string]interface{}); ok && item["type"] == "image_url" {
+				count++
+			}
+		}
+		return count
+	}
+	if input, ok := t.Metadata["input"].(map[string]interface{}); ok {
+		if media, ok := input["media"].([]interface{}); ok && len(media) > 0 {
+			count := 0
+			for _, raw := range media {
+				if item, ok := raw.(map[string]interface{}); ok {
+					if mediaType, _ := item["type"].(string); aliImageMediaTypes[mediaType] {
+						count++
+					}
+				}
+			}
+			return count
+		}
+	}
+	if t.legacyImages {
+		return len(uniqueNonBlank([]string{t.Image}, t.Images, []string{t.InputReference}))
+	}
+	media := t.roleMedia(true)
+	count := len(media.ReferenceImages)
+	if media.FirstFrame != "" {
+		count++
+	}
+	if media.LastFrame != "" {
+		count++
+	}
+	return count
+}
+
 // MixesMediaStyles 是否同时用了旧写法传图（image/images/input_reference）与按用途区分的
 // 图片字段（first_frame_url/last_frame_url/reference_images）。
 func (t *TaskSubmitReq) MixesMediaStyles() bool {
@@ -1192,9 +1237,12 @@ type TaskInfo struct {
 	Duration         int     `json:"duration,omitempty"`          // 上游实际输出时长（秒）
 	BillingDuration  float64 `json:"billing_duration,omitempty"`  // 上游用于计费的实际时长（秒，可含小数）
 	// BillableImageCount 是上游按张计费的输入图数量，已扣除上游的免费额度
-	// （百炼对输入图 5 张以内返回 0，超出时只返回超出部分）。
-	BillableImageCount int                `json:"billable_image_count,omitempty"`
-	QuotaClamp         *common.QuotaClamp `json:"-"` // 完成结算额度饱和审计标记
+	// （百炼对输入图 5 张以内返回 0，超出时只返回超出部分）。只用于提交时没记录
+	// 输入图张数的旧任务。
+	BillableImageCount int `json:"billable_image_count,omitempty"`
+	// InputImageCount 是上游报告的输入图总张数（未扣免费额度），同样只用于旧任务。
+	InputImageCount int                `json:"input_image_count,omitempty"`
+	QuotaClamp      *common.QuotaClamp `json:"-"` // 完成结算额度饱和审计标记
 }
 
 func FailTaskInfo(reason string) *TaskInfo {

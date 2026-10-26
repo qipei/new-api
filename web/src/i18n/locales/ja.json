@@ -6142,6 +6142,11 @@
     "Aspect ratio of the generated video, for example 16:9. Same as metadata.ratio.": "Aspect ratio of the generated video, for example 16:9. Same as metadata.ratio.",
     "Resolution tier, same as size.": "Resolution tier, same as size.",
     "Volcengine Ark official format": "Volcengine Ark official format",
-    "Request bodies written for the Volcengine Ark video API work here as is: content and the official top-level parameters such as generate_audio, watermark, return_last_frame, draft, tools and callback_url take effect. The same parameter under metadata takes precedence.": "Request bodies written for the Volcengine Ark video API work here as is: content and the official top-level parameters such as generate_audio, watermark, return_last_frame, draft, tools and callback_url take effect. The same parameter under metadata takes precedence."
+    "Request bodies written for the Volcengine Ark video API work here as is: content and the official top-level parameters such as generate_audio, watermark, return_last_frame, draft, tools and callback_url take effect. The same parameter under metadata takes precedence.": "Request bodies written for the Volcengine Ark video API work here as is: content and the official top-level parameters such as generate_audio, watermark, return_last_frame, draft, tools and callback_url take effect. The same parameter under metadata takes precedence.",
+    "Free input images": "Free input images",
+    "free input images must be a whole number from 0 to 100": "free input images must be a whole number from 0 to 100",
+    "Optional additive component charged per input image sent upstream.": "Optional additive component charged per input image sent upstream.",
+    "The first N input images of each request are free; leave it empty to charge every image.": "The first N input images of each request are free; leave it empty to charge every image.",
+    "per input image, first {{free}} free": "per input image, first {{free}} free"
   }
 }

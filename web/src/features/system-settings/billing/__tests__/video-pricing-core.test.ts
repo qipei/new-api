@@ -68,6 +68,50 @@ describe('video pricing core', () => {
     assert.deepEqual(serialized, JSON.parse(raw))
   })
 
+  // 免费张数只扣减输入图单价：有单价时原样往返，没有单价时不写入，越界或非整数报错。
+  test('round-trips and validates free input images', () => {
+    const raw = JSON.stringify({
+      'MiniMax-H3': {
+        unit: 'per_second',
+        input_image_price: 0.2,
+        free_input_images: 5,
+        tiers: [{ price: 0.5 }],
+      },
+    })
+    const tables = parseVideoPricingTables(raw)
+    assert.equal(tables[0].freeInputImages, '5')
+    assert.deepEqual(
+      JSON.parse(serializeVideoPricingTables(tables)),
+      JSON.parse(raw)
+    )
+
+    const withoutImagePrice = JSON.parse(
+      serializeVideoPricingTables([
+        { ...tables[0], inputImagePrice: '', freeInputImages: '5' },
+      ])
+    )
+    assert.equal(withoutImagePrice['MiniMax-H3'].free_input_images, undefined)
+
+    for (const value of ['-1', '2.5', '101', 'abc']) {
+      const issues = validateVideoPricingTables([
+        { ...tables[0], freeInputImages: value },
+      ])
+      assert.ok(
+        issues.some((issue) => issue.reason === 'free_input_images'),
+        value
+      )
+    }
+    for (const value of ['', '0', '5', '100']) {
+      const issues = validateVideoPricingTables([
+        { ...tables[0], freeInputImages: value },
+      ])
+      assert.ok(
+        !issues.some((issue) => issue.reason === 'free_input_images'),
+        value
+      )
+    }
+  })
+
   test('serialization omits empty dimensions and normalizes resolution case', () => {
     const serialized = JSON.parse(
       serializeVideoPricingTables([
@@ -76,6 +120,7 @@ describe('video pricing core', () => {
           unit: 'per_second',
           inputImagePrice: '',
           inputTokenPrice: '',
+          freeInputImages: '',
           resolutionBuckets: [],
           tiers: [
             {
@@ -171,6 +216,7 @@ describe('video pricing core', () => {
         unit: 'per_hour',
         inputImagePrice: '',
         inputTokenPrice: '',
+        freeInputImages: '',
         resolutionBuckets: [],
         tiers: [
           {
@@ -190,6 +236,7 @@ describe('video pricing core', () => {
         unit: 'per_second',
         inputImagePrice: '',
         inputTokenPrice: '',
+        freeInputImages: '',
         resolutionBuckets: [],
         tiers: [
           {
@@ -243,6 +290,7 @@ describe('video pricing core', () => {
         unit: 'per_million_tokens',
         inputImagePrice: '',
         inputTokenPrice: '',
+        freeInputImages: '',
         resolutionBuckets: [],
         tiers: [
           {
@@ -278,6 +326,7 @@ describe('video pricing core', () => {
         unit: 'per_image',
         inputImagePrice: '',
         inputTokenPrice: '',
+        freeInputImages: '',
         resolutionBuckets: [],
         tiers: [
           {
@@ -344,6 +393,7 @@ describe('video pricing core', () => {
         unit: 'per_image',
         inputImagePrice: '',
         inputTokenPrice: '',
+        freeInputImages: '',
         resolutionBuckets: [
           { uid: 'b1', name: '1k', sizes: '1024x1024, bad' },
           { uid: 'b2', name: '2k', sizes: '1024*1024' },

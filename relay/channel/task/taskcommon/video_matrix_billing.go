@@ -57,9 +57,17 @@ func VideoMatrixQuotaOnComplete(task *model.Task, taskResult *relaycommon.TaskIn
 			return 0
 		}
 		// 输入参考图是独立于输出秒数的一笔上游成本，只按秒计价会漏掉它。
-		// 上游返回的张数已扣除免费额度，这里不再重复减免。
+		// 按提交时送给上游的张数减去价格表配置的免费张数计费；提交时没记录张数的旧任务
+		// 退回上游报告的张数（总张数减免费张数，或百炼已扣过免费额度的张数）。
 		inputImagePrice, _ := table.AdditiveInputPrices()
-		imageCost := float64(clampBillableImageCount(taskResult.BillableImageCount)) * inputImagePrice
+		billableImages := taskResult.BillableImageCount
+		switch {
+		case bc.InputImages != nil:
+			billableImages = table.BillableInputImages(*bc.InputImages)
+		case taskResult.InputImageCount > 0:
+			billableImages = table.BillableInputImages(taskResult.InputImageCount)
+		}
+		imageCost := float64(clampBillableImageCount(billableImages)) * inputImagePrice
 		quota, clamp := common.QuotaFromFloatChecked((billingDuration*bc.ModelPrice + imageCost) * common.QuotaPerUnit * bc.GroupRatio)
 		taskResult.QuotaClamp = clamp
 		return quota

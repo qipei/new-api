@@ -119,8 +119,8 @@ func TestVideoMatrixQuotaOnCompleteNotApplicable(t *testing.T) {
 	assert.Zero(t, VideoMatrixQuotaOnComplete(perSecond, result))
 }
 
-// 参考图是独立于输出秒数的上游成本：百炼对超出免费额度的输入图按张计费，
-// 只按秒结算会把这部分白送。上游返回的张数已扣除免费额度，不再重复减免。
+// 参考图是独立于输出秒数的上游成本，只按秒结算会把这部分白送。提交时没记录张数的
+// 旧任务按百炼返回的张数计费（已扣过免费额度），不再重复减免。
 func TestVideoMatrixQuotaOnCompletePerSecondChargesBillableInputImages(t *testing.T) {
 	withTables(t, map[string]video_billing.ModelPriceTable{
 		"seedance-matrix": {
@@ -183,4 +183,44 @@ func TestVideoMatrixQuotaOnCompleteIgnoresNegativeInputImagePrice(t *testing.T) 
 
 	// 负单价被忽略，退回纯按秒计费，绝不低于它。
 	assert.Equal(t, common.QuotaFromFloat(5*0.2*common.QuotaPerUnit*1), quota)
+}
+
+// 输入图按提交时送给上游的张数减去价格表配置的免费张数计费；不配置时每张都计费。
+// 提交时没记录张数的旧任务退回上游报告的总张数，同样按配置扣减。
+func TestVideoMatrixQuotaOnCompleteAppliesConfiguredFreeInputImages(t *testing.T) {
+	sevenImages := 7
+	tests := []struct {
+		name        string
+		free        int
+		inputImages *int
+		result      relaycommon.TaskInfo
+		wantImages  int
+	}{
+		{"submitted count minus configured free", 5, &sevenImages, relaycommon.TaskInfo{BillingDuration: 4, InputImageCount: 99, BillableImageCount: 50}, 2},
+		{"no free configured charges every image", 0, &sevenImages, relaycommon.TaskInfo{BillingDuration: 4}, 7},
+		{"free covers all images", 9, &sevenImages, relaycommon.TaskInfo{BillingDuration: 4}, 0},
+		{"legacy task uses upstream total", 5, nil, relaycommon.TaskInfo{BillingDuration: 4, InputImageCount: 7}, 2},
+		{"legacy bailian task uses billable count", 5, nil, relaycommon.TaskInfo{BillingDuration: 4, BillableImageCount: 3}, 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			withTables(t, map[string]video_billing.ModelPriceTable{
+				"seedance-matrix": {
+					Unit:            video_billing.UnitPerSecond,
+					Tiers:           []video_billing.PriceTier{{Price: 0.5}},
+					InputImagePrice: 0.2,
+					FreeInputImages: tt.free,
+				},
+			})
+			task := matrixTask(0.5, 0.16, true)
+			task.PrivateData.BillingContext.SettleOnComplete = true
+			task.PrivateData.BillingContext.InputImages = tt.inputImages
+			result := tt.result
+
+			quota := VideoMatrixQuotaOnComplete(task, &result)
+
+			expected := common.QuotaFromFloat((4*0.5 + float64(tt.wantImages)*0.2) * common.QuotaPerUnit * 0.16)
+			assert.Equal(t, expected, quota)
+		})
+	}
 }

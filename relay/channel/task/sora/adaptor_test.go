@@ -159,12 +159,12 @@ func TestSupplementPlatformFields(t *testing.T) {
 	}
 }
 
-// 转发的 MiniMax-H3 完成时按「输出秒数 + 参考视频秒数」与超出免费额度的输入图结算。
+// 转发的 MiniMax-H3 完成时按「输出秒数 + 参考视频秒数」结算，上游报告的输入图总张数原样透出。
 func TestParseTaskResultReadsMiniMaxSecondsUsage(t *testing.T) {
 	result, err := (&TaskAdaptor{}).ParseTaskResult([]byte(`{"id":"t","model":"MiniMax-H3","status":"completed","usage":{"total_seconds":13,"input_seconds":8,"output_seconds":5,"input_image_count":7}}`))
 	require.NoError(t, err)
 	assert.InDelta(t, 13, result.BillingDuration, 1e-9)
-	assert.Equal(t, 2, result.BillableImageCount)
+	assert.Equal(t, 7, result.InputImageCount)
 
 	seedance, err := (&TaskAdaptor{}).ParseTaskResult([]byte(`{"id":"t","model":"Seedance 2.0","status":"completed","usage":{"completion_tokens":50638,"total_tokens":50638}}`))
 	require.NoError(t, err)

@@ -449,11 +449,11 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		if resTask.Usage != nil {
 			taskResult.CompletionTokens = resTask.Usage.CompletionTokens
 			taskResult.TotalTokens = resTask.Usage.TotalTokens
-			// 按秒计费的 MiniMax-H3：参考视频秒数同档计价，输入图扣掉免费额度后按张计价，
-			// 与直连 MiniMax 官方的结算一致。
+			// 按秒计费的 MiniMax-H3：参考视频秒数同档计价，与直连 MiniMax 官方的结算一致；
+			// 输入图按提交时的张数与价格表的免费张数结算，这里的总张数只给旧任务兜底。
 			if hailuo.IsV2Model(resTask.Model) {
 				taskResult.BillingDuration = hailuo.V2BillingSeconds(resTask.Usage.OutputSeconds, resTask.Usage.InputSeconds)
-				taskResult.BillableImageCount = hailuo.V2BillableImages(resTask.Model, resTask.Usage.InputImageCount)
+				taskResult.InputImageCount = resTask.Usage.InputImageCount
 			}
 		}
 	case "failed", "cancelled":

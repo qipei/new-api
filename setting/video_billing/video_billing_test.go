@@ -341,3 +341,12 @@ func TestGetPriceUsesResolutionBucketsForPerSecondTables(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0.9375, price)
 }
+
+// 免费张数不填为 0，每张都计费；负数按 0 处理，不会把计费张数放大或变成负数。
+func TestBillableInputImages(t *testing.T) {
+	for _, tt := range []struct{ free, total, want int }{
+		{0, 3, 3}, {5, 7, 2}, {5, 3, 0}, {-2, 3, 3}, {2, 0, 0},
+	} {
+		assert.Equal(t, tt.want, ModelPriceTable{FreeInputImages: tt.free}.BillableInputImages(tt.total), tt)
+	}
+}

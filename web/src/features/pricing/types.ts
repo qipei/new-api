@@ -117,6 +117,8 @@ export type VideoPriceTable = {
   unit: string
   tiers?: VideoPriceTier[]
   input_image_price?: number
+  /** 每次请求免费的输入图张数，0 或缺省表示每张都计费 */
+  free_input_images?: number
   input_token_price?: number
 }
 

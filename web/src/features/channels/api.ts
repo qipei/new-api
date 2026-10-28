@@ -57,6 +57,22 @@ export type CodexUsageResponse = {
 
 export type CodexResetCreditsResponse = CodexUsageResponse
 
+// CUSTOM: autodl ComfyUI 渠道刷新工作流定义的结果（fork 扩展）
+export type WorkflowDefinitionRefreshResult = {
+  model: string
+  workflow_id: string
+  resolution_options?: string[] | null
+  has_mode: boolean
+  mode_options?: string[] | null
+  error?: string
+}
+
+export type WorkflowDefinitionRefreshResponse = {
+  success: boolean
+  message?: string
+  data?: WorkflowDefinitionRefreshResult[]
+}
+
 export type CodexUsageResetResponse = CodexUsageResponse
 
 export type CodexCredentialRefreshResponse = {
@@ -303,6 +319,18 @@ export async function getChannelKey(
     channelActionConfig({
       headers: proofToken ? { 'X-Security-Proof': proofToken } : undefined,
     })
+  )
+  return res.data
+}
+
+// CUSTOM: 重新读取 autodl 渠道各模型对应的工作流定义（fork 扩展）
+export async function refreshWorkflowDefinitions(
+  channelId: number
+): Promise<WorkflowDefinitionRefreshResponse> {
+  const res = await api.post(
+    `/api/channel/${channelId}/workflow_definitions/refresh`,
+    {},
+    channelActionConfig()
   )
   return res.data
 }

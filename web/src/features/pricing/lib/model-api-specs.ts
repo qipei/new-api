@@ -2989,6 +2989,15 @@ const AUTODL_H3_VIDEO: ModelApiSpec = {
       descriptionKey:
         'Random seed. The same inputs and seed give similar results.',
     },
+    {
+      name: 'mode',
+      location: 'body',
+      type: 'enum',
+      enumValues: ['fast', 'quality'],
+      defaultValue: 'quality',
+      descriptionKey:
+        'Speed mode: fast renders quicker, quality gives finer detail; both cost the same. Only some models accept it (see the channel note); others reject it with 400. 高速模式 and 高质模式 are also accepted.',
+    },
     ...mediaRoleParams({
       firstFrame: MEDIA_FIRST_FRAME,
       lastFrame: MEDIA_LAST_FRAME,

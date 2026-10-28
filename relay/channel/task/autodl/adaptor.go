@@ -12,6 +12,8 @@
 //     （864x480 → 480p，1920x1088 → 1088p）；方向取「宽x高」或 ratio（16:9 横、9:16 竖、
 //     1:1 方），不传 ratio 按 16:9。都不传时不发，上游按工作流默认档出片（H3 是 768p竖），
 //     价格表的默认档应按这个档定价；
+//   - 速度模式 mode（fast/quality 或「高速模式」「高质模式」）按工作流定义换成选项名，
+//     只有定义了 mode 的工作流（例如 H3 803）接受，不传时上游按默认的高质模式出片；
 //   - 首帧/尾帧转成 first_frame/last_frame，参考图转成 ref_image_0..8，参考音频转成
 //     ref_audio_0..2。图片和音频都传 URL 或 data URI。
 //
@@ -28,6 +30,7 @@ package autodl
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -36,6 +39,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -60,6 +64,16 @@ const (
 
 	submitPathPrefix = "/api/v1/comfyui/comfyui_workflow/"
 	queryPathPrefix  = "/api/v1/comfyui/comfyui_workflow/result/"
+	// workflowDefinitionPathPrefix 公开的工作流定义接口，返回各参数的选项（input_rules）。
+	workflowDefinitionPathPrefix = "/api/v1/comfyui/workflows/"
+	// 工作流定义很少变，取到后缓存一天；后台可在渠道列表里手动刷新。
+	workflowDefinitionTTL = 24 * time.Hour
+	// 取定义失败后这么久内不再重取，期间沿用旧定义（没有旧定义时按原样发送）。
+	workflowDefinitionRetryAfter = time.Minute
+
+	// 速度模式的英文写法，对应工作流 mode 选项里的「高速」「高质」。
+	modeFast    = "fast"
+	modeQuality = "quality"
 
 	codeSuccess      = "Success"
 	codeInvalidParam = "RequestParameterIsWrong"
@@ -186,11 +200,177 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if err != nil {
 		return nil, err
 	}
+	if label, ok := params["resolution"].(string); ok {
+		option, err := a.workflowResolutionOption(info.UpstreamModelName, label)
+		if err != nil {
+			return nil, err
+		}
+		params["resolution"] = option
+	}
+	if mode, ok := params["mode"].(string); ok {
+		option, err := a.workflowSpeedMode(info.UpstreamModelName, mode)
+		if err != nil {
+			return nil, err
+		}
+		params["mode"] = option
+	}
 	data, err := common.Marshal(params)
 	if err != nil {
 		return nil, err
 	}
 	return bytes.NewReader(data), nil
+}
+
+// workflowResolutionOption 把分辨率选项（例如 768p竖）换成工作流实际的选项名。各工作流的
+// 写法不同，有的带像素尺寸（768p竖(768*1376)），按工作流定义里的选项匹配。工作流没有这个
+// 档位时在本地拒绝并列出支持的档位；取不到定义时原样发送，由上游校验。
+func (a *TaskAdaptor) workflowResolutionOption(workflowID, label string) (string, error) {
+	definition, err := CachedWorkflowDefinition(a.baseURL, workflowID)
+	if err != nil {
+		common.SysError(fmt.Sprintf("autodl load workflow %s definition failed: %v", workflowID, err))
+		return label, nil
+	}
+	options := definition.ResolutionOptions
+	if len(options) == 0 {
+		return label, nil
+	}
+	for _, option := range options {
+		if option == label || strings.HasPrefix(option, label+"(") {
+			return option, nil
+		}
+	}
+	return "", relaycommon.NewInvalidRequest(fmt.Errorf("resolution %s is not supported by this model; supported: %s", label, strings.Join(options, ", ")))
+}
+
+// workflowSpeedMode 把请求的速度模式（fast/quality，或工作流的中文选项名）换成工作流的
+// mode 选项，例如 H3 803 的「高速模式」「高质模式」；两个模式同价。工作流没有 mode 参数时
+// 在本地拒绝，取不到定义时按常见的中文选项名发送，由上游校验。
+func (a *TaskAdaptor) workflowSpeedMode(workflowID, mode string) (string, error) {
+	keyword := mode
+	switch strings.ToLower(mode) {
+	case modeFast:
+		keyword = "高速"
+	case modeQuality:
+		keyword = "高质"
+	}
+	definition, err := CachedWorkflowDefinition(a.baseURL, workflowID)
+	if err != nil {
+		common.SysError(fmt.Sprintf("autodl load workflow %s definition failed: %v", workflowID, err))
+		if keyword == "高速" || keyword == "高质" {
+			return keyword + "模式", nil
+		}
+		return mode, nil
+	}
+	if !definition.HasMode {
+		return "", relaycommon.NewInvalidRequest(fmt.Errorf("mode is not supported by this model"))
+	}
+	for _, option := range definition.ModeOptions {
+		if option == mode || strings.HasPrefix(option, keyword) {
+			return option, nil
+		}
+	}
+	return "", relaycommon.NewInvalidRequest(fmt.Errorf("mode %s is not supported by this model; use fast or quality", mode))
+}
+
+// WorkflowDefinition 工作流定义里适配器要用的参数选项。
+type WorkflowDefinition struct {
+	ResolutionOptions []string `json:"resolution_options"`
+	HasMode           bool     `json:"has_mode"`
+	ModeOptions       []string `json:"mode_options,omitempty"`
+}
+
+type workflowDefinitionCacheEntry struct {
+	definition WorkflowDefinition
+	// loaded 为 false 表示还没成功取到过，err 是最近一次失败的原因。
+	loaded    bool
+	err       error
+	expiresAt time.Time
+}
+
+// workflowDefinitionCache 按 baseURL|workflowID 缓存工作流定义（每个节点各自缓存）。
+var workflowDefinitionCache sync.Map
+
+// CachedWorkflowDefinition 返回缓存的工作流定义，过期后重新读取。读取失败时沿用旧定义，
+// 没有旧定义时返回错误；失败后 workflowDefinitionRetryAfter 内不再重取，免得上游定义接口
+// 出问题时每次提交都等它超时。
+func CachedWorkflowDefinition(baseURL, workflowID string) (WorkflowDefinition, error) {
+	if cached, ok := workflowDefinitionCache.Load(baseURL + "|" + workflowID); ok {
+		if entry := cached.(workflowDefinitionCacheEntry); time.Now().Before(entry.expiresAt) {
+			return entry.definition, entry.err
+		}
+	}
+	return RefreshWorkflowDefinition(baseURL, workflowID)
+}
+
+// RefreshWorkflowDefinition 立即重新读取工作流定义并更新缓存，供后台手动刷新。
+func RefreshWorkflowDefinition(baseURL, workflowID string) (WorkflowDefinition, error) {
+	key := baseURL + "|" + workflowID
+	definition, err := fetchWorkflowDefinition(baseURL, workflowID)
+	if err == nil {
+		workflowDefinitionCache.Store(key, workflowDefinitionCacheEntry{definition: definition, loaded: true, expiresAt: time.Now().Add(workflowDefinitionTTL)})
+		return definition, nil
+	}
+	retryAt := time.Now().Add(workflowDefinitionRetryAfter)
+	if cached, ok := workflowDefinitionCache.Load(key); ok {
+		if entry := cached.(workflowDefinitionCacheEntry); entry.loaded {
+			common.SysError(fmt.Sprintf("autodl refresh workflow %s definition failed, keep the cached one: %v", workflowID, err))
+			workflowDefinitionCache.Store(key, workflowDefinitionCacheEntry{definition: entry.definition, loaded: true, expiresAt: retryAt})
+			return entry.definition, nil
+		}
+	}
+	workflowDefinitionCache.Store(key, workflowDefinitionCacheEntry{err: err, expiresAt: retryAt})
+	return WorkflowDefinition{}, err
+}
+
+// fetchWorkflowDefinition 从工作流定义接口读取分辨率和 mode 的选项名。测试里替换成本地数据。
+var fetchWorkflowDefinition = func(baseURL, workflowID string) (WorkflowDefinition, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+workflowDefinitionPathPrefix+url.PathEscape(workflowID), nil)
+	if err != nil {
+		return WorkflowDefinition{}, err
+	}
+	resp, err := service.GetHttpClient().Do(req)
+	if err != nil {
+		return WorkflowDefinition{}, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return WorkflowDefinition{}, err
+	}
+	var payload struct {
+		Code string `json:"code"`
+		Msg  string `json:"msg"`
+		Data *struct {
+			InputRules map[string]struct {
+				Options []struct {
+					Label string `json:"label"`
+				} `json:"options"`
+			} `json:"input_rules"`
+		} `json:"data"`
+	}
+	if err := common.Unmarshal(body, &payload); err != nil {
+		return WorkflowDefinition{}, err
+	}
+	if payload.Code != codeSuccess || payload.Data == nil {
+		return WorkflowDefinition{}, fmt.Errorf("%s: %s", payload.Code, payload.Msg)
+	}
+	optionLabels := func(name string) []string {
+		var labels []string
+		for _, option := range payload.Data.InputRules[name].Options {
+			if label := strings.TrimSpace(option.Label); label != "" {
+				labels = append(labels, label)
+			}
+		}
+		return labels
+	}
+	_, hasMode := payload.Data.InputRules["mode"]
+	return WorkflowDefinition{
+		ResolutionOptions: optionLabels("resolution"),
+		HasMode:           hasMode,
+		ModeOptions:       optionLabels("mode"),
+	}, nil
 }
 
 func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (*http.Response, error) {
@@ -372,6 +552,12 @@ func buildWorkflowParams(req relaycommon.TaskSubmitReq) (map[string]any, int, er
 		params["seed"] = seed
 	}
 
+	// 顶层 mode 的 reference/reference-to-video 是旧写法的生成方式提示（见 addMediaParams），
+	// 其余取值是工作流的速度模式，组装请求时按工作流定义换成选项名。
+	if mode := strings.TrimSpace(req.Mode); mode != "" && !isReferenceModeHint(mode) {
+		params["mode"] = mode
+	}
+
 	if err := addMediaParams(params, req); err != nil {
 		return nil, 0, err
 	}
@@ -502,8 +688,7 @@ func addMediaParams(params map[string]any, req relaycommon.TaskSubmitReq) error 
 	references := media.ReferenceImages
 	if !req.UsesRoleMedia() {
 		images := legacyImages(req)
-		mode := strings.ToLower(strings.TrimSpace(req.Mode))
-		if len(media.ReferenceAudios) > 0 || len(images) > 2 || mode == "reference" || mode == "reference-to-video" {
+		if len(media.ReferenceAudios) > 0 || len(images) > 2 || isReferenceModeHint(req.Mode) {
 			references = images
 		} else if len(images) > 0 {
 			firstFrame = images[0]
@@ -537,6 +722,12 @@ func addMediaParams(params map[string]any, req relaycommon.TaskSubmitReq) error 
 		params["ref_audio_"+strconv.Itoa(i)] = audio
 	}
 	return nil
+}
+
+// isReferenceModeHint 顶层 mode 是否是旧写法里「按参考图生成」的提示。
+func isReferenceModeHint(mode string) bool {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	return mode == "reference" || mode == "reference-to-video"
 }
 
 // legacyImages 汇总 image/images/input_reference，去空白与重复。

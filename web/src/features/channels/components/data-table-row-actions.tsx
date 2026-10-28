@@ -59,10 +59,14 @@ import {
 } from '@/lib/admin-permissions'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { MODEL_FETCHABLE_TYPES } from '../constants'
+import {
+  CHANNEL_TYPE_AUTODL_COMFYUI,
+  MODEL_FETCHABLE_TYPES,
+} from '../constants'
 import {
   channelsQueryKeys,
   handleDeleteChannel,
+  handleRefreshWorkflowDefinitions,
   handleTestChannel,
   handleToggleChannelStatus,
   isChannelEnabled,
@@ -318,6 +322,18 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
               }}
             >
               {t('Upstream Updates')}
+              <DropdownMenuShortcut>
+                <RefreshCw size={16} />
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+          )}
+
+          {/* CUSTOM: 刷新工作流定义（only for AutoDL ComfyUI channels） */}
+          {channel.type === CHANNEL_TYPE_AUTODL_COMFYUI && (
+            <DropdownMenuItem
+              onClick={() => handleRefreshWorkflowDefinitions(channel.id)}
+            >
+              {t('Refresh workflow definitions')}
               <DropdownMenuShortcut>
                 <RefreshCw size={16} />
               </DropdownMenuShortcut>

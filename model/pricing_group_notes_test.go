@@ -75,3 +75,41 @@ func TestPricingMarksWorkflowOnlyModels(t *testing.T) {
 	assert.True(t, byModel["MiniMax-H3-Turbo"])
 	assert.False(t, byModel["MiniMax-H3"])
 }
+
+// 分组的闲时时段来自该分组下提供本模型的渠道：同一时段去重，无效配置不下发，没配的渠道不占位。
+func TestPricingGroupOffPeakWindows(t *testing.T) {
+	resetPricingEndpointTestTables(t)
+
+	insertChannel := func(id int, window *dto.OffPeakPricing) {
+		channel := &Channel{Id: id, Type: constant.ChannelTypeAutoDLComfyUI, Key: "key", Status: common.ChannelStatusEnabled, Name: "autodl"}
+		channel.SetOtherSettings(dto.ChannelOtherSettings{OffPeakPricing: window})
+		require.NoError(t, DB.Create(channel).Error)
+	}
+	insertAbility := func(channelID int, group string) {
+		require.NoError(t, DB.Create(&Ability{Group: group, Model: "MiniMax-H3-Fast", ChannelId: channelID, Enabled: true}).Error)
+	}
+	night := &dto.OffPeakPricing{Start: "00:00", End: "07:50", TZ: "Asia/Shanghai"}
+	insertChannel(401, night)
+	insertChannel(402, &dto.OffPeakPricing{Start: "00:00", End: "07:50", TZ: "Asia/Shanghai"})
+	insertChannel(403, &dto.OffPeakPricing{Start: "25:00", End: "07:50"})
+	insertChannel(404, nil)
+	insertChannel(405, &dto.OffPeakPricing{Start: "22:00", End: "06:00"})
+	insertAbility(401, "0.1折")
+	insertAbility(402, "0.1折")
+	insertAbility(403, "default")
+	insertAbility(404, "default")
+	insertAbility(405, "vip")
+
+	InitChannelCache()
+	var windows map[string][]dto.OffPeakPricing
+	for _, pricing := range GetPricing() {
+		if pricing.ModelName == "MiniMax-H3-Fast" {
+			windows = pricing.GroupOffPeak
+		}
+	}
+
+	assert.Equal(t, map[string][]dto.OffPeakPricing{
+		"0.1折": {*night},
+		"vip":  {{Start: "22:00", End: "06:00"}},
+	}, windows)
+}

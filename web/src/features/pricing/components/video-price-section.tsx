@@ -25,8 +25,12 @@ import {
   MATRIX_AUDIO_LABEL_KEYS,
   MATRIX_MODE_SECTIONS,
   formatMatrixTierDimension,
+  formatOffPeakWindows,
+  formatPeakWindows,
   isDefaultMatrixTier,
   matrixUnitLabel,
+  modelOffPeakWindows,
+  tierOffPeakPrice,
 } from '../lib/group-price-blocks'
 import type { PricingModel, VideoPriceTier } from '../types'
 
@@ -75,6 +79,11 @@ export function VideoPriceSection(props: {
   if (table.unit === 'per_image') sectionTitleKey = 'Image Price'
   if (isFlatTable) sectionTitleKey = 'Unit price'
   const showAudioColumn = table.unit !== 'per_image' && !isFlatTable
+  // 闲时价只在有渠道配了闲时时段时展示；时段按渠道而定，具体见分组卡片。
+  const offPeakWindows = modelOffPeakWindows(props.model)
+  const showOffPeakColumn =
+    offPeakWindows.length > 0 &&
+    visibleTiers.some((tier) => tierOffPeakPrice(tier) !== undefined)
   let dimensionHeaderKey = 'Resolution'
   if (table.unit === 'per_image') dimensionHeaderKey = 'Resolution / pixels'
   if (isFlatTable) dimensionHeaderKey = 'Billing unit'
@@ -116,6 +125,11 @@ export function VideoPriceSection(props: {
         <td className='py-1.5 text-right font-mono tabular-nums'>
           {formatPrice(tier.price)}
         </td>
+        {showOffPeakColumn ? (
+          <td className='py-1.5 pl-3 text-right font-mono tabular-nums'>
+            {formatPrice(tierOffPeakPrice(tier) ?? tier.price)}
+          </td>
+        ) : null}
       </tr>
     )
   }
@@ -212,9 +226,20 @@ export function VideoPriceSection(props: {
                       </th>
                     ) : null}
                     <th className='py-1 text-right font-normal'>
-                      {t('Official price')}
+                      {showOffPeakColumn
+                        ? t('Peak price ({{window}})', {
+                            window: formatPeakWindows(offPeakWindows, t),
+                          })
+                        : t('Official price')}
                       {table.unit === 'per_image' ? ` ${t('/image')}` : null}
                     </th>
+                    {showOffPeakColumn ? (
+                      <th className='py-1 pl-3 text-right font-normal'>
+                        {t('Off-peak price ({{window}})', {
+                          window: formatOffPeakWindows(offPeakWindows),
+                        })}
+                      </th>
+                    ) : null}
                   </tr>
                 </thead>
                 <tbody>{tiers.map(renderRow)}</tbody>

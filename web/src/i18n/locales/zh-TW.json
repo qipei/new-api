@@ -6204,6 +6204,13 @@
     "Voice reference audio as an http(s) URL; the speech keeps this speaker's timbre. data URIs are not accepted.": "音色參考音訊的 http(s) 連結，合成的語音保留這個說話人的音色。不接受 data URI。",
     "Audio format. This model only returns 22050 Hz mono WAV, so other formats are rejected.": "音訊格式。這個模型只回傳 22050 Hz 單聲道 WAV，其他格式會被拒絕。",
     "Returns the WAV audio directly. Emotion controls are not available on this route.": "直接回傳 WAV 音訊。這個線路不支援情感控制。",
-    "Upstream raw error (admins only)": "上游原始錯誤（僅管理員可見）"
+    "Upstream raw error (admins only)": "上游原始錯誤（僅管理員可見）",
+    "Off-peak price ({{window}})": "空閒時段價格（{{window}}）",
+    "Peak price ({{window}})": "高峰時段價格（{{window}}）",
+    "Other hours": "其他時段",
+    "Speed mode: fast renders quicker, quality gives finer detail; both cost the same. Only some models accept it (see the channel note); others reject it with 400. 高速模式 and 高质模式 are also accepted.": "速度模式：fast 出片更快，quality 細節更好，兩者同價。只有部分模型支援（見渠道說明），不支援的模型會回傳 400。也可以寫成「高速模式」「高质模式」。",
+    "Refresh workflow definitions": "重新整理工作流定義",
+    "Workflow definitions refreshed": "工作流定義已重新整理",
+    "Failed to refresh workflow definitions": "重新整理工作流定義失敗"
   }
 }

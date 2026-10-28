@@ -1,6 +1,7 @@
 package autodl
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -384,4 +385,154 @@ func TestDoResponseSpeechSubmit(t *testing.T) {
 	assert.Equal(t, "indextts2", body["model"])
 	assert.Equal(t, "queued", body["status"])
 	assert.Nil(t, body["object"])
+}
+
+// 各工作流的分辨率选项写法不同（有的带像素尺寸），按工作流定义匹配；工作流没有的档位
+// 在本地拒绝并列出支持的档位；取不到定义时原样发送，由上游校验。
+// stubWorkflowDefinitions 用本地的工作流定义代替 autodl 的定义接口，选项名照抄线上定义。
+func stubWorkflowDefinitions(t *testing.T) {
+	original := fetchWorkflowDefinition
+	t.Cleanup(func() {
+		fetchWorkflowDefinition = original
+		clearWorkflowDefinitionCache()
+	})
+	definitions := map[string]WorkflowDefinition{
+		"minimax_h3_803": {
+			ResolutionOptions: []string{"480p竖(480*864)", "768p竖(768*1376)", "1088p横(1920*1088)"},
+			HasMode:           true,
+			ModeOptions:       []string{"高速模式", "高质模式"},
+		},
+		"minimax_h3_zm_u24": {ResolutionOptions: []string{"480p横", "480p竖", "768p竖", "480p(1:1)"}},
+	}
+	fetchWorkflowDefinition = func(_ string, workflowID string) (WorkflowDefinition, error) {
+		definition, ok := definitions[workflowID]
+		if !ok {
+			return WorkflowDefinition{}, errors.New("暂未找到该工作流详情")
+		}
+		return definition, nil
+	}
+}
+
+func TestWorkflowResolutionOption(t *testing.T) {
+	stubWorkflowDefinitions(t)
+	adaptor := &TaskAdaptor{baseURL: "https://test.autodl.example"}
+
+	tests := []struct {
+		workflow string
+		label    string
+		want     string
+	}{
+		{"minimax_h3_803", "768p竖", "768p竖(768*1376)"},
+		{"minimax_h3_803", "1088p横", "1088p横(1920*1088)"},
+		{"minimax_h3_zm_u24", "480p竖", "480p竖"},
+		{"minimax_h3_zm_u24", "480p(1:1)", "480p(1:1)"},
+		{"unknown_workflow", "768p竖", "768p竖"},
+	}
+	for _, tt := range tests {
+		got, err := adaptor.workflowResolutionOption(tt.workflow, tt.label)
+		require.NoError(t, err, tt.workflow+" "+tt.label)
+		assert.Equal(t, tt.want, got, tt.workflow+" "+tt.label)
+	}
+
+	_, err := adaptor.workflowResolutionOption("minimax_h3_zm_u24", "1088p竖")
+	require.Error(t, err)
+	assert.True(t, relaycommon.IsInvalidRequest(err))
+	assert.Contains(t, err.Error(), "480p竖")
+}
+
+// 速度模式：fast/quality 和中文选项名都换成工作流的选项；工作流没有 mode 参数时本地拒绝，
+// 不让上游以参数错误拒单；取不到定义时按常见选项名发送。
+func TestWorkflowSpeedMode(t *testing.T) {
+	stubWorkflowDefinitions(t)
+	adaptor := &TaskAdaptor{baseURL: "https://test.autodl.example"}
+
+	tests := []struct {
+		workflow string
+		mode     string
+		want     string
+	}{
+		{"minimax_h3_803", "fast", "高速模式"},
+		{"minimax_h3_803", "Quality", "高质模式"},
+		{"minimax_h3_803", "高速模式", "高速模式"},
+		{"minimax_h3_803", "高质", "高质模式"},
+		{"unknown_workflow", "fast", "高速模式"},
+	}
+	for _, tt := range tests {
+		got, err := adaptor.workflowSpeedMode(tt.workflow, tt.mode)
+		require.NoError(t, err, tt.workflow+" "+tt.mode)
+		assert.Equal(t, tt.want, got, tt.workflow+" "+tt.mode)
+	}
+
+	for _, tt := range []struct{ workflow, mode string }{
+		{"minimax_h3_zm_u24", "fast"},
+		{"minimax_h3_803", "turbo"},
+	} {
+		_, err := adaptor.workflowSpeedMode(tt.workflow, tt.mode)
+		require.Error(t, err, tt.workflow+" "+tt.mode)
+		assert.True(t, relaycommon.IsInvalidRequest(err))
+	}
+}
+
+// 顶层 mode 的 reference 提示只决定素材用法，不作为速度模式发给工作流。
+func TestBuildWorkflowParamsMode(t *testing.T) {
+	params, _, err := buildWorkflowParams(relaycommon.TaskSubmitReq{Prompt: "p", Mode: "fast"})
+	require.NoError(t, err)
+	assert.Equal(t, "fast", params["mode"])
+
+	params, _, err = buildWorkflowParams(relaycommon.TaskSubmitReq{Prompt: "p", Mode: "reference", Images: []string{"https://example.com/a.png"}})
+	require.NoError(t, err)
+	assert.NotContains(t, params, "mode")
+	assert.Equal(t, "https://example.com/a.png", params["ref_image_0"])
+}
+
+func clearWorkflowDefinitionCache() {
+	workflowDefinitionCache.Range(func(key, _ any) bool {
+		workflowDefinitionCache.Delete(key)
+		return true
+	})
+}
+
+// 定义取到后缓存一天：再次提交不重新读取；读取失败时沿用旧定义，失败后短时间内不再重取，
+// 免得上游定义接口出问题时每次提交都等超时；后台手动刷新会立即重新读取。
+func TestWorkflowDefinitionCache(t *testing.T) {
+	original := fetchWorkflowDefinition
+	t.Cleanup(func() {
+		fetchWorkflowDefinition = original
+		clearWorkflowDefinitionCache()
+	})
+	const baseURL = "https://cache.autodl.example"
+	fetches := 0
+	var next WorkflowDefinition
+	var nextErr error
+	fetchWorkflowDefinition = func(string, string) (WorkflowDefinition, error) {
+		fetches++
+		return next, nextErr
+	}
+
+	next = WorkflowDefinition{ResolutionOptions: []string{"480p竖"}}
+	got, err := CachedWorkflowDefinition(baseURL, "wf")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"480p竖"}, got.ResolutionOptions)
+	_, err = CachedWorkflowDefinition(baseURL, "wf")
+	require.NoError(t, err)
+	assert.Equal(t, 1, fetches, "cached definition is reused")
+
+	nextErr = errors.New("definition api down")
+	got, err = RefreshWorkflowDefinition(baseURL, "wf")
+	require.NoError(t, err, "a failed refresh keeps the cached definition")
+	assert.Equal(t, []string{"480p竖"}, got.ResolutionOptions)
+
+	_, err = CachedWorkflowDefinition(baseURL, "missing")
+	require.Error(t, err)
+	_, err = CachedWorkflowDefinition(baseURL, "missing")
+	require.Error(t, err)
+	assert.Equal(t, 3, fetches, "a failed fetch is not retried right away")
+
+	next, nextErr = WorkflowDefinition{ResolutionOptions: []string{"768p竖"}}, nil
+	got, err = RefreshWorkflowDefinition(baseURL, "wf")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"768p竖"}, got.ResolutionOptions)
+	got, err = CachedWorkflowDefinition(baseURL, "wf")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"768p竖"}, got.ResolutionOptions)
 }

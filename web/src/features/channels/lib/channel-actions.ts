@@ -36,6 +36,7 @@ import {
   editTagChannels,
   testAllChannels,
   updateAllChannelsBalance,
+  refreshWorkflowDefinitions,
 } from '../api'
 import { CHANNEL_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
 import type { ChannelTestResponse, CopyChannelParams } from '../types'
@@ -171,6 +172,44 @@ export async function handleToggleChannelStatus(
     await handleDisableChannel(id, queryClient, onSuccess)
   } else {
     await handleEnableChannel(id, queryClient, onSuccess)
+  }
+}
+
+/**
+ * CUSTOM: 重新读取 autodl 渠道的工作流定义，提示里列出各工作流支持的分辨率和速度模式
+ * （fork 扩展）。
+ */
+export async function handleRefreshWorkflowDefinitions(
+  id: number
+): Promise<void> {
+  try {
+    const response = await refreshWorkflowDefinitions(id)
+    const results = response.data ?? []
+    if (results.length === 0) {
+      toast.error(
+        response.message || i18next.t('Failed to refresh workflow definitions')
+      )
+      return
+    }
+    const description = results
+      .map((result) => {
+        if (result.error) return `${result.workflow_id}: ${result.error}`
+        const options = [...(result.resolution_options ?? [])]
+        if (result.has_mode) options.push(...(result.mode_options ?? []))
+        return `${result.workflow_id}: ${options.join(', ') || '-'}`
+      })
+      .join('\n')
+    if (response.success) {
+      toast.success(i18next.t('Workflow definitions refreshed'), {
+        description,
+      })
+    } else {
+      toast.error(i18next.t('Failed to refresh workflow definitions'), {
+        description,
+      })
+    }
+  } catch {
+    toast.error(i18next.t('Failed to refresh workflow definitions'))
   }
 }
 

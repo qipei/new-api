@@ -26,6 +26,7 @@ import type { TFunction } from 'i18next'
 import { formatCurrencyFromUSD } from '@/lib/currency'
 
 import type {
+  OffPeakWindow,
   PriceType,
   PricingModel,
   TokenUnit,
@@ -100,6 +101,50 @@ export function groupTierLimitNote(
     })
   }
   return t('Some tiers are not available in this group')
+}
+
+function withTimeZone(range: string, tz?: string): string {
+  return tz && tz !== 'Asia/Shanghai' ? `${range} ${tz}` : range
+}
+
+/** 闲时时段的展示文本，例如「00:00~07:50」；非北京时间的时段带上时区。 */
+export function formatOffPeakWindows(windows: OffPeakWindow[]): string {
+  return windows
+    .map((window) => withTimeZone(`${window.start}~${window.end}`, window.tz))
+    .join('、')
+}
+
+/**
+ * 高峰时段 = 一天里闲时时段以外的时间，例如闲时 00:00~07:50 时高峰是 07:50~24:00。
+ * 有多个不同的闲时时段时说不清补集，显示「其他时段」。
+ */
+export function formatPeakWindows(
+  windows: OffPeakWindow[],
+  t: TFunction
+): string {
+  if (windows.length !== 1) return t('Other hours')
+  const [window] = windows
+  const end = window.start === '00:00' ? '24:00' : window.start
+  return withTimeZone(`${window.end}~${end}`, window.tz)
+}
+
+/** 模型所有分组的闲时时段（去重）；为空表示没有渠道配置闲时时段。 */
+export function modelOffPeakWindows(model: PricingModel): OffPeakWindow[] {
+  const seen = new Map<string, OffPeakWindow>()
+  for (const windows of Object.values(model.group_off_peak ?? {})) {
+    for (const window of windows) {
+      seen.set(`${window.start}|${window.end}|${window.tz ?? ''}`, window)
+    }
+  }
+  return [...seen.values()]
+}
+
+/** 档位配了有效闲时价时返回闲时价，否则返回 undefined。 */
+export function tierOffPeakPrice(tier: VideoPriceTier): number | undefined {
+  const price = tier.off_peak_price
+  return typeof price === 'number' && Number.isFinite(price) && price > 0
+    ? price
+    : undefined
 }
 
 export function matrixUnitLabel(unit: string, t: TFunction): string {
@@ -349,6 +394,22 @@ function buildMatrixBlocks(
   const tiers = table.tiers ?? []
   const dimensional = tiers.filter((tier) => !isDefaultMatrixTier(tier))
   const blocks: GroupPriceBlock[] = []
+  // 本分组有渠道配了闲时时段、且价格表有闲时价时，价格分成高峰与空闲两列。
+  // 没填闲时价的档位在闲时仍按原价计费，空闲列显示原价。
+  const offPeakWindows = options.model.group_off_peak?.[options.group] ?? []
+  const showOffPeak =
+    offPeakWindows.length > 0 &&
+    tiers.some(
+      (tier) =>
+        tierOffPeakPrice(tier) !== undefined &&
+        !excludesGroup(tier, options.group)
+    )
+  const peakLabel = t('Peak price ({{window}})', {
+    window: formatPeakWindows(offPeakWindows, t),
+  })
+  const offPeakLabel = t('Off-peak price ({{window}})', {
+    window: formatOffPeakWindows(offPeakWindows),
+  })
 
   if (dimensional.length === 0) {
     // 只有默认档的价格表（音频按秒、按字等），默认档就是唯一价格。
@@ -358,6 +419,24 @@ function buildMatrixBlocks(
         kind: 'list',
         unit,
         rows: [{ label: t('Unit price'), value: t('Not supported') }],
+      })
+    } else if (flat && showOffPeak) {
+      const offPeakPrice = tierOffPeakPrice(flat) ?? flat.price
+      blocks.push({
+        kind: 'list',
+        unit,
+        rows: [
+          {
+            label: peakLabel,
+            value: formatUSD(flat.price),
+            official: formatUSD(flat.price, 1),
+          },
+          {
+            label: offPeakLabel,
+            value: formatUSD(offPeakPrice),
+            official: formatUSD(offPeakPrice, 1),
+          },
+        ],
       })
     } else if (flat) {
       blocks.push({
@@ -386,6 +465,12 @@ function buildMatrixBlocks(
     const audioColumns = modeTiers.some((tier) => tier.audio)
       ? ['on', 'off']
       : ['']
+    const periods = showOffPeak
+      ? (['peak', 'off_peak'] as const)
+      : ([''] as const)
+    const columns = audioColumns.flatMap((audio) =>
+      periods.map((period) => ({ audio, period }))
+    )
     const dimensions = [
       ...new Set(modeTiers.map((tier) => formatMatrixTierDimension(tier, t))),
     ]
@@ -397,12 +482,17 @@ function buildMatrixBlocks(
       title: modeCount > 1 || section.mode ? t(section.labelKey) : undefined,
       unit,
       corner,
-      columns: audioColumns.map((audio) =>
-        audio ? t(MATRIX_AUDIO_LABEL_KEYS[audio]) : t('Price')
-      ),
+      columns: columns.map(({ audio, period }) => {
+        let label = t('Price')
+        if (period === 'peak') label = peakLabel
+        if (period === 'off_peak') label = offPeakLabel
+        if (!audio) return label
+        const audioLabel = t(MATRIX_AUDIO_LABEL_KEYS[audio])
+        return period ? `${audioLabel} · ${label}` : audioLabel
+      }),
       rows: dimensions.map((dimension) => ({
         label: dimension,
-        cells: audioColumns.map((audio) => {
+        cells: columns.map(({ audio, period }) => {
           const sameDimension = modeTiers.filter(
             (item) => formatMatrixTierDimension(item, t) === dimension
           )
@@ -411,6 +501,9 @@ function buildMatrixBlocks(
             sameDimension.find((item) => !item.audio)
           // 命中的档位排除了该分组时，后端直接拒绝，不会退到更宽泛的档位。
           if (!tier || excludesGroup(tier, options.group)) return null
+          if (period === 'off_peak') {
+            return formatUSD(tierOffPeakPrice(tier) ?? tier.price)
+          }
           return formatUSD(tier.price)
         }),
       })),

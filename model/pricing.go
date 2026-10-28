@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -46,6 +47,9 @@ type Pricing struct {
 	// CUSTOM: 分组名 -> 该分组下提供本模型的渠道的对外说明（去重排序），模型广场在
 	// 分组卡片上展示线路特点（fork 扩展）。
 	GroupNotes map[string][]string `json:"group_notes,omitempty"`
+	// CUSTOM: 分组名 -> 该分组下渠道配置的闲时时段（去重排序）。价格表的闲时价只在请求
+	// 落到这些渠道、且时刻在时段内时生效，模型广场据此展示闲时价（fork 扩展）。
+	GroupOffPeak map[string][]dto.OffPeakPricing `json:"group_off_peak,omitempty"`
 	// CUSTOM: 本模型只由 ComfyUI 工作流渠道（autodl）提供（fork 扩展）。工作流的参数与
 	// 同名官方模型不同，模型广场据此选用工作流的参数说明，对外模型名可以随意起。
 	WorkflowAPI bool `json:"workflow_api,omitempty"`
@@ -192,36 +196,70 @@ func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) map[
 	return configs
 }
 
-// loadPricingGroupNotes 按 模型 -> 分组 汇总渠道的对外说明。每个渠道只读一次设置。
-func loadPricingGroupNotes(enableAbilities []AbilityWithChannel) map[string]map[string][]string {
-	channelNotes := make(map[int]string)
-	result := make(map[string]map[string][]string)
+// pricingChannelInfo 按 模型 -> 分组 汇总的渠道设置：对外说明与闲时时段。
+type pricingChannelInfo struct {
+	notes   map[string]map[string][]string
+	offPeak map[string]map[string][]dto.OffPeakPricing
+}
+
+// loadPricingChannelInfo 按 模型 -> 分组 汇总渠道的对外说明与闲时时段（去重排序）。
+// 每个渠道只读一次设置；无效的闲时时段不下发，计费也不会命中它。
+func loadPricingChannelInfo(enableAbilities []AbilityWithChannel) pricingChannelInfo {
+	type channelSettings struct {
+		note    string
+		offPeak *dto.OffPeakPricing
+	}
+	loaded := make(map[int]channelSettings)
+	info := pricingChannelInfo{
+		notes:   make(map[string]map[string][]string),
+		offPeak: make(map[string]map[string][]dto.OffPeakPricing),
+	}
 	for _, ability := range enableAbilities {
-		note, loaded := channelNotes[ability.ChannelId]
-		if !loaded {
-			if channel, err := CacheGetChannel(ability.ChannelId); err == nil {
-				note = strings.TrimSpace(channel.GetOtherSettings().PublicNote)
-			}
-			channelNotes[ability.ChannelId] = note
-		}
-		if note == "" {
-			continue
-		}
-		groups, ok := result[ability.Model]
+		settings, ok := loaded[ability.ChannelId]
 		if !ok {
-			groups = make(map[string][]string)
-			result[ability.Model] = groups
+			if channel, err := CacheGetChannel(ability.ChannelId); err == nil {
+				other := channel.GetOtherSettings()
+				settings.note = strings.TrimSpace(other.PublicNote)
+				if other.OffPeakPricing != nil && other.OffPeakPricing.Validate() == nil {
+					settings.offPeak = other.OffPeakPricing
+				}
+			}
+			loaded[ability.ChannelId] = settings
 		}
-		if !common.StringsContains(groups[ability.Group], note) {
-			groups[ability.Group] = append(groups[ability.Group], note)
+		if settings.note != "" {
+			if info.notes[ability.Model] == nil {
+				info.notes[ability.Model] = make(map[string][]string)
+			}
+			if notes := info.notes[ability.Model][ability.Group]; !common.StringsContains(notes, settings.note) {
+				info.notes[ability.Model][ability.Group] = append(notes, settings.note)
+			}
+		}
+		if settings.offPeak != nil {
+			if info.offPeak[ability.Model] == nil {
+				info.offPeak[ability.Model] = make(map[string][]dto.OffPeakPricing)
+			}
+			windows := info.offPeak[ability.Model][ability.Group]
+			if !slices.Contains(windows, *settings.offPeak) {
+				info.offPeak[ability.Model][ability.Group] = append(windows, *settings.offPeak)
+			}
 		}
 	}
-	for _, groups := range result {
+	for _, groups := range info.notes {
 		for _, notes := range groups {
 			sort.Strings(notes)
 		}
 	}
-	return result
+	for _, groups := range info.offPeak {
+		for _, windows := range groups {
+			sort.Slice(windows, func(i, j int) bool {
+				if windows[i].Start != windows[j].Start {
+					return windows[i].Start < windows[j].Start
+				}
+				return windows[i].End < windows[j].End
+			})
+		}
+	}
+	return info
 }
 
 func appendPricingEndpoint(endpoints []string, endpoint string) []string {
@@ -411,7 +449,7 @@ func updatePricing() {
 	// CUSTOM: 分组级表达式覆盖读一次即可，循环里按模型取。
 	groupBillingExprOverrides := billing_setting.GetGroupBillingExprCopy()
 	modelPromotions := billing_setting.GetModelPromotionsCopy()
-	modelGroupNotes := loadPricingGroupNotes(enableAbilities)
+	channelInfo := loadPricingChannelInfo(enableAbilities)
 	workflowOnly := make(map[string]bool)
 	for _, ability := range enableAbilities {
 		isWorkflow := ability.ChannelType == constant.ChannelTypeAutoDLComfyUI
@@ -428,7 +466,8 @@ func updatePricing() {
 			ModelName:              model,
 			EnableGroup:            groups.Items(),
 			SupportedEndpointTypes: modelSupportEndpointTypes[model],
-			GroupNotes:             modelGroupNotes[model],
+			GroupNotes:             channelInfo.notes[model],
+			GroupOffPeak:           channelInfo.offPeak[model],
 			WorkflowAPI:            workflowOnly[model],
 		}
 

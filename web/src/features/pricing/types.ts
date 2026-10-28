@@ -62,6 +62,8 @@ export type PricingModel = {
   group_notes?: Record<string, string[]>
   // CUSTOM: 只由 ComfyUI 工作流渠道提供，参数说明按工作流选（fork 扩展）
   workflow_api?: boolean
+  // CUSTOM: 分组名 -> 该分组下渠道的闲时时段（fork 扩展）
+  group_off_peak?: Record<string, OffPeakWindow[]>
   /**
    * CUSTOM: 模型级表达式的原件（fork 扩展）。billing_expr 会被换成当前选中分组
    * 生效的那条，其它分组要回落时得拿这份原件，否则会错拿到选中分组的覆盖。
@@ -115,6 +117,15 @@ export type VideoPriceTier = {
   price: number
   /** 不适用该档位的分组（只含当前查看者可见的分组），为空表示所有分组都适用。 */
   excluded_groups?: string[]
+  /** 闲时价：请求落到配了闲时时段的渠道、且在时段内时按它计费 */
+  off_peak_price?: number
+}
+
+/** 渠道的闲时时段：每日 [start, end)，end 早于 start 表示跨零点 */
+export type OffPeakWindow = {
+  start: string
+  end: string
+  tz?: string
 }
 
 export type VideoPriceTable = {

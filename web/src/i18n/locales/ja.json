@@ -6204,6 +6204,13 @@
     "Voice reference audio as an http(s) URL; the speech keeps this speaker's timbre. data URIs are not accepted.": "声の参照音声の http(s) URL。合成音声はこの話者の声質を保ちます。data URI は使えません。",
     "Audio format. This model only returns 22050 Hz mono WAV, so other formats are rejected.": "音声形式。このモデルは 22050 Hz モノラルの WAV のみを返すため、ほかの形式は拒否されます。",
     "Returns the WAV audio directly. Emotion controls are not available on this route.": "WAV 音声を直接返します。このルートでは感情の制御はできません。",
-    "Upstream raw error (admins only)": "上流の元のエラー（管理者のみ表示）"
+    "Upstream raw error (admins only)": "上流の元のエラー（管理者のみ表示）",
+    "Off-peak price ({{window}})": "オフピーク時間帯の価格（{{window}}）",
+    "Peak price ({{window}})": "ピーク時間帯の価格（{{window}}）",
+    "Other hours": "その他の時間帯",
+    "Speed mode: fast renders quicker, quality gives finer detail; both cost the same. Only some models accept it (see the channel note); others reject it with 400. 高速模式 and 高质模式 are also accepted.": "速度モード：fast は生成が速く、quality はより精細で、料金は同じです。一部のモデルのみ対応（チャネルの説明を参照）、非対応のモデルは 400 を返します。高速模式・高质模式 とも書けます。",
+    "Refresh workflow definitions": "ワークフロー定義を更新",
+    "Workflow definitions refreshed": "ワークフロー定義を更新しました",
+    "Failed to refresh workflow definitions": "ワークフロー定義の更新に失敗しました"
   }
 }

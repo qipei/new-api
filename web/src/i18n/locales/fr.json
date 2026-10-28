@@ -6204,6 +6204,13 @@
     "Voice reference audio as an http(s) URL; the speech keeps this speaker's timbre. data URIs are not accepted.": "Audio de référence de la voix sous forme d'URL http(s) ; la synthèse conserve le timbre de ce locuteur. Les data URI ne sont pas acceptées.",
     "Audio format. This model only returns 22050 Hz mono WAV, so other formats are rejected.": "Format audio. Ce modèle ne renvoie que du WAV mono 22050 Hz ; les autres formats sont refusés.",
     "Returns the WAV audio directly. Emotion controls are not available on this route.": "Renvoie directement l'audio WAV. Le contrôle des émotions n'est pas disponible sur cette route.",
-    "Upstream raw error (admins only)": "Erreur brute de l'amont (administrateurs uniquement)"
+    "Upstream raw error (admins only)": "Erreur brute de l'amont (administrateurs uniquement)",
+    "Off-peak price ({{window}})": "Prix heures creuses ({{window}})",
+    "Peak price ({{window}})": "Prix heures pleines ({{window}})",
+    "Other hours": "Autres heures",
+    "Speed mode: fast renders quicker, quality gives finer detail; both cost the same. Only some models accept it (see the channel note); others reject it with 400. 高速模式 and 高质模式 are also accepted.": "Mode de vitesse : fast génère plus vite, quality donne plus de détails ; même prix. Seuls certains modèles l'acceptent (voir la note du canal) ; les autres renvoient 400. 高速模式 et 高质模式 sont aussi acceptés.",
+    "Refresh workflow definitions": "Actualiser les définitions de workflow",
+    "Workflow definitions refreshed": "Définitions de workflow actualisées",
+    "Failed to refresh workflow definitions": "Échec de l'actualisation des définitions de workflow"
   }
 }

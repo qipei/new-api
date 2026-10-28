@@ -6204,6 +6204,13 @@
     "Voice reference audio as an http(s) URL; the speech keeps this speaker's timbre. data URIs are not accepted.": "Эталонное аудио голоса в виде ссылки http(s); синтез сохраняет тембр этого говорящего. Data URI не принимаются.",
     "Audio format. This model only returns 22050 Hz mono WAV, so other formats are rejected.": "Формат аудио. Модель возвращает только WAV моно 22050 Гц, другие форматы отклоняются.",
     "Returns the WAV audio directly. Emotion controls are not available on this route.": "Возвращает аудио WAV напрямую. Управление эмоциями на этом маршруте недоступно.",
-    "Upstream raw error (admins only)": "Исходная ошибка провайдера (только для администраторов)"
+    "Upstream raw error (admins only)": "Исходная ошибка провайдера (только для администраторов)",
+    "Off-peak price ({{window}})": "Цена в непиковые часы ({{window}})",
+    "Peak price ({{window}})": "Цена в пиковые часы ({{window}})",
+    "Other hours": "Остальное время",
+    "Speed mode: fast renders quicker, quality gives finer detail; both cost the same. Only some models accept it (see the channel note); others reject it with 400. 高速模式 and 高质模式 are also accepted.": "Режим скорости: fast генерирует быстрее, quality даёт больше деталей; цена одинаковая. Поддерживают только некоторые модели (см. примечание канала), остальные возвращают 400. Также принимаются 高速模式 и 高质模式.",
+    "Refresh workflow definitions": "Обновить определения воркфлоу",
+    "Workflow definitions refreshed": "Определения воркфлоу обновлены",
+    "Failed to refresh workflow definitions": "Не удалось обновить определения воркфлоу"
   }
 }

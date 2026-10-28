@@ -85,7 +85,14 @@ type ChannelOtherSettings struct {
 	UpstreamModelUpdateLastRemovedModels  []string              `json:"upstream_model_update_last_removed_models,omitempty"`  // 上次检测到的可删除模型
 	UpstreamModelUpdateIgnoredModels      []string              `json:"upstream_model_update_ignored_models,omitempty"`       // 手动忽略的模型
 	AdvancedCustom                        *AdvancedCustomConfig `json:"advanced_custom,omitempty"`
+	// CUSTOM: 闲时时段，请求在时段内落到本渠道时按价格表的闲时价计费（fork 扩展）
+	OffPeakPricing *OffPeakPricing `json:"off_peak_pricing,omitempty"`
+	// CUSTOM: 对外说明，在模型广场本渠道所在分组的卡片上展示线路特点（fork 扩展）
+	PublicNote string `json:"public_note,omitempty"`
 }
+
+// MaxChannelPublicNoteRunes 渠道对外说明的长度上限：模型广场的卡片只放得下一两句话。
+const MaxChannelPublicNoteRunes = 200
 
 func (s *ChannelOtherSettings) IsOpenRouterEnterprise() bool {
 	if s == nil || s.OpenRouterEnterprise == nil {

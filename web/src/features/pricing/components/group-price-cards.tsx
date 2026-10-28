@@ -99,6 +99,8 @@ const STATUS_ORDER: GroupRouteStatus[] = [
 type GroupCard = {
   group: string
   description: string
+  /** 该分组下提供本模型的渠道写的对外说明。 */
+  channelNotes: string[]
   baseRatio: number
   ratio: number
   promotion: ModelPromotionInfo | null
@@ -182,6 +184,7 @@ export function GroupPriceCards(props: {
         return {
           group,
           description: props.usableGroup[group]?.desc ?? '',
+          channelNotes: props.model.group_notes?.[group] ?? [],
           baseRatio,
           ratio,
           promotion,
@@ -363,6 +366,14 @@ function GroupPriceCard(props: { card: GroupCard }) {
                 {card.description}
               </div>
             )}
+            {card.channelNotes.map((note) => (
+              <p
+                key={note}
+                className='text-muted-foreground mt-1 text-xs leading-relaxed break-words'
+              >
+                {note}
+              </p>
+            ))}
           </div>
           <span
             className={cn(

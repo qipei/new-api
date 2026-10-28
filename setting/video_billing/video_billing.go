@@ -21,6 +21,9 @@ import (
 	"github.com/QuantumNous/new-api/setting/config"
 )
 
+// MaxMinSeconds 最低计费时长的上限，与单次任务时长上限（relaycommon.MaxTaskDurationSeconds）一致。
+const MaxMinSeconds = 3600
+
 // 视频生成模式。
 const (
 	ModeTextToVideo  = "t2v" // 文生视频
@@ -65,6 +68,22 @@ type PriceTier struct {
 	// 同一模型挂在不同分组的线路能力不同（例如某条线路只出 768P），这里排除的
 	// 分组请求该档位时直接拒绝，而不是落到默认档或交给上游失败。
 	ExcludedGroups []string `json:"excluded_groups,omitempty"`
+	// CUSTOM: 闲时价（fork 扩展）。请求在渠道配置的闲时时段内（见渠道设置
+	// off_peak_pricing）时按它计费；不填表示该档没有闲时价，始终按 Price 计费。
+	OffPeakPrice *float64 `json:"off_peak_price,omitempty"`
+}
+
+// PriceAt 返回档位单价以及是否按闲时价计。只有渠道处于闲时时段且该档配了有效的
+// 闲时价才用闲时价；闲时价无效（非正数、NaN/Inf，改库或其他接口写入）按原价收。
+func (tier PriceTier) PriceAt(offPeak bool) (float64, bool) {
+	if !offPeak || tier.OffPeakPrice == nil {
+		return tier.Price, false
+	}
+	if price := *tier.OffPeakPrice; price > 0 && !math.IsInf(price, 0) && !math.IsNaN(price) {
+		return price, true
+	}
+	common.SysError(fmt.Sprintf("invalid off_peak_price %v ignored", *tier.OffPeakPrice))
+	return tier.Price, false
 }
 
 // excludes 该分组是否不适用此档位。
@@ -105,6 +124,24 @@ type ModelPriceTable struct {
 	InputTokenPrice   float64            `json:"input_token_price,omitempty"` // USD/百万 token，仅 per_image
 	FreeInputImages   int                `json:"free_input_images,omitempty"` // 每次请求免费的输入图张数
 	InputVideoPrice   *float64           `json:"input_video_price,omitempty"` // USD/秒，仅 per_second；nil 为同输出档位单价
+	// CUSTOM: 最低计费时长（秒），仅 per_second（fork 扩展）。上游有单次最低收费时
+	// （例如 autodl IndexTTS2 每次至少 ¥0.01），不足这个时长的请求按它计费，否则短
+	// 请求的收入会低于上游成本。预扣与完成结算都按它兜底。
+	MinSeconds float64 `json:"min_seconds,omitempty"`
+}
+
+// BillableSeconds 按最低计费时长兜底后的计费秒数。最低时长无效（负数、NaN/Inf、超过
+// 单次时长上限，改库或其他接口写入）时忽略，不会把计费乘数放大到不可控。
+func (table ModelPriceTable) BillableSeconds(seconds float64) float64 {
+	minSeconds := table.MinSeconds
+	if minSeconds == 0 {
+		return seconds
+	}
+	if minSeconds < 0 || math.IsNaN(minSeconds) || math.IsInf(minSeconds, 0) || minSeconds > MaxMinSeconds {
+		common.SysError(fmt.Sprintf("invalid min_seconds %v ignored", minSeconds))
+		return seconds
+	}
+	return max(seconds, minSeconds)
 }
 
 // VideoBillingSettings 由 config.GlobalConfig 管理。
@@ -185,15 +222,25 @@ var ErrTierExcludedForGroup = errors.New("price tier is not available for this g
 // 再交给上游失败。只有更宽泛的档位本来就是最佳匹配时（被排除的档位不匹配该请求）
 // 才按它取价。
 func GetPrice(modelName, group, mode, resolution, audio string) (float64, string, error) {
+	tier, unit, err := GetTier(modelName, group, mode, resolution, audio)
+	if err != nil {
+		return 0, "", err
+	}
+	return tier.Price, unit, nil
+}
+
+// GetTier 与 GetPrice 的匹配规则相同，返回命中的整个档位，供需要闲时价的计费路径
+// 用 PriceAt 取价。
+func GetTier(modelName, group, mode, resolution, audio string) (PriceTier, string, error) {
 	table, ok := GetPriceTable(modelName)
 	if !ok {
-		return 0, "", ErrNoMatchingTier
+		return PriceTier{}, "", ErrNoMatchingTier
 	}
 
 	rawResolution := strings.ToLower(strings.TrimSpace(resolution))
 	normResolution := normalizeForTable(rawResolution, table)
 	bestScore, excludedScore := -1, -1
-	bestPrice := 0.0
+	var best PriceTier
 	for _, tier := range table.Tiers {
 		score := tierMatchScore(tier, mode, rawResolution, normResolution, audio, table)
 		if score < 0 || tier.Price <= 0 {
@@ -205,16 +252,16 @@ func GetPrice(modelName, group, mode, resolution, audio string) (float64, string
 		}
 		if score > bestScore {
 			bestScore = score
-			bestPrice = tier.Price
+			best = tier
 		}
 	}
 	if excludedScore > bestScore {
-		return 0, "", ErrTierExcludedForGroup
+		return PriceTier{}, "", ErrTierExcludedForGroup
 	}
-	if bestScore < 0 || bestPrice <= 0 {
-		return 0, "", ErrNoMatchingTier
+	if bestScore < 0 || best.Price <= 0 {
+		return PriceTier{}, "", ErrNoMatchingTier
 	}
-	return bestPrice, table.Unit, nil
+	return best, table.Unit, nil
 }
 
 // HasExcludedGroups 价格表是否有档位排除了分组。没有时调用方可以跳过按请求解析维度。

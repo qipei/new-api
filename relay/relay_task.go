@@ -2,6 +2,7 @@ package relay
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,12 +17,15 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel"
+	taskautodl "github.com/QuantumNous/new-api/relay/channel/task/autodl"
 	taskdoubaotts "github.com/QuantumNous/new-api/relay/channel/task/doubaotts"
 	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
+	kitdto "github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/video_billing"
 	"github.com/gin-gonic/gin"
 )
 
@@ -153,6 +157,11 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if platform == "" {
 		platform = GetTaskPlatform(c)
 	}
+	// CUSTOM: 异步语音接口按路径默认走豆包语音；选中的是 autodl 渠道时（例如 IndexTTS2
+	// 工作流）由 autodl 适配器处理（fork 扩展）。
+	if info.ChannelType == constant.ChannelTypeAutoDLComfyUI {
+		platform = constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeAutoDLComfyUI))
+	}
 	adaptor := GetTaskAdaptor(platform)
 	if adaptor == nil {
 		return nil, service.TaskErrorWrapperLocal(fmt.Errorf("invalid api platform: %s", platform), "invalid_api_platform", http.StatusBadRequest)
@@ -197,6 +206,13 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if estimatedRatios := adaptor.EstimateBilling(c, info); len(estimatedRatios) > 0 {
 		for k, v := range estimatedRatios {
 			info.PriceData.AddOtherRatio(k, v)
+		}
+	}
+	// CUSTOM: 价格表的最低计费时长（fork 扩展）。预扣按它兜底，完成结算
+	// （VideoMatrixQuotaOnComplete）用同一规则，两边才对得上。
+	if table, ok := video_billing.GetPriceTable(info.OriginModelName); ok && table.Unit == video_billing.UnitPerSecond {
+		if seconds, ok := info.PriceData.OtherRatios()["seconds"]; ok {
+			info.PriceData.AddOtherRatio("seconds", table.BillableSeconds(seconds))
 		}
 	}
 
@@ -399,6 +415,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	}
 
 	isOpenAIVideoAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/videos/")
+	RefreshExpiredResultURL(c, originTask)
 
 	// Gemini/Vertex 支持实时查询：用户 fetch 时直接从上游拉取最新状态
 	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
@@ -418,6 +435,15 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 			if err != nil {
 				taskResp = service.TaskErrorWrapper(err, "convert_to_openai_video_failed", http.StatusInternalServerError)
 				return
+			}
+			// CUSTOM: 部分适配器直接从上游原始响应取错误信息，返回前统一打码上游的域名
+			// 和地址（fork 扩展）。
+			var video kitdto.OpenAIVideo
+			if err := common.Unmarshal(openAIVideoData, &video); err == nil && video.Error != nil {
+				video.Error.Message = common.MaskSensitiveInfo(video.Error.Message)
+				if masked, err := common.Marshal(video); err == nil {
+					openAIVideoData = masked
+				}
 			}
 			respBody = openAIVideoData
 			return
@@ -445,7 +471,19 @@ func speechTaskFetchRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *
 	if err != nil {
 		return nil, service.TaskErrorWrapper(err, "get_task_failed", http.StatusInternalServerError)
 	}
-	if !exist || task.Platform != constant.TaskPlatformDoubaoTTS {
+	if !exist {
+		return nil, service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusNotFound)
+	}
+	// CUSTOM: autodl 语音工作流（IndexTTS2）的任务（fork 扩展）。结果地址过期时先刷新。
+	if task.Platform == constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeAutoDLComfyUI)) && task.Action == constant.TaskActionSpeech {
+		RefreshExpiredResultURL(c, task)
+		respBody, err = taskautodl.BuildSpeechTaskResponse(task)
+		if err != nil {
+			return nil, service.TaskErrorWrapper(err, "marshal_response_failed", http.StatusInternalServerError)
+		}
+		return respBody, nil
+	}
+	if task.Platform != constant.TaskPlatformDoubaoTTS {
 		return nil, service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusNotFound)
 	}
 
@@ -488,6 +526,49 @@ func fetchSpeechTaskFromUpstream(c *gin.Context, task *model.Task) []byte {
 		return nil
 	}
 	return body
+}
+
+// RefreshExpiredResultURL 刷新 autodl 任务过期的结果地址（fork 扩展）。上游的视频地址是
+// 24 小时的签名地址，重新查询会拿到新签名；查询失败时保留旧地址。
+func RefreshExpiredResultURL(ctx context.Context, task *model.Task) {
+	if task.Platform != constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeAutoDLComfyUI)) ||
+		task.Status != model.TaskStatusSuccess ||
+		!taskautodl.ResultURLExpired(task.PrivateData.ResultURL, time.Now()) {
+		return
+	}
+	ch, err := model.CacheGetChannel(task.ChannelId)
+	if err != nil {
+		logger.LogWarn(ctx, fmt.Sprintf("autodl task %s channel %d not found: %v", task.TaskID, task.ChannelId, err))
+		return
+	}
+	baseURL := constant.ChannelBaseURLs[ch.Type]
+	if ch.GetBaseURL() != "" {
+		baseURL = ch.GetBaseURL()
+	}
+	key := ch.Key
+	if task.PrivateData.Key != "" {
+		key = task.PrivateData.Key
+	}
+	adaptor := &taskautodl.TaskAdaptor{}
+	resp, err := adaptor.FetchTask(baseURL, key, map[string]any{"task_id": task.GetUpstreamTaskID()}, ch.GetSetting().Proxy)
+	if err != nil {
+		logger.LogWarn(ctx, fmt.Sprintf("autodl task %s refresh result url failed: %v", task.TaskID, err))
+		return
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	result, err := adaptor.ParseTaskResult(body)
+	if err != nil || result.Status != model.TaskStatusSuccess || result.Url == "" {
+		logger.LogWarn(ctx, fmt.Sprintf("autodl task %s refresh result url got no url: %v", task.TaskID, err))
+		return
+	}
+	task.PrivateData.ResultURL = result.Url
+	if _, err := task.UpdateWithStatus(model.TaskStatusSuccess); err != nil {
+		logger.LogWarn(ctx, fmt.Sprintf("autodl task %s save refreshed result url failed: %v", task.TaskID, err))
+	}
 }
 
 // tryRealtimeFetch 尝试从上游实时拉取 Gemini/Vertex 任务状态。

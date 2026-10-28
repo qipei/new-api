@@ -95,6 +95,8 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		if newAPIError != nil {
 			model.MarkUserUsageFailure(c, newAPIError.StatusCode)
 			logger.LogError(c, fmt.Sprintf("relay error: %s", common.LocalLogPreview(newAPIError.Error())))
+			// CUSTOM: 渠道侧上游错误不把上游原文给用户（fork 扩展）。
+			newAPIError = service.UserFacingRelayError(newAPIError)
 			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
 			switch relayFormat {
 			case types.RelayFormatOpenAIRealtime:
@@ -127,6 +129,16 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	if err != nil {
 		newAPIError = types.NewError(err, types.ErrorCodeGenRelayInfoFailed)
 		return
+	}
+
+	// CUSTOM: 视频、图片、语音模型误走对话接口时在本地拒绝，不发给上游（fork 扩展）。
+	// Gemini 原生接口不拦：生图模型可能确实走 generateContent。
+	switch relayFormat {
+	case types.RelayFormatOpenAI, types.RelayFormatClaude, types.RelayFormatOpenAIResponses, types.RelayFormatOpenAIResponsesCompaction:
+		if mediaErr := service.MediaModelOnChatEndpointError(relayInfo.OriginModelName); mediaErr != nil {
+			newAPIError = mediaErr
+			return
+		}
 	}
 
 	needSensitiveCheck := setting.ShouldCheckPromptSensitive()
@@ -407,7 +419,13 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 			startTime = time.Now()
 		}
 		useTimeSeconds := int(time.Since(startTime).Seconds())
-		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, err.MaskSensitiveErrorWithStatusCode(), tokenId, useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), userGroup, other)
+		content := err.MaskSensitiveErrorWithStatusCode()
+		// CUSTOM: 用户能看到错误日志，渠道侧上游错误同样只给提示，原文只留给管理员（fork 扩展）。
+		if message := service.UpstreamErrorUserMessage(err); message != "" {
+			adminInfo["upstream_error"] = common.LocalLogPreview(err.ErrorWithStatusCode())
+			content = fmt.Sprintf("status_code=%d, %s", err.StatusCode, message)
+		}
+		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, content, tokenId, useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), userGroup, other)
 	}
 
 }
@@ -568,7 +586,8 @@ func RelayTask(c *gin.Context) {
 			processChannelError(c,
 				*types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey,
 					common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()),
-				types.NewOpenAIError(taskErr.Error, types.ErrorCodeBadResponseStatusCode, taskErr.StatusCode))
+				types.NewOpenAIError(taskErr.Error, types.ErrorCodeBadResponseStatusCode, taskErr.StatusCode,
+					types.ErrOptionWithUpstreamStatus(taskErr.StatusCode)))
 		}
 
 		if !shouldRetryTaskRelay(c, channel.Id, taskErr, common.RetryTimes-retryParam.GetRetry()) {
@@ -601,7 +620,9 @@ func RelayTask(c *gin.Context) {
 		// token，不能打开，否则按秒计费会被改成按 token 重算。
 		reportsSecondsUsage := relayInfo.ChannelType == constant.ChannelTypeAli || relayInfo.ChannelType == constant.ChannelTypeMiniMax ||
 			((relayInfo.ChannelType == constant.ChannelTypeOpenAI || relayInfo.ChannelType == constant.ChannelTypeSora) &&
-				hailuo.IsV2Model(relayInfo.UpstreamModelName))
+				hailuo.IsV2Model(relayInfo.UpstreamModelName)) ||
+			// autodl 语音工作流按生成音频的实际时长收费，完成时读结果音频的时长结算。
+			(relayInfo.ChannelType == constant.ChannelTypeAutoDLComfyUI && relayInfo.Action == constant.TaskActionSpeech)
 		if reportsSecondsUsage {
 			if table, ok := video_billing.GetPriceTable(relayInfo.OriginModelName); ok && table.Unit == video_billing.UnitPerSecond {
 				settleOnComplete = true
@@ -615,6 +636,7 @@ func RelayTask(c *gin.Context) {
 			OriginModelName:  relayInfo.OriginModelName,
 			PerCallBilling:   common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName) || relayInfo.PriceData.UsePrice,
 			SettleOnComplete: settleOnComplete,
+			OffPeak:          relayInfo.PriceData.OffPeak,
 		}
 		// 记下送给上游的输入图张数，完成结算时按价格表的免费张数扣减后计费。
 		if taskReq, err := relaycommon.GetTaskRequest(c); err == nil {
@@ -646,6 +668,8 @@ func respondTaskError(c *gin.Context, taskErr *taskdto.TaskError) {
 	if taskErr.StatusCode == http.StatusTooManyRequests {
 		taskErr.Message = "当前分组上游负载已饱和，请稍后再试"
 	}
+	// CUSTOM: 上游返回的提交错误不把原文给用户（fork 扩展）。
+	service.UserFacingTaskError(taskErr)
 	c.JSON(taskErr.StatusCode, taskErr)
 }
 

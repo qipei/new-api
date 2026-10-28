@@ -300,6 +300,11 @@ const SENSITIVE_FORM_FIELDS = [
   'allow_speed',
   'claude_beta_query',
   'disable_task_polling_sleep',
+  'off_peak_enabled',
+  'off_peak_start',
+  'off_peak_end',
+  'off_peak_tz',
+  'public_note',
   'upstream_model_update_check_enabled',
   'upstream_model_update_auto_sync_enabled',
   'upstream_model_update_ignored_models',
@@ -743,6 +748,7 @@ export function ChannelMutateDrawer({
   const currentAutoBan = form.watch('auto_ban')
   const currentTag = form.watch('tag')
   const currentRemark = form.watch('remark')
+  const currentPublicNote = form.watch('public_note')
   const currentStatusCodeMapping = form.watch('status_code_mapping')
   const currentParamOverride = form.watch('param_override')
   const currentHeaderOverride = form.watch('header_override')
@@ -752,6 +758,7 @@ export function ChannelMutateDrawer({
   const currentDisableTaskPollingSleep = form.watch(
     'disable_task_polling_sleep'
   )
+  const currentOffPeakEnabled = form.watch('off_peak_enabled')
   const currentProxy = form.watch('proxy')
   const currentHttpProtocol = form.watch('http_protocol')
   const currentHttp2ConnectionShards = form.watch('http2_connection_shards')
@@ -1010,7 +1017,7 @@ export function ChannelMutateDrawer({
     (currentAutoBan ?? 1) !== 1
   )
   const internalNotesConfigured = Boolean(
-    currentTag?.trim() || currentRemark?.trim()
+    currentTag?.trim() || currentRemark?.trim() || currentPublicNote?.trim()
   )
   const overrideRulesConfigured = Boolean(
     hasConfiguredOverrideValue(currentStatusCodeMapping) ||
@@ -1022,6 +1029,7 @@ export function ChannelMutateDrawer({
     currentThinkingToContent ||
     currentPassThroughBodyEnabled ||
     currentDisableTaskPollingSleep ||
+    currentOffPeakEnabled ||
     currentProxy?.trim() ||
     currentSystemPrompt?.trim() ||
     currentSystemPromptOverride ||
@@ -1069,7 +1077,7 @@ export function ChannelMutateDrawer({
     },
     {
       id: ADVANCED_SETTINGS_SECTION_IDS.internalNotes,
-      title: t('Internal Notes'),
+      title: t('Notes and Public Note'),
       configured: internalNotesConfigured,
     },
     {
@@ -3748,7 +3756,7 @@ export function ChannelMutateDrawer({
                             )}
                           >
                             <SubHeading
-                              title={t('Internal Notes')}
+                              title={t('Notes and Public Note')}
                               icon={<FileText className='h-3.5 w-3.5' />}
                               iconTone='chart-3'
                             />
@@ -3796,6 +3804,32 @@ export function ChannelMutateDrawer({
                                 )}
                               />
                             </div>
+
+                            <FormField
+                              control={form.control}
+                              name='public_note'
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>{t('Public note')}</FormLabel>
+                                  <FormControl>
+                                    <Textarea
+                                      placeholder={t(
+                                        'e.g. Accelerated build, slightly lower quality than the official model'
+                                      )}
+                                      rows={2}
+                                      maxLength={200}
+                                      {...field}
+                                    />
+                                  </FormControl>
+                                  <FormDescription>
+                                    {t(
+                                      'Shown to users in the Model Square on the group cards of the models this channel serves. Keep it to one or two sentences about what makes this route different.'
+                                    )}
+                                  </FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
                           </div>
 
                           <div
@@ -4174,7 +4208,96 @@ export function ChannelMutateDrawer({
                                   </FormItem>
                                 )}
                               />
+
+                              <FormField
+                                control={form.control}
+                                name='off_peak_enabled'
+                                render={({ field }) => (
+                                  <FormItem className='flex items-center justify-between px-4 py-3'>
+                                    <div className='space-y-0.5'>
+                                      <FormLabel>
+                                        {t('Off-peak pricing window')}
+                                      </FormLabel>
+                                      <FormDescription>
+                                        {t(
+                                          'Async task requests routed to this channel inside the window are charged the off-peak price from Audio, Video and Image Pricing'
+                                        )}
+                                      </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                      <Switch
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                      />
+                                    </FormControl>
+                                  </FormItem>
+                                )}
+                              />
                             </div>
+
+                            {currentOffPeakEnabled && (
+                              <div className='space-y-2'>
+                                <div className='grid grid-cols-1 gap-3 sm:grid-cols-3'>
+                                  <FormField
+                                    control={form.control}
+                                    name='off_peak_start'
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>
+                                          {t('Off-peak start')}
+                                        </FormLabel>
+                                        <FormControl>
+                                          <Input
+                                            placeholder='00:00'
+                                            {...field}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                  <FormField
+                                    control={form.control}
+                                    name='off_peak_end'
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>
+                                          {t('Off-peak end')}
+                                        </FormLabel>
+                                        <FormControl>
+                                          <Input
+                                            placeholder='07:50'
+                                            {...field}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                  <FormField
+                                    control={form.control}
+                                    name='off_peak_tz'
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>{t('Timezone')}</FormLabel>
+                                        <FormControl>
+                                          <Input
+                                            placeholder='Asia/Shanghai'
+                                            {...field}
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+                                <p className='text-muted-foreground text-xs'>
+                                  {t(
+                                    'The window starts inclusive and ends exclusive; an end earlier than the start crosses midnight. Pricing uses the request time, while the upstream may bill by when the task starts running, so end the window a few minutes before the upstream does (for example 07:50 for an 08:00 upstream cutoff).'
+                                  )}
+                                </p>
+                              </div>
+                            )}
 
                             <FormField
                               control={form.control}

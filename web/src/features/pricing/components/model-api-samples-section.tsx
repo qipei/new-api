@@ -65,7 +65,10 @@ export function ModelApiSamplesSection(props: { model: PricingModel }) {
     return 'https://api.example.com'
   }, [status])
 
-  const spec = findModelApiSpec(props.model.model_name)
+  const spec = findModelApiSpec(
+    props.model.model_name,
+    props.model.workflow_api
+  )
   const params = useMemo(
     () => resolveModelApiParams(props.model) ?? [],
     [props.model]

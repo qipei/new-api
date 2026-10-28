@@ -226,7 +226,7 @@ describe('model API specs', () => {
       for (const sample of spec.samples) {
         const model = String(sample.body.model ?? '')
         assert.equal(
-          findModelApiSpec(model)?.family,
+          findModelApiSpec(model, Boolean(spec.workflowOnly))?.family,
           spec.family,
           `${spec.family} sample uses model ${model}`
         )
@@ -376,6 +376,87 @@ describe('model API specs', () => {
       'input.enable_aigc_tag',
     ]) {
       assert.ok(next.has(name), `qwen-audio-next missing ${name}`)
+    }
+  })
+})
+
+describe('IndexTTS2 spec', () => {
+  // 同名模型按渠道选说明：只由 autodl 工作流提供的走工作流参数，腾讯 TokenHub 的走同步合成。
+  test('picks the workflow or TokenHub spec by the serving channels', () => {
+    for (const model of ['indextts2', 'IndexTTS-2', 'indextts-2-emotion']) {
+      assert.equal(
+        findModelApiSpec(model, true)?.family,
+        'autodl-indextts2',
+        model
+      )
+      assert.equal(findModelApiSpec(model)?.family, 'tokenhub-indextts', model)
+    }
+  })
+
+  // 工作流拒收未定义的字段：参数表必须正好是上游实测接受的字段，必填项与上游一致。
+  test('documents exactly the fields the workflow accepts', () => {
+    const spec = findModelApiSpec('indextts2', true)
+    assert.ok(spec)
+    const names = spec.params.map((param) => param.name).sort()
+    assert.deepEqual(names, [
+      'emo_afraid',
+      'emo_angry',
+      'emo_calm',
+      'emo_control_method',
+      'emo_disgusted',
+      'emo_happy',
+      'emo_melancholic',
+      'emo_random',
+      'emo_ref_audio',
+      'emo_sad',
+      'emo_surprised',
+      'model',
+      'prompt_simple',
+      'prompt_text',
+    ])
+    assert.deepEqual(
+      spec.params.filter((param) => param.required).map((param) => param.name),
+      ['model', 'prompt_text', 'prompt_simple', 'emo_control_method']
+    )
+  })
+})
+
+describe('autodl H3 spec', () => {
+  // autodl 的 H3 可以沿用 MiniMax-H3 开头的名字：由渠道决定用工作流说明还是官方说明。
+  test('keeps MiniMax-H3 names on the official spec unless the model is workflow-only', () => {
+    for (const model of ['MiniMax-H3', 'MiniMax-H3-Turbo', 'h3-turbo']) {
+      assert.equal(
+        findModelApiSpec(model, true)?.family,
+        'autodl-h3-video',
+        model
+      )
+    }
+    assert.equal(findModelApiSpec('MiniMax-H3')?.family, 'minimax-video')
+    assert.equal(findModelApiSpec('MiniMax-H3-Turbo')?.family, 'minimax-video')
+    assert.equal(findModelApiSpec('h3-turbo'), undefined)
+  })
+
+  // 工作流不支持参考视频，也没有官方的 2K、prompt 扩写和水印参数。
+  test('documents only the inputs the adaptor forwards', () => {
+    const spec = findModelApiSpec('MiniMax-H3-Turbo', true)
+    assert.ok(spec)
+    const names = spec.params.map((param) => param.name)
+    for (const name of [
+      'video_urls',
+      'content',
+      'metadata.prompt_expansion_mode',
+    ]) {
+      assert.ok(!names.includes(name), name)
+    }
+    for (const name of [
+      'first_frame_url',
+      'last_frame_url',
+      'reference_images',
+      'audio_urls',
+      'seed',
+      'ratio',
+    ]) {
+      assert.ok(names.includes(name), name)
     }
   })
 })

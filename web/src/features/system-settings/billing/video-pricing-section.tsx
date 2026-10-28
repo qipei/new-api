@@ -112,6 +112,8 @@ const ISSUE_LABEL_KEYS: Record<string, string> = {
   free_input_images: 'free input images must be a whole number from 0 to 100',
   input_video_price:
     'input video price must be 0 or greater when set; 0 means free',
+  off_peak_price: 'off-peak price must be greater than 0 when set',
+  min_seconds: 'minimum billable seconds must be between 0 and 3600 when set',
   pixel_range: 'pixel limits must be positive integers in ascending order',
   resolution_bucket: 'resolution bucket names and sizes must be valid',
   duplicate_bucket_size:
@@ -168,9 +170,12 @@ export function VideoPricingSection(props: {
     parsedJsonDraft.error === null
       ? serializeVideoPricingTables(parsedJsonDraft.tables)
       : null
+  // 序列化会丢掉无效的选填值（例如闲时价填 0），只比 JSON 会把它当成没改动、保存按钮
+  // 一直禁用，校验提示也出不来；有校验问题时同样放开保存，点击后提示具体原因。
   const isDirty =
     editorMode === 'visual'
-      ? currentJson !== savedJson
+      ? currentJson !== savedJson ||
+        validateVideoPricingTables(tables).length > 0
       : jsonDraftValue !== savedJson
 
   const patchTable = (
@@ -234,6 +239,7 @@ export function VideoPricingSection(props: {
         inputTokenPrice: '',
         freeInputImages: '',
         inputVideoPrice: '',
+        minSeconds: '',
         resolutionTemplate: '',
         resolutionBuckets: [],
         tiers: [
@@ -246,6 +252,7 @@ export function VideoPricingSection(props: {
             maxPixels: '',
             price: '',
             excludedGroups: [],
+            offPeakPrice: '',
           },
         ],
       },
@@ -270,6 +277,7 @@ export function VideoPricingSection(props: {
               maxPixels: '',
               price: '',
               excludedGroups: [],
+              offPeakPrice: '',
             },
           ],
         }
@@ -487,6 +495,25 @@ export function VideoPricingSection(props: {
                           />
                         </div>
                       )}
+                      {table.unit === 'per_second' && (
+                        <div className='flex items-center gap-2'>
+                          <span className='text-muted-foreground text-sm'>
+                            {t('Minimum billable seconds')}
+                          </span>
+                          <Input
+                            className='w-20'
+                            inputMode='decimal'
+                            placeholder={t('Optional')}
+                            value={table.minSeconds}
+                            aria-label={`${table.model} ${t('Minimum billable seconds')}`}
+                            onChange={(e) =>
+                              patchTable(tableIndex, {
+                                minSeconds: e.target.value,
+                              })
+                            }
+                          />
+                        </div>
+                      )}
                       {table.unit === 'per_image' && (
                         <div className='flex items-center gap-2'>
                           <span className='text-muted-foreground text-sm'>
@@ -522,6 +549,9 @@ export function VideoPricingSection(props: {
                             {' '}
                             {t(
                               'Input video is charged per second of reference video; leave it empty to charge it at the matched output tier price, or enter 0 to make it free.'
+                            )}{' '}
+                            {t(
+                              'Requests shorter than the minimum billable seconds are charged for the minimum, for upstreams with a per-request minimum charge.'
                             )}
                           </>
                         ) : null}
@@ -671,7 +701,7 @@ export function VideoPricingSection(props: {
                     className={
                       table.unit === 'per_image'
                         ? 'w-full min-w-[1040px] text-sm'
-                        : 'w-full min-w-[800px] text-sm'
+                        : 'w-full min-w-[920px] text-sm'
                     }
                   >
                     <thead>
@@ -697,6 +727,11 @@ export function VideoPricingSection(props: {
                           </th>
                         )}
                         <th className='py-1 pr-3 font-normal'>{t('Price')}</th>
+                        {table.unit !== 'per_image' && (
+                          <th className='py-1 pr-3 font-normal'>
+                            {t('Off-peak price')}
+                          </th>
+                        )}
                         <th className='py-1 pr-3 font-normal'>
                           {t('Excluded groups')}
                         </th>
@@ -822,6 +857,22 @@ export function VideoPricingSection(props: {
                               }
                             />
                           </td>
+                          {table.unit !== 'per_image' && (
+                            <td className='py-1 pr-3'>
+                              <Input
+                                className='w-28'
+                                inputMode='decimal'
+                                placeholder={t('Optional')}
+                                value={tier.offPeakPrice}
+                                aria-label={t('Off-peak price')}
+                                onChange={(e) =>
+                                  patchTier(tableIndex, tierIndex, {
+                                    offPeakPrice: e.target.value,
+                                  })
+                                }
+                              />
+                            </td>
+                          )}
                           <td className='py-1 pr-3'>
                             <MultiSelect
                               className='w-56'
@@ -863,6 +914,13 @@ export function VideoPricingSection(props: {
                     'Requests for a tier from one of its excluded groups are rejected instead of falling back to a wider tier. Auto routing skips to the next group that supports the tier.'
                   )}
                 </p>
+                {table.unit !== 'per_image' && (
+                  <p className='text-muted-foreground text-xs'>
+                    {t(
+                      'The off-peak price applies to async task requests routed to a channel whose off-peak window covers the request time; leave it empty to always charge the regular price.'
+                    )}
+                  </p>
+                )}
                 <Button
                   type='button'
                   variant='outline'

@@ -302,6 +302,12 @@ function BillingBreakdown(props: {
       value: `${other.promotion_name || t('Promotion')} · ${formatRatio(other.promotion_ratio)}x`,
     })
   }
+  if (other.off_peak) {
+    rows.push({
+      label: t('Off-peak price'),
+      value: t('Charged at the off-peak price'),
+    })
+  }
 
   if (!isTieredExpr && isClaude && hasAnyCacheTokens(other)) {
     if (other.cache_ratio != null && other.cache_ratio !== 1) {
@@ -1316,6 +1322,34 @@ export function DetailsDialog(props: DetailsDialogProps) {
               </Button>
               <p className='min-w-0 pr-6 text-xs leading-relaxed break-all whitespace-pre-wrap sm:wrap-break-word'>
                 {details}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* CUSTOM: 渠道侧上游错误给用户的是统一提示，原文只给管理员看 */}
+        {props.isAdmin && adminInfo?.upstream_error && (
+          <div className='space-y-1.5'>
+            <Label className='text-xs font-semibold'>
+              {t('Upstream raw error (admins only)')}
+            </Label>
+            <div className='bg-muted/30 relative min-w-0 overflow-hidden rounded-md border p-2.5'>
+              <Button
+                variant='ghost'
+                size='sm'
+                className='absolute top-1.5 right-1.5 h-5 w-5 p-0'
+                onClick={() => copyToClipboard(adminInfo.upstream_error ?? '')}
+                title={t('Copy to clipboard')}
+                aria-label={t('Copy to clipboard')}
+              >
+                {copiedText === adminInfo.upstream_error ? (
+                  <Check className='size-3 text-green-600' />
+                ) : (
+                  <Copy className='size-3' />
+                )}
+              </Button>
+              <p className='min-w-0 pr-6 text-xs leading-relaxed break-all whitespace-pre-wrap sm:wrap-break-word'>
+                {adminInfo.upstream_error}
               </p>
             </div>
           </div>

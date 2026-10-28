@@ -88,6 +88,12 @@ export type ModelApiSpec = {
   family: string
   /** 命中该族的模型名（平台侧名称，大小写不敏感）。 */
   match: RegExp
+  /**
+   * 只用于全部由 ComfyUI 工作流渠道（autodl）提供的模型（pricing 的 workflow_api）。
+   * 工作流的参数与同名官方模型不同，按渠道区分后对外模型名可以随意起，
+   * 例如 autodl 的 H3 也可以叫 MiniMax-H3-Turbo。
+   */
+  workflowOnly?: boolean
   endpointPath: string
   /** 族默认的响应处理方式，场景可以覆盖；缺省为 json。 */
   response?: SampleResponseKind
@@ -2743,6 +2749,358 @@ const MINIMAX_SPEECH: ModelApiSpec = {
   ],
 }
 
+// ---------------------------------------------------------------------------
+// IndexTTS2 语音克隆（autodl ComfyUI 工作流 indextts2-v1，按生成音频的实际时长计费）
+// 只用于全部由 autodl 渠道提供的模型；腾讯 TokenHub 的 IndexTTS-2 见 TOKENHUB_INDEXTTS。
+// 依据：relay/channel/task/autodl/adaptor.go（请求体去掉 model 后原样透传给工作流）。
+// 取值范围来自对上游参数校验的实测：emo_control_method 只接受三个中文选项，情感权重
+// 上限 1.4，多传未定义的字段会被拒绝。
+// ---------------------------------------------------------------------------
+
+const INDEXTTS2_EMOTION_WEIGHT_KEY =
+  'Weight of this emotion, used when emo_control_method is 使用情感向量控制. Omitted weights count as 0.'
+
+const INDEXTTS2_TASK: ModelApiSpec = {
+  family: 'autodl-indextts2',
+  match: /index-?tts/i,
+  workflowOnly: true,
+  endpointPath: '/v1/audio/speech/tasks',
+  fetchPath: '/v1/audio/speech/tasks',
+  response: 'task',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey: 'Model name, e.g. indextts2.',
+    },
+    {
+      name: 'prompt_text',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'Text to synthesize. Billed by the duration of the generated audio, not by characters.',
+    },
+    {
+      name: 'prompt_simple',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        "Voice reference audio as a URL or a data URI (data:audio/mpeg;base64,...). The speech keeps this speaker's timbre. Use a few seconds of clean speech; music or noisy audio makes the task fail.",
+    },
+    {
+      name: 'emo_control_method',
+      location: 'body',
+      type: 'enum',
+      required: true,
+      enumValues: [
+        '与音色参考音频相同',
+        '使用情感参考音频',
+        '使用情感向量控制',
+      ],
+      descriptionKey:
+        'How emotion is controlled: 与音色参考音频相同 follows the voice reference, 使用情感参考音频 follows emo_ref_audio, and 使用情感向量控制 uses the eight emo_* weights. Only these three values are accepted.',
+    },
+    {
+      name: 'emo_ref_audio',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Emotion reference audio as a URL or a data URI, used when emo_control_method is 使用情感参考音频.',
+    },
+    {
+      name: 'emo_happy',
+      location: 'body',
+      type: 'number',
+      range: '0 – 1.4',
+      descriptionKey: INDEXTTS2_EMOTION_WEIGHT_KEY,
+    },
+    {
+      name: 'emo_angry',
+      location: 'body',
+      type: 'number',
+      range: '0 – 1.4',
+      descriptionKey: INDEXTTS2_EMOTION_WEIGHT_KEY,
+    },
+    {
+      name: 'emo_sad',
+      location: 'body',
+      type: 'number',
+      range: '0 – 1.4',
+      descriptionKey: INDEXTTS2_EMOTION_WEIGHT_KEY,
+    },
+    {
+      name: 'emo_afraid',
+      location: 'body',
+      type: 'number',
+      range: '0 – 1.4',
+      descriptionKey: INDEXTTS2_EMOTION_WEIGHT_KEY,
+    },
+    {
+      name: 'emo_disgusted',
+      location: 'body',
+      type: 'number',
+      range: '0 – 1.4',
+      descriptionKey: INDEXTTS2_EMOTION_WEIGHT_KEY,
+    },
+    {
+      name: 'emo_melancholic',
+      location: 'body',
+      type: 'number',
+      range: '0 – 1.4',
+      descriptionKey: INDEXTTS2_EMOTION_WEIGHT_KEY,
+    },
+    {
+      name: 'emo_surprised',
+      location: 'body',
+      type: 'number',
+      range: '0 – 1.4',
+      descriptionKey: INDEXTTS2_EMOTION_WEIGHT_KEY,
+    },
+    {
+      name: 'emo_calm',
+      location: 'body',
+      type: 'number',
+      range: '0 – 1.4',
+      descriptionKey: INDEXTTS2_EMOTION_WEIGHT_KEY,
+    },
+    {
+      name: 'emo_random',
+      location: 'body',
+      type: 'boolean',
+      defaultValue: false,
+      descriptionKey:
+        'Samples the emotion randomly, so the same input can sound different on each run.',
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Clone a voice',
+      body: {
+        model: 'indextts2',
+        prompt_text: '你好，欢迎收听今天的节目。',
+        prompt_simple: 'https://example.com/voice.wav',
+        emo_control_method: '与音色参考音频相同',
+      },
+      noteKey:
+        'Submitting returns a task_id. Poll the query endpoint until status is succeeded or failed; the upstream queue can take several minutes. audio_url is a WAV file valid for 24 hours and refreshed when it expires. Billed by the duration of the generated audio, with a per-request minimum; a failed task is refunded in full. Fields not listed here are rejected.',
+    },
+    {
+      titleKey: 'Emotion weights',
+      body: {
+        model: 'indextts2',
+        prompt_text: '太好了，我们终于成功了！',
+        prompt_simple: 'https://example.com/voice.wav',
+        emo_control_method: '使用情感向量控制',
+        emo_happy: 0.8,
+        emo_surprised: 0.3,
+        emo_calm: 0.2,
+      },
+    },
+    {
+      titleKey: 'Emotion reference audio',
+      body: {
+        model: 'indextts2',
+        prompt_text: '我真的不知道该怎么办才好。',
+        prompt_simple: 'https://example.com/voice.wav',
+        emo_control_method: '使用情感参考音频',
+        emo_ref_audio: 'https://example.com/sad.wav',
+      },
+    },
+  ],
+}
+
+// ---------------------------------------------------------------------------
+// MiniMax-H3 加速版（autodl ComfyUI 工作流，按请求时长计费）
+// 依据：relay/channel/task/autodl/adaptor.go buildWorkflowParams。只用于全部由 autodl
+// 渠道提供的模型，对外名可以叫 MiniMax-H3-Turbo 等；官方 H3 见 MINIMAX_VIDEO。
+// 每个模型映射到一个工作流，工作流只认自己的参数（文生 / 首尾帧 / 参考图音频）。
+// ---------------------------------------------------------------------------
+
+const AUTODL_H3_WORKFLOW_NOTE =
+  'Each model runs one workflow that only accepts its own inputs: a text-to-video model rejects images, a first-and-last-frame model needs both frames, and a reference model needs at least one reference image. Unsupported inputs are rejected with 400. The video URL is valid for 24 hours and refreshed when you query the task.'
+
+const AUTODL_H3_VIDEO: ModelApiSpec = {
+  family: 'autodl-h3-video',
+  match: /h3/i,
+  workflowOnly: true,
+  endpointPath: '/v1/video/generations',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'Model name, e.g. MiniMax-H3-Turbo. Each model runs one workflow, so the inputs it accepts depend on the model.',
+    },
+    {
+      name: 'prompt',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey: 'Text prompt describing the video.',
+    },
+    {
+      name: 'duration',
+      location: 'body',
+      type: 'integer',
+      range: '1 ~ 15',
+      defaultValue: 5,
+      descriptionKey:
+        'Video length in seconds. Billed per second of the requested length.',
+    },
+    {
+      name: 'seconds',
+      location: 'body',
+      type: 'string',
+      descriptionKey: 'Same as duration, as a string (OpenAI video format).',
+    },
+    {
+      name: 'resolution',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Resolution tier such as 480p or 768p. Leave it empty for the workflow default (768p portrait for H3), billed at the default tier.',
+    },
+    {
+      name: 'ratio',
+      location: 'body',
+      type: 'enum',
+      enumValues: ['16:9', '9:16', '1:1'],
+      defaultValue: '16:9',
+      descriptionKey:
+        'Aspect ratio: 16:9 landscape, 9:16 portrait or 1:1 square. Only used together with resolution.',
+    },
+    {
+      name: 'size',
+      location: 'body',
+      type: 'string',
+      descriptionKey:
+        'Alternative to resolution and ratio: WIDTHxHEIGHT such as 864x480. The short edge picks the tier and the shape picks the orientation.',
+    },
+    {
+      name: 'seed',
+      location: 'body',
+      type: 'integer',
+      descriptionKey:
+        'Random seed. The same inputs and seed give similar results.',
+    },
+    ...mediaRoleParams({
+      firstFrame: MEDIA_FIRST_FRAME,
+      lastFrame: MEDIA_LAST_FRAME,
+      referenceImages: MEDIA_REFERENCE_IMAGES,
+      referenceAudios: MEDIA_REFERENCE_AUDIOS,
+      ranges: { referenceImages: '≤ 9', referenceAudios: '≤ 3' },
+    }),
+  ],
+  samples: [
+    {
+      titleKey: 'Text to video',
+      body: {
+        model: 'MiniMax-H3-Turbo',
+        prompt: '一只橘猫在洒满阳光的窗台上伸懒腰，镜头缓缓推近',
+        resolution: '480p',
+        ratio: '9:16',
+        duration: 5,
+      },
+      noteKey: AUTODL_H3_WORKFLOW_NOTE,
+    },
+    {
+      titleKey: 'Image to video (first and last frame)',
+      body: {
+        model: 'MiniMax-H3-Turbo',
+        prompt: '镜头从清晨的街道平滑过渡到夜晚的灯火',
+        first_frame_url: 'https://example.com/morning.png',
+        last_frame_url: 'https://example.com/night.png',
+        resolution: '768p',
+        duration: 5,
+      },
+      noteKey: MEDIA_FRAMES_OR_REFERENCES_NOTE,
+    },
+    {
+      titleKey: 'Reference to video',
+      body: {
+        model: 'MiniMax-H3-Turbo',
+        prompt: '角色对着镜头说：欢迎来到我们的频道',
+        reference_images: ['https://example.com/role.png'],
+        audio_urls: ['https://example.com/voice.mp3'],
+        resolution: '480p',
+        ratio: '16:9',
+        duration: 5,
+      },
+      noteKey: MEDIA_FRAMES_OR_REFERENCES_NOTE,
+    },
+  ],
+  applyMatrix: (params, table) =>
+    withMatrixResolution(params, table, 'resolution'),
+}
+
+// ---------------------------------------------------------------------------
+// 腾讯 TokenHub IndexTTS-2 同步语音合成（按万字符计费，字符为 UTF-8 字节）
+// 依据：relay/channel/tencent/tokenhub_speech.go。只走 OpenAI 兼容入口，直接返回 WAV。
+// ---------------------------------------------------------------------------
+
+const TOKENHUB_INDEXTTS: ModelApiSpec = {
+  family: 'tokenhub-indextts',
+  match: /^index-?tts/i,
+  endpointPath: '/v1/audio/speech',
+  response: 'audio-binary',
+  params: [
+    {
+      name: 'model',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        'Model name, e.g. indextts-2. Billed per 10,000 characters counted in UTF-8 bytes: a Chinese character counts as 3, a letter or digit as 1.',
+    },
+    {
+      name: 'input',
+      location: 'body',
+      type: 'string',
+      required: true,
+      range: '≤ 10000',
+      descriptionKey:
+        'Text to synthesize, at most 10,000 bytes in UTF-8 (about 3,300 Chinese characters).',
+    },
+    {
+      name: 'voice',
+      location: 'body',
+      type: 'string',
+      required: true,
+      descriptionKey:
+        "Voice reference audio as an http(s) URL; the speech keeps this speaker's timbre. data URIs are not accepted.",
+    },
+    {
+      name: 'response_format',
+      location: 'body',
+      type: 'enum',
+      defaultValue: 'wav',
+      enumValues: ['wav'],
+      descriptionKey:
+        'Audio format. This model only returns 22050 Hz mono WAV, so other formats are rejected.',
+    },
+  ],
+  samples: [
+    {
+      titleKey: 'Clone a voice',
+      body: {
+        model: 'indextts-2',
+        input: '今天天气不错，我们一起去公园散步吧。',
+        voice: 'https://example.com/voice.wav',
+        response_format: 'wav',
+      },
+      outputFile: 'speech.wav',
+      noteKey:
+        'Returns the WAV audio directly. Emotion controls are not available on this route.',
+    },
+  ],
+}
+
 const SPECS: ModelApiSpec[] = [
   MINIMAX_VIDEO,
   KLING_VIDEO,
@@ -2754,16 +3112,28 @@ const SPECS: ModelApiSpec[] = [
   IMAGE_GENERATION,
   SEED_AUDIO,
   SEED_TTS_TASK,
+  INDEXTTS2_TASK,
+  TOKENHUB_INDEXTTS,
+  AUTODL_H3_VIDEO,
   QWEN_AUDIO_TTS,
   QWEN_AUDIO_NEXT,
   MINIMAX_SPEECH,
 ]
 
-/** 返回命中的族定义；没有专属定义时返回 undefined，由调用方回落到通用逻辑。 */
-export function findModelApiSpec(modelName: string): ModelApiSpec | undefined {
+/**
+ * 返回命中的族定义；没有专属定义时返回 undefined，由调用方回落到通用逻辑。
+ * workflowApi 为 true 时只在工作流族里找，否则只在其余族里找。
+ */
+export function findModelApiSpec(
+  modelName: string,
+  workflowApi = false
+): ModelApiSpec | undefined {
   const name = modelName.trim()
   if (!name) return undefined
-  return SPECS.find((spec) => spec.match.test(name))
+  return SPECS.find(
+    (spec) =>
+      Boolean(spec.workflowOnly) === workflowApi && spec.match.test(name)
+  )
 }
 
 /**
@@ -2774,7 +3144,7 @@ export function findModelApiSpec(modelName: string): ModelApiSpec | undefined {
 export function resolveModelApiParams(
   model: PricingModel
 ): ModelApiParam[] | undefined {
-  const spec = findModelApiSpec(model.model_name)
+  const spec = findModelApiSpec(model.model_name, model.workflow_api)
   if (!spec) {
     return isChatModel(model) ? CHAT_PARAMS : undefined
   }

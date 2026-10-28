@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
@@ -55,6 +56,9 @@ func VideoProxy(c *gin.Context) {
 			fmt.Sprintf("Task is not completed yet, current status: %s", task.Status))
 		return
 	}
+
+	// CUSTOM: autodl 的结果地址 24 小时过期，过期时先向上游换新签名（fork 扩展）。
+	relay.RefreshExpiredResultURL(c, task)
 
 	channel, err := model.CacheGetChannel(task.ChannelId)
 	if err != nil {

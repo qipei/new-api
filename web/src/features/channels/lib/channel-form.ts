@@ -77,6 +77,16 @@ export const HTTP_PROTOCOL_AUTO = 'auto'
 export const HTTP_PROTOCOL_HTTP1 = 'http1'
 export const MAX_HTTP2_CONNECTION_SHARDS = 8
 
+// CUSTOM: 闲时时段默认值（fork 扩展）。结束时间比 autodl 等上游的 08:00 提前 10 分钟：
+// 我们按发起请求的时刻取价，上游可能按开始执行的时刻计费，排队会让任务跨过时段结束点。
+const OFF_PEAK_CLOCK_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/
+const OFF_PEAK_DEFAULT_START = '00:00'
+const OFF_PEAK_DEFAULT_END = '07:50'
+const OFF_PEAK_DEFAULT_TZ = 'Asia/Shanghai'
+
+// CUSTOM: 渠道对外说明的长度上限，与后端 dto.MaxChannelPublicNoteRunes 一致。
+const CHANNEL_PUBLIC_NOTE_MAX_LENGTH = 200
+
 export function normalizeHttpProtocol(
   value: string | undefined | null
 ): 'auto' | 'http1' {
@@ -278,6 +288,19 @@ export const channelFormSchema = z
     allow_speed: z.boolean().optional(), // Anthropic: speed mode control
     claude_beta_query: z.boolean().optional(), // Anthropic: beta query passthrough
     disable_task_polling_sleep: z.boolean().optional(),
+    // CUSTOM: 闲时时段（stored in settings JSON as off_peak_pricing）
+    off_peak_enabled: z.boolean().optional(),
+    off_peak_start: z.string().optional(),
+    off_peak_end: z.string().optional(),
+    off_peak_tz: z.string().optional(),
+    // CUSTOM: 对外说明（stored in settings JSON as public_note）
+    public_note: z
+      .string()
+      .max(
+        CHANNEL_PUBLIC_NOTE_MAX_LENGTH,
+        'Public note must be 200 characters or fewer'
+      )
+      .optional(),
     // Upstream model update settings (stored in settings JSON)
     upstream_model_update_check_enabled: z.boolean().optional(),
     upstream_model_update_auto_sync_enabled: z.boolean().optional(),
@@ -322,6 +345,23 @@ export const channelFormSchema = z
           ctx,
           'upstream_model_update_check_enabled',
           'OpenAI Models route is required to enable upstream model checks'
+        )
+      }
+    }
+
+    if (data.off_peak_enabled === true) {
+      const start = data.off_peak_start?.trim() ?? ''
+      const end = data.off_peak_end?.trim() ?? ''
+      if (!OFF_PEAK_CLOCK_PATTERN.test(start)) {
+        addRequiredIssue(ctx, 'off_peak_start', 'Enter a time in HH:MM format')
+      }
+      if (!OFF_PEAK_CLOCK_PATTERN.test(end)) {
+        addRequiredIssue(ctx, 'off_peak_end', 'Enter a time in HH:MM format')
+      } else if (start === end) {
+        addRequiredIssue(
+          ctx,
+          'off_peak_end',
+          'The end time must differ from the start time'
         )
       }
     }
@@ -450,6 +490,11 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   allow_speed: false,
   claude_beta_query: false,
   disable_task_polling_sleep: false,
+  off_peak_enabled: false,
+  off_peak_start: OFF_PEAK_DEFAULT_START,
+  off_peak_end: OFF_PEAK_DEFAULT_END,
+  off_peak_tz: OFF_PEAK_DEFAULT_TZ,
+  public_note: '',
   upstream_model_update_check_enabled: false,
   upstream_model_update_auto_sync_enabled: false,
   upstream_model_update_ignored_models: '',
@@ -514,6 +559,11 @@ export function transformChannelToFormDefaults(
   let allowSpeed = false
   let claudeBetaQuery = false
   let disableTaskPollingSleep = false
+  let offPeakEnabled = false
+  let offPeakStart = OFF_PEAK_DEFAULT_START
+  let offPeakEnd = OFF_PEAK_DEFAULT_END
+  let offPeakTz = OFF_PEAK_DEFAULT_TZ
+  let publicNote = ''
   let upstreamModelUpdateCheckEnabled = false
   let upstreamModelUpdateAutoSyncEnabled = false
   let upstreamModelUpdateIgnoredModels = ''
@@ -534,6 +584,17 @@ export function transformChannelToFormDefaults(
       allowSpeed = parsed.allow_speed === true
       claudeBetaQuery = parsed.claude_beta_query === true
       disableTaskPollingSleep = parsed.disable_task_polling_sleep === true
+      publicNote =
+        typeof parsed.public_note === 'string' ? parsed.public_note : ''
+      if (
+        parsed.off_peak_pricing &&
+        typeof parsed.off_peak_pricing === 'object'
+      ) {
+        offPeakEnabled = true
+        offPeakStart = String(parsed.off_peak_pricing.start ?? '')
+        offPeakEnd = String(parsed.off_peak_pricing.end ?? '')
+        offPeakTz = String(parsed.off_peak_pricing.tz || OFF_PEAK_DEFAULT_TZ)
+      }
       upstreamModelUpdateCheckEnabled =
         parsed.upstream_model_update_check_enabled === true
       upstreamModelUpdateAutoSyncEnabled =
@@ -592,6 +653,11 @@ export function transformChannelToFormDefaults(
     allow_speed: allowSpeed,
     claude_beta_query: claudeBetaQuery,
     disable_task_polling_sleep: disableTaskPollingSleep,
+    off_peak_enabled: offPeakEnabled,
+    off_peak_start: offPeakStart,
+    off_peak_end: offPeakEnd,
+    off_peak_tz: offPeakTz,
+    public_note: publicNote,
     allow_safety_identifier: allowSafetyIdentifier,
     upstream_model_update_check_enabled: upstreamModelUpdateCheckEnabled,
     upstream_model_update_auto_sync_enabled: upstreamModelUpdateAutoSyncEnabled,
@@ -725,6 +791,23 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
 
   settingsObj.disable_task_polling_sleep =
     formData.disable_task_polling_sleep === true
+
+  if (formData.off_peak_enabled === true) {
+    settingsObj.off_peak_pricing = {
+      start: formData.off_peak_start?.trim() ?? '',
+      end: formData.off_peak_end?.trim() ?? '',
+      tz: formData.off_peak_tz?.trim() || OFF_PEAK_DEFAULT_TZ,
+    }
+  } else if ('off_peak_pricing' in settingsObj) {
+    delete settingsObj.off_peak_pricing
+  }
+
+  const publicNote = formData.public_note?.trim() ?? ''
+  if (publicNote) {
+    settingsObj.public_note = publicNote
+  } else if ('public_note' in settingsObj) {
+    delete settingsObj.public_note
+  }
 
   // Upstream model update settings (for model-fetchable channel types)
   if (MODEL_FETCHABLE_TYPES.has(formData.type)) {

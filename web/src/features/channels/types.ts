@@ -103,6 +103,10 @@ export interface ChannelOtherSettings {
   allow_speed?: boolean
   claude_beta_query?: boolean
   disable_task_polling_sleep?: boolean
+  // CUSTOM: 闲时时段，请求落在时段内时按价格表的闲时价计费（fork 扩展）
+  off_peak_pricing?: { start: string; end: string; tz?: string }
+  // CUSTOM: 对外说明，在模型广场本渠道所在分组的卡片上展示（fork 扩展）
+  public_note?: string
   upstream_model_update_check_enabled?: boolean
   upstream_model_update_auto_sync_enabled?: boolean
   upstream_model_update_ignored_models?: string[]

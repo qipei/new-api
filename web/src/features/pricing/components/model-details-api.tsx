@@ -780,7 +780,7 @@ export function ModelDetailsApi(props: {
   return (
     <div className='space-y-6'>
       {/* CUSTOM: 已登记的模型族给按场景的带注释示例，其余仍走通用示例。 */}
-      {findModelApiSpec(props.model.model_name) ? (
+      {findModelApiSpec(props.model.model_name, props.model.workflow_api) ? (
         <ModelApiSamplesSection model={props.model} />
       ) : (
         <CodeSamplesSection

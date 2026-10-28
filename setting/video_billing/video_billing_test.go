@@ -1,6 +1,7 @@
 package video_billing
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -358,4 +359,42 @@ func TestInputVideoSecondPrice(t *testing.T) {
 	assert.Equal(t, 0.3, ModelPriceTable{InputVideoPrice: price(0.3)}.InputVideoSecondPrice(0.5))
 	assert.Equal(t, 0.0, ModelPriceTable{InputVideoPrice: price(0)}.InputVideoSecondPrice(0.5))
 	assert.Equal(t, 0.5, ModelPriceTable{InputVideoPrice: price(-1)}.InputVideoSecondPrice(0.5))
+}
+
+// 闲时价只在渠道处于闲时时段时生效；无效的闲时价（非正数、NaN、Inf）按原价收，
+// 不会把一次计费算成免费或负数。
+func TestPriceTierPriceAt(t *testing.T) {
+	price := func(v float64) *float64 { return &v }
+	tests := []struct {
+		name        string
+		tier        PriceTier
+		offPeak     bool
+		wantPrice   float64
+		wantOffPeak bool
+	}{
+		{"peak hours", PriceTier{Price: 0.05, OffPeakPrice: price(0.04)}, false, 0.05, false},
+		{"off-peak hours", PriceTier{Price: 0.05, OffPeakPrice: price(0.04)}, true, 0.04, true},
+		{"no off-peak price", PriceTier{Price: 0.05}, true, 0.05, false},
+		{"zero off-peak price", PriceTier{Price: 0.05, OffPeakPrice: price(0)}, true, 0.05, false},
+		{"negative off-peak price", PriceTier{Price: 0.05, OffPeakPrice: price(-0.01)}, true, 0.05, false},
+		{"NaN off-peak price", PriceTier{Price: 0.05, OffPeakPrice: price(math.NaN())}, true, 0.05, false},
+		{"Inf off-peak price", PriceTier{Price: 0.05, OffPeakPrice: price(math.Inf(1))}, true, 0.05, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotPrice, gotOffPeak := tt.tier.PriceAt(tt.offPeak)
+			assert.Equal(t, tt.wantPrice, gotPrice)
+			assert.Equal(t, tt.wantOffPeak, gotOffPeak)
+		})
+	}
+}
+
+// 最低计费时长只抬高不足的时长；无效配置（负数、NaN、超过单次上限）忽略，不放大计费。
+func TestModelPriceTableBillableSeconds(t *testing.T) {
+	assert.Equal(t, 2.5, ModelPriceTable{}.BillableSeconds(2.5))
+	assert.Equal(t, 10.0, ModelPriceTable{MinSeconds: 10}.BillableSeconds(2.5))
+	assert.Equal(t, 12.0, ModelPriceTable{MinSeconds: 10}.BillableSeconds(12))
+	assert.Equal(t, 2.5, ModelPriceTable{MinSeconds: -1}.BillableSeconds(2.5))
+	assert.Equal(t, 2.5, ModelPriceTable{MinSeconds: math.NaN()}.BillableSeconds(2.5))
+	assert.Equal(t, 2.5, ModelPriceTable{MinSeconds: MaxMinSeconds + 1}.BillableSeconds(2.5))
 }

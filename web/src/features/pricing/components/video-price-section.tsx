@@ -157,7 +157,11 @@ export function VideoPriceSection(props: {
       <div className='mb-2 flex items-baseline gap-2'>
         <span className='text-sm font-medium'>{t(sectionTitleKey)}</span>
         <span className='text-muted-foreground text-xs'>
-          ({t('Official price')} · {unitLabel})
+          ({t('Official price')} · {unitLabel}
+          {table.unit === 'per_second' && Number(table.min_seconds) > 0
+            ? ` · ${t('Minimum {{seconds}} seconds per request', { seconds: Number(table.min_seconds) })}`
+            : ''}
+          )
         </span>
       </div>
       <div className='space-y-3'>

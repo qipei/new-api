@@ -260,3 +260,31 @@ func TestVideoMatrixQuotaOnCompletePricesInputVideoSeconds(t *testing.T) {
 		})
 	}
 }
+
+// 上游单次有最低收费时，不足价格表最低计费时长的按最低时长结算，超过的按实际时长。
+func TestVideoMatrixQuotaOnCompleteAppliesMinSeconds(t *testing.T) {
+	withTables(t, map[string]video_billing.ModelPriceTable{
+		"seedance-matrix": {
+			Unit:       video_billing.UnitPerSecond,
+			Tiers:      []video_billing.PriceTier{{Price: 0.0002}},
+			MinSeconds: 10,
+		},
+	})
+	for _, tt := range []struct {
+		name    string
+		seconds float64
+		billed  float64
+	}{
+		{"short audio billed at minimum", 2.69, 10},
+		{"long audio billed as is", 42.5, 42.5},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			task := matrixTask(0.0002, 1, true)
+			task.PrivateData.BillingContext.SettleOnComplete = true
+
+			quota := VideoMatrixQuotaOnComplete(task, &relaycommon.TaskInfo{BillingDuration: tt.seconds})
+
+			assert.Equal(t, common.QuotaFromFloat(tt.billed*0.0002*common.QuotaPerUnit), quota)
+		})
+	}
+}

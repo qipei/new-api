@@ -140,6 +140,9 @@ export interface LogOtherData {
     admin_id?: number | string
     admin_role?: number
     auth_method?: 'session' | 'access_token' | string
+    // CUSTOM: upstream error text hidden from the user (channel-side failures
+    // such as 401/403/404/5xx). Admin-only (nested under admin_info).
+    upstream_error?: string
     // Quota saturation marker: set when a quota conversion clamped at the
     // supported single-request bound (overflow/underflow) or hit a NaN fallback while computing
     // this request's charge. Admin-only (nested under admin_info).
@@ -188,6 +191,8 @@ export interface LogOtherData {
   user_group_ratio?: number
   promotion_ratio?: number
   promotion_name?: string
+  // CUSTOM: 按价格表的闲时价计费（渠道闲时时段内的异步任务）
+  off_peak?: boolean
   cache_ratio?: number
   cache_creation_ratio?: number
   cache_creation_ratio_5m?: number

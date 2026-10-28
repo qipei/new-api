@@ -7,6 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 )
 
 const tokenHubBaseURL = "https://tokenhub.tencentmaas.com"
@@ -21,6 +22,10 @@ func (a *DispatchAdaptor) Init(info *relaycommon.RelayInfo) {
 		a.Adaptor = &Adaptor{}
 	} else {
 		a.Adaptor = &openai.Adaptor{}
+		// CUSTOM: IndexTTS-2 语音合成不是 OpenAI 兼容协议，单独换算（fork 扩展）。
+		if info.RelayMode == relayconstant.RelayModeAudioSpeech && IsTokenHubSpeechModel(info.UpstreamModelName) {
+			a.Adaptor = &tokenHubSpeechAdaptor{}
+		}
 		if info.ChannelBaseUrl == "" || info.ChannelBaseUrl == constant.ChannelBaseURLs[constant.ChannelTypeTencent] {
 			info.ChannelBaseUrl = tokenHubBaseURL
 		}

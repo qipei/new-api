@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/task/autodl"
 	"github.com/QuantumNous/new-api/relay/channel/task/hailuo"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -64,16 +65,19 @@ func resolveTaskPriceData(c *gin.Context, info *relaycommon.RelayInfo) (hosttype
 	if table.Unit != video_billing.UnitPer10kChars {
 		mode, resolution, audio, seconds = taskVideoDims(c, info)
 	}
-	price, unit, err := video_billing.GetPrice(info.OriginModelName, info.UsingGroup, mode, resolution, audio)
+	tier, unit, err := video_billing.GetTier(info.OriginModelName, info.UsingGroup, mode, resolution, audio)
 	if err != nil {
 		return hosttypes.PriceData{}, &videoPriceNotMatchedError{model: info.OriginModelName, group: info.UsingGroup, mode: mode, resolution: resolution, audio: audio, err: err}
 	}
+	// CUSTOM: 闲时价按当前选中渠道的时段判断（fork 扩展）。每次重试换渠道都会重新取价。
+	price, offPeak := tier.PriceAt(info.ChannelOtherSettings.OffPeakPricing.ActiveAt(info.StartTime))
 
 	groupRatioInfo := helper.HandleGroupRatio(c, info)
 
 	priceData := hosttypes.PriceData{
 		GroupRatioInfo: groupRatioInfo,
 		ModelPrice:     price,
+		OffPeak:        offPeak,
 	}
 
 	if unit == video_billing.UnitPerSecond || unit == video_billing.UnitPer10kChars {
@@ -231,6 +235,11 @@ func taskRequestVideoDims(c *gin.Context, info *relaycommon.RelayInfo, req relay
 		if resolution == "" {
 			resolution = "768P"
 		}
+	}
+	// CUSTOM: autodl 工作流的档位按短边归档（864x480 → 480p），与适配器组装请求用同一套
+	// 取值顺序和归档；不传时上游按工作流默认档出片，按价格表默认档取价（fork 扩展）。
+	if info.ChannelMeta != nil && info.ChannelType == constant.ChannelTypeAutoDLComfyUI {
+		resolution = autodl.ResolutionTier(autodl.RequestResolution(req))
 	}
 	if resolution == "" && (strings.HasPrefix(info.UpstreamModelName, "happyhorse-") ||
 		strings.HasPrefix(info.UpstreamModelName, "wan3.0-video")) {

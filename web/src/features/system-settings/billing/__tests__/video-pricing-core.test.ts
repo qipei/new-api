@@ -161,6 +161,7 @@ describe('video pricing core', () => {
           inputTokenPrice: '',
           freeInputImages: '',
           inputVideoPrice: '',
+          minSeconds: '',
           resolutionBuckets: [],
           tiers: [
             {
@@ -172,6 +173,7 @@ describe('video pricing core', () => {
               maxPixels: '',
               price: '0.5',
               excludedGroups: [],
+              offPeakPrice: '',
             },
           ],
         },
@@ -258,6 +260,7 @@ describe('video pricing core', () => {
         inputTokenPrice: '',
         freeInputImages: '',
         inputVideoPrice: '',
+        minSeconds: '',
         resolutionBuckets: [],
         tiers: [
           {
@@ -269,6 +272,7 @@ describe('video pricing core', () => {
             maxPixels: '',
             price: '1',
             excludedGroups: [],
+            offPeakPrice: '',
           },
         ],
       },
@@ -279,6 +283,7 @@ describe('video pricing core', () => {
         inputTokenPrice: '',
         freeInputImages: '',
         inputVideoPrice: '',
+        minSeconds: '',
         resolutionBuckets: [],
         tiers: [
           {
@@ -290,6 +295,7 @@ describe('video pricing core', () => {
             maxPixels: '',
             price: '-1',
             excludedGroups: [],
+            offPeakPrice: '',
           },
           {
             uid: 't3',
@@ -300,6 +306,7 @@ describe('video pricing core', () => {
             maxPixels: '',
             price: '5',
             excludedGroups: [],
+            offPeakPrice: '',
           },
           {
             uid: 't4',
@@ -310,6 +317,7 @@ describe('video pricing core', () => {
             maxPixels: '',
             price: '6',
             excludedGroups: [],
+            offPeakPrice: '',
           },
         ],
       },
@@ -334,6 +342,7 @@ describe('video pricing core', () => {
         inputTokenPrice: '',
         freeInputImages: '',
         inputVideoPrice: '',
+        minSeconds: '',
         resolutionBuckets: [],
         tiers: [
           {
@@ -345,6 +354,7 @@ describe('video pricing core', () => {
             maxPixels: '',
             price: '6.3',
             excludedGroups: [],
+            offPeakPrice: '',
           },
           {
             uid: 't6',
@@ -355,6 +365,7 @@ describe('video pricing core', () => {
             maxPixels: '',
             price: '7',
             excludedGroups: [],
+            offPeakPrice: '',
           },
         ],
       },
@@ -371,6 +382,7 @@ describe('video pricing core', () => {
         inputTokenPrice: '',
         freeInputImages: '',
         inputVideoPrice: '',
+        minSeconds: '',
         resolutionBuckets: [],
         tiers: [
           {
@@ -382,6 +394,7 @@ describe('video pricing core', () => {
             maxPixels: '',
             price: '0.6',
             excludedGroups: [],
+            offPeakPrice: '',
           },
           {
             uid: 'range',
@@ -392,6 +405,7 @@ describe('video pricing core', () => {
             maxPixels: '2610000',
             price: '0.6',
             excludedGroups: [],
+            offPeakPrice: '',
           },
         ],
       },
@@ -439,6 +453,7 @@ describe('video pricing core', () => {
         inputTokenPrice: '',
         freeInputImages: '',
         inputVideoPrice: '',
+        minSeconds: '',
         resolutionBuckets: [
           { uid: 'b1', name: '1k', sizes: '1024x1024, bad' },
           { uid: 'b2', name: '2k', sizes: '1024*1024' },
@@ -453,6 +468,7 @@ describe('video pricing core', () => {
             maxPixels: '',
             price: '0.5',
             excludedGroups: [],
+            offPeakPrice: '',
           },
         ],
       },
@@ -488,4 +504,101 @@ test('keeps input image price and resolution buckets on per_second tables', () =
   ])
   // 输入 token 单价目前只有按张计费使用，不应写进按秒计费的表。
   assert.equal(roundTripped['vidu-q3-pro'].input_token_price, undefined)
+})
+
+describe('off-peak price', () => {
+  test('off-peak price round-trips for task units and is dropped for per-image tables', () => {
+    const raw = JSON.stringify({
+      'h3-turbo': {
+        unit: 'per_second',
+        tiers: [
+          { price: 0.05, off_peak_price: 0.04 },
+          { resolution: '768p', price: 0.08 },
+        ],
+      },
+      'image-model': {
+        unit: 'per_image',
+        tiers: [{ price: 0.1, off_peak_price: 0.05 }],
+      },
+    })
+    const tables = parseVideoPricingTables(raw)
+    assert.equal(tables[0].tiers[0].offPeakPrice, '0.04')
+    assert.equal(tables[0].tiers[1].offPeakPrice, '')
+
+    const serialized = JSON.parse(serializeVideoPricingTables(tables))
+    assert.deepEqual(serialized['h3-turbo'].tiers, [
+      { price: 0.05, off_peak_price: 0.04 },
+      { price: 0.08, resolution: '768p' },
+    ])
+    assert.deepEqual(serialized['image-model'].tiers, [{ price: 0.1 }])
+  })
+
+  test('rejects a non-positive off-peak price', () => {
+    const tables = parseVideoPricingTables(
+      JSON.stringify({
+        'h3-turbo': { unit: 'per_second', tiers: [{ price: 0.05 }] },
+      })
+    )
+    tables[0].tiers[0].offPeakPrice = '0'
+    assert.deepEqual(
+      validateVideoPricingTables(tables).map((issue) => issue.reason),
+      ['off_peak_price']
+    )
+    tables[0].tiers[0].offPeakPrice = ''
+    assert.deepEqual(validateVideoPricingTables(tables), [])
+  })
+
+  test('JSON draft rejects a non-numeric off-peak price', () => {
+    const result = parseVideoPricingJsonDraft(
+      JSON.stringify({
+        'h3-turbo': {
+          unit: 'per_second',
+          tiers: [{ price: 0.05, off_peak_price: '0.04' }],
+        },
+      })
+    )
+    assert.equal(result.error, 'shape')
+  })
+})
+
+describe('minimum billable seconds', () => {
+  test('round-trips for per-second tables and is dropped for other units', () => {
+    const tables = parseVideoPricingTables(
+      JSON.stringify({
+        indextts2: {
+          unit: 'per_second',
+          tiers: [{ price: 0.0002 }],
+          min_seconds: 10,
+        },
+        'seed-tts': {
+          unit: 'per_10k_chars',
+          tiers: [{ price: 0.4 }],
+          min_seconds: 10,
+        },
+      })
+    )
+    assert.equal(tables[0].minSeconds, '10')
+
+    const serialized = JSON.parse(serializeVideoPricingTables(tables))
+    assert.equal(serialized.indextts2.min_seconds, 10)
+    assert.equal(serialized['seed-tts'].min_seconds, undefined)
+  })
+
+  test('rejects values outside 0 to 3600 seconds', () => {
+    const tables = parseVideoPricingTables(
+      JSON.stringify({
+        indextts2: { unit: 'per_second', tiers: [{ price: 0.0002 }] },
+      })
+    )
+    for (const value of ['0', '-1', '3601', 'abc']) {
+      tables[0].minSeconds = value
+      assert.deepEqual(
+        validateVideoPricingTables(tables).map((issue) => issue.reason),
+        ['min_seconds'],
+        value
+      )
+    }
+    tables[0].minSeconds = '10'
+    assert.deepEqual(validateVideoPricingTables(tables), [])
+  })
 })

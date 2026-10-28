@@ -30,6 +30,8 @@ export type VideoPriceTierPayload = {
   price: number
   // CUSTOM: 不适用该档位的分组，为空表示所有分组都适用（fork 扩展）
   excluded_groups?: string[]
+  // CUSTOM: 闲时价，渠道配置了闲时时段且请求落在时段内时按它计费（fork 扩展）
+  off_peak_price?: number
 }
 
 export type VideoPriceTablePayload = {
@@ -42,6 +44,8 @@ export type VideoPriceTablePayload = {
   free_input_images?: number
   // CUSTOM: 输入视频每秒单价，仅按秒计费；不填与输出档位同价，0 为免费（fork 扩展）
   input_video_price?: number
+  // CUSTOM: 最低计费时长（秒），仅按秒计费；上游单次有最低收费时用（fork 扩展）
+  min_seconds?: number
 }
 
 export type VideoResolutionBucketPayload = {
@@ -58,6 +62,7 @@ export type EditableVideoTier = {
   maxPixels: string
   price: string
   excludedGroups: string[]
+  offPeakPrice: string
 }
 
 export type EditableVideoTable = {
@@ -68,6 +73,7 @@ export type EditableVideoTable = {
   inputTokenPrice: string
   freeInputImages: string
   inputVideoPrice: string
+  minSeconds: string
   resolutionTemplate?: string
   resolutionBuckets: EditableResolutionBucket[]
 }
@@ -90,6 +96,9 @@ export const VIDEO_UNIT_PER_10K_CHARS = 'per_10k_chars'
 
 /** 免费张数的合理上限，与后端单次结算可计费张数的上限一致。 */
 export const MAX_FREE_INPUT_IMAGES = 100
+
+/** 最低计费时长的上限，与后端 video_billing.MaxMinSeconds 一致。 */
+export const MAX_MIN_SECONDS = 3600
 
 let editableTierSeq = 0
 let editableBucketSeq = 0
@@ -184,6 +193,8 @@ export function parseVideoPricingTables(raw: string): EditableVideoTable[] {
         typeof table.input_video_price === 'number'
           ? String(table.input_video_price)
           : '',
+      minSeconds:
+        typeof table.min_seconds === 'number' ? String(table.min_seconds) : '',
       resolutionTemplate: '',
       resolutionBuckets: resolutionBuckets.map((bucket) => ({
         uid: nextEditableBucketUid(),
@@ -207,6 +218,10 @@ export function parseVideoPricingTables(raw: string): EditableVideoTable[] {
               (group): group is string => typeof group === 'string'
             )
           : [],
+        offPeakPrice:
+          typeof tier.off_peak_price === 'number'
+            ? String(tier.off_peak_price)
+            : '',
       })),
     })
   }
@@ -258,6 +273,12 @@ export function parseVideoPricingJsonDraft(
     ) {
       return { tables: null, error: 'shape' }
     }
+    if (
+      table.min_seconds !== undefined &&
+      typeof table.min_seconds !== 'number'
+    ) {
+      return { tables: null, error: 'shape' }
+    }
     const tiers = table.tiers
     if (tiers !== undefined && !Array.isArray(tiers)) {
       return { tables: null, error: 'shape' }
@@ -303,7 +324,11 @@ export function parseVideoPricingJsonDraft(
             typeof tier.max_pixels !== 'number') ||
           (tier.excluded_groups !== undefined &&
             (!Array.isArray(tier.excluded_groups) ||
-              tier.excluded_groups.some((group) => typeof group !== 'string')))
+              tier.excluded_groups.some(
+                (group) => typeof group !== 'string'
+              ))) ||
+          (tier.off_peak_price !== undefined &&
+            typeof tier.off_peak_price !== 'number')
       )
     ) {
       return { tables: null, error: 'shape' }
@@ -364,6 +389,16 @@ export function serializeVideoPricingTables(
       ) {
         entry.input_video_price = inputVideoPrice
       }
+      const minSeconds = Number(table.minSeconds)
+      if (
+        table.unit === VIDEO_UNIT_PER_SECOND &&
+        table.minSeconds.trim() &&
+        Number.isFinite(minSeconds) &&
+        minSeconds > 0 &&
+        minSeconds <= MAX_MIN_SECONDS
+      ) {
+        entry.min_seconds = minSeconds
+      }
       if (table.unit === VIDEO_UNIT_PER_IMAGE) {
         const inputTokenPrice = Number(table.inputTokenPrice)
         if (table.inputTokenPrice.trim() && inputTokenPrice > 0) {
@@ -409,6 +444,16 @@ export function serializeVideoPricingTables(
       if (excludedGroups.length > 0) {
         payloadTier.excluded_groups = excludedGroups
       }
+      // 闲时价只在异步任务计费里生效，按张计费的图片走同步接口，不写入。
+      const offPeakPrice = Number(tier.offPeakPrice)
+      if (
+        table.unit !== VIDEO_UNIT_PER_IMAGE &&
+        tier.offPeakPrice.trim() &&
+        Number.isFinite(offPeakPrice) &&
+        offPeakPrice > 0
+      ) {
+        payloadTier.off_peak_price = offPeakPrice
+      }
       tiers.push(payloadTier)
     }
     if (tiers.length > 0) entry.tiers = tiers
@@ -427,6 +472,8 @@ export type VideoPricingIssue = {
     | 'input_price'
     | 'free_input_images'
     | 'input_video_price'
+    | 'off_peak_price'
+    | 'min_seconds'
     | 'pixel_range'
     | 'resolution_bucket'
     | 'duplicate_bucket_size'
@@ -456,6 +503,16 @@ export function validateVideoPricingTables(
       const price = Number(table.inputVideoPrice)
       if (!Number.isFinite(price) || price < 0) {
         issues.push({ model, reason: 'input_video_price' })
+      }
+    }
+    if (table.unit === VIDEO_UNIT_PER_SECOND && table.minSeconds.trim()) {
+      const minSeconds = Number(table.minSeconds)
+      if (
+        !Number.isFinite(minSeconds) ||
+        minSeconds <= 0 ||
+        minSeconds > MAX_MIN_SECONDS
+      ) {
+        issues.push({ model, reason: 'min_seconds' })
       }
     }
     if (table.freeInputImages.trim()) {
@@ -494,6 +551,12 @@ export function validateVideoPricingTables(
       const price = Number(tier.price)
       if (!Number.isFinite(price) || price <= 0) {
         issues.push({ model, reason: 'tier_price' })
+      }
+      if (table.unit !== VIDEO_UNIT_PER_IMAGE && tier.offPeakPrice.trim()) {
+        const offPeakPrice = Number(tier.offPeakPrice)
+        if (!Number.isFinite(offPeakPrice) || offPeakPrice <= 0) {
+          issues.push({ model, reason: 'off_peak_price' })
+        }
       }
       const resolution = tier.resolution.trim().toLowerCase()
       const audio = table.unit === VIDEO_UNIT_PER_IMAGE ? '' : tier.audio

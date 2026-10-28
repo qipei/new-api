@@ -96,6 +96,24 @@ type NewAPIError struct {
 	errorCode      ErrorCode
 	StatusCode     int
 	Metadata       json.RawMessage
+	// upstreamStatusCode 上游响应的原始 HTTP 状态码（解析上游错误响应时记下），渠道的
+	// 状态码映射只改 StatusCode，不改它。0 表示不是上游返回的错误。
+	upstreamStatusCode int
+}
+
+// UpstreamStatusCode 上游响应的原始 HTTP 状态码；不是上游返回的错误时为 0。
+func (e *NewAPIError) UpstreamStatusCode() int {
+	if e == nil {
+		return 0
+	}
+	return e.upstreamStatusCode
+}
+
+// ErrOptionWithUpstreamStatus 标记错误来自上游响应及其原始状态码。
+func ErrOptionWithUpstreamStatus(statusCode int) NewAPIErrorOptions {
+	return func(e *NewAPIError) {
+		e.upstreamStatusCode = statusCode
+	}
 }
 
 // Unwrap enables errors.Is / errors.As to work with NewAPIError by exposing the underlying error.

@@ -40,6 +40,9 @@ type PriceData struct {
 	Quota                int // 按次计费的最终额度（MJ / Task）
 	QuotaToPreConsume    int // 按量计费的预消耗额度
 	GroupRatioInfo       GroupRatioInfo
+	// CUSTOM: 本次按价格表的闲时价计费（渠道处于闲时时段且档位配了闲时价），
+	// 只用于日志（fork 扩展）。
+	OffPeak bool
 }
 
 func (p *PriceData) AddOtherRatio(key string, ratio float64) {

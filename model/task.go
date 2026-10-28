@@ -124,6 +124,8 @@ type TaskBillingContext struct {
 	// InputImages 提交时送给上游的输入图张数（首帧、尾帧、参考图都算），完成结算时
 	// 减去价格表配置的免费张数后按输入图单价计费；旧任务没有该字段时为 nil。
 	InputImages *int `json:"input_images,omitempty"`
+	// CUSTOM: 提交时按价格表的闲时价计费（fork 扩展），完成时的补扣/退款日志沿用。
+	OffPeak bool `json:"off_peak,omitempty"`
 }
 
 // GetUpstreamTaskID 获取上游真实 task ID（用于与 provider 通信）

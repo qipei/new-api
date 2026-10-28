@@ -56,6 +56,8 @@ func VideoMatrixQuotaOnComplete(task *model.Task, taskResult *relaycommon.TaskIn
 		if !bc.SettleOnComplete || billingDuration <= 0 || bc.GroupRatio <= 0 {
 			return 0
 		}
+		// 不足价格表最低计费时长的按最低时长计，与预扣时的兜底一致。
+		billingDuration = table.BillableSeconds(billingDuration)
 		// 输入参考图是独立于输出秒数的一笔上游成本，只按秒计价会漏掉它。
 		// 按提交时送给上游的张数减去价格表配置的免费张数计费；提交时没记录张数的旧任务
 		// 退回上游报告的张数（总张数减免费张数，或百炼已扣过免费额度的张数）。

@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"sync"
@@ -41,6 +42,13 @@ type Pricing struct {
 	// 泄露活动安排。
 	Promotions     []PricingPromotion `json:"promotions,omitempty"`
 	PricingVersion string             `json:"pricing_version,omitempty"`
+
+	// CUSTOM: 分组名 -> 该分组下提供本模型的渠道的对外说明（去重排序），模型广场在
+	// 分组卡片上展示线路特点（fork 扩展）。
+	GroupNotes map[string][]string `json:"group_notes,omitempty"`
+	// CUSTOM: 本模型只由 ComfyUI 工作流渠道（autodl）提供（fork 扩展）。工作流的参数与
+	// 同名官方模型不同，模型广场据此选用工作流的参数说明，对外模型名可以随意起。
+	WorkflowAPI bool `json:"workflow_api,omitempty"`
 }
 
 // PricingPromotion 是下发给前端的活动信息。Groups 为空表示该模型所有分组都参与。
@@ -182,6 +190,38 @@ func loadPricingAdvancedCustomConfigs(enableAbilities []AbilityWithChannel) map[
 		}
 	}
 	return configs
+}
+
+// loadPricingGroupNotes 按 模型 -> 分组 汇总渠道的对外说明。每个渠道只读一次设置。
+func loadPricingGroupNotes(enableAbilities []AbilityWithChannel) map[string]map[string][]string {
+	channelNotes := make(map[int]string)
+	result := make(map[string]map[string][]string)
+	for _, ability := range enableAbilities {
+		note, loaded := channelNotes[ability.ChannelId]
+		if !loaded {
+			if channel, err := CacheGetChannel(ability.ChannelId); err == nil {
+				note = strings.TrimSpace(channel.GetOtherSettings().PublicNote)
+			}
+			channelNotes[ability.ChannelId] = note
+		}
+		if note == "" {
+			continue
+		}
+		groups, ok := result[ability.Model]
+		if !ok {
+			groups = make(map[string][]string)
+			result[ability.Model] = groups
+		}
+		if !common.StringsContains(groups[ability.Group], note) {
+			groups[ability.Group] = append(groups[ability.Group], note)
+		}
+	}
+	for _, groups := range result {
+		for _, notes := range groups {
+			sort.Strings(notes)
+		}
+	}
+	return result
 }
 
 func appendPricingEndpoint(endpoints []string, endpoint string) []string {
@@ -371,6 +411,15 @@ func updatePricing() {
 	// CUSTOM: 分组级表达式覆盖读一次即可，循环里按模型取。
 	groupBillingExprOverrides := billing_setting.GetGroupBillingExprCopy()
 	modelPromotions := billing_setting.GetModelPromotionsCopy()
+	modelGroupNotes := loadPricingGroupNotes(enableAbilities)
+	workflowOnly := make(map[string]bool)
+	for _, ability := range enableAbilities {
+		isWorkflow := ability.ChannelType == constant.ChannelTypeAutoDLComfyUI
+		if previous, seen := workflowOnly[ability.Model]; seen {
+			isWorkflow = previous && isWorkflow
+		}
+		workflowOnly[ability.Model] = isWorkflow
+	}
 	now := time.Now()
 
 	pricingMap = make([]Pricing, 0)
@@ -379,6 +428,8 @@ func updatePricing() {
 			ModelName:              model,
 			EnableGroup:            groups.Items(),
 			SupportedEndpointTypes: modelSupportEndpointTypes[model],
+			GroupNotes:             modelGroupNotes[model],
+			WorkflowAPI:            workflowOnly[model],
 		}
 
 		// 补充模型元数据（描述、标签、供应商、状态）

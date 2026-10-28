@@ -564,8 +564,10 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		if task.FinishTime == 0 {
 			task.FinishTime = now
 		}
-		task.FailReason = taskResult.Reason
-		logger.LogInfo(ctx, fmt.Sprintf("Task %s failed: %s", task.TaskID, task.FailReason))
+		// CUSTOM: 失败原因会展示给用户（查询结果、任务日志、退款日志），打码上游的域名和
+		// 地址；原文只记在系统日志里（fork 扩展）。
+		task.FailReason = common.MaskSensitiveInfo(taskResult.Reason)
+		logger.LogInfo(ctx, fmt.Sprintf("Task %s failed: %s", task.TaskID, taskResult.Reason))
 		taskResult.Progress = taskcommon.ProgressComplete
 		if quota != 0 {
 			shouldRefund = true

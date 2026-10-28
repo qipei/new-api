@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -984,6 +985,12 @@ func (channel *Channel) ValidateSettings() error {
 		if err := channelOtherSettings.AdvancedCustom.Validate(); err != nil {
 			return err
 		}
+	}
+	if err := channelOtherSettings.OffPeakPricing.Validate(); err != nil {
+		return err
+	}
+	if n := utf8.RuneCountInString(channelOtherSettings.PublicNote); n > dto.MaxChannelPublicNoteRunes {
+		return fmt.Errorf("public_note must not exceed %d characters, got %d", dto.MaxChannelPublicNoteRunes, n)
 	}
 	if channel.Type == constant.ChannelTypeAdvancedCustom && channelOtherSettings.UpstreamModelUpdateCheckEnabled {
 		if _, ok := channelOtherSettings.AdvancedCustom.ModelListRoute(); !ok {

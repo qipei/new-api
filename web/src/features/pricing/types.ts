@@ -58,6 +58,10 @@ export type PricingModel = {
   group_billing_expr?: Record<string, string>
   /** CUSTOM: 进行中的限时活动（fork 扩展）。后端只下发已开始且未结束的。 */
   promotions?: ModelPromotionInfo[]
+  // CUSTOM: 分组名 -> 该分组下渠道的对外说明（fork 扩展）
+  group_notes?: Record<string, string[]>
+  // CUSTOM: 只由 ComfyUI 工作流渠道提供，参数说明按工作流选（fork 扩展）
+  workflow_api?: boolean
   /**
    * CUSTOM: 模型级表达式的原件（fork 扩展）。billing_expr 会被换成当前选中分组
    * 生效的那条，其它分组要回落时得拿这份原件，否则会错拿到选中分组的覆盖。
@@ -122,6 +126,8 @@ export type VideoPriceTable = {
   /** 输入视频每秒单价（按秒计费）；未配置时与输出档位同价，0 表示免费 */
   input_video_price?: number
   input_token_price?: number
+  /** 最低计费时长（秒，按秒计费）；不足的请求按它计费 */
+  min_seconds?: number
 }
 
 export type PricingData = {

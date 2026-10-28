@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/relay/channel/ali"
+	"github.com/QuantumNous/new-api/relay/channel/tencent"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -142,8 +143,12 @@ func resolveAudioMatrixPriceData(c *gin.Context, info *relaycommon.RelayInfo, pr
 		// 各家的字符口径不同：百炼汉字计 2 个字符，其他按字计 1 个。预扣按渠道口径估算，
 		// 结算由适配器换成上游回报的字符数。
 		chars := utf8.RuneCountInString(request.Input)
-		if common.GetContextKeyInt(c, constant.ContextKeyChannelType) == constant.ChannelTypeAli {
+		switch common.GetContextKeyInt(c, constant.ContextKeyChannelType) {
+		case constant.ChannelTypeAli:
 			chars = ali.BillableSpeechChars(request.Input)
+		case constant.ChannelTypeTencent:
+			// CUSTOM: 腾讯 TokenHub 按 UTF-8 字节计字符（汉字计 3 个）（fork 扩展）。
+			chars = tencent.TokenHubSpeechBillableChars(request.Input)
 		}
 		priceData.AddOtherRatio(video_billing.CharsRatioKey, float64(chars)/10000)
 	}

@@ -4,8 +4,12 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/config"
 	"github.com/QuantumNous/new-api/setting/video_billing"
 
@@ -303,6 +307,115 @@ func TestMatrixTierExcludedForGroupReadsRequestDims(t *testing.T) {
 			c.Request = httptest.NewRequest("POST", tt.path, strings.NewReader(tt.body))
 			c.Request.Header.Set("Content-Type", "application/json")
 			assert.Equal(t, tt.want, MatrixTierExcludedForGroup(c, tt.model, tt.group))
+		})
+	}
+}
+
+// 闲时价挂在渠道上：只有当前选中的渠道配置了闲时时段、请求时刻落在时段内、命中的档位
+// 配了闲时价，三者同时成立才按闲时价计费；其余情况按原价，不会因为别的渠道有闲时价
+// 而少收。
+func TestResolveTaskPriceDataUsesChannelOffPeakPrice(t *testing.T) {
+	settings, ok := config.GlobalConfig.Get("video_billing").(*video_billing.VideoBillingSettings)
+	require.True(t, ok)
+	original := settings.PriceTables
+	offPeakPrice := 0.04
+	settings.PriceTables = map[string]video_billing.ModelPriceTable{
+		"h3-turbo": {Unit: video_billing.UnitPerSecond, Tiers: []video_billing.PriceTier{
+			{Price: 0.05, OffPeakPrice: &offPeakPrice},
+			{Resolution: "768p", Price: 0.08},
+		}},
+	}
+	t.Cleanup(func() { settings.PriceTables = original })
+
+	shanghai, err := time.LoadLocation("Asia/Shanghai")
+	require.NoError(t, err)
+	night := time.Date(2026, 10, 27, 2, 0, 0, 0, shanghai)
+	noon := time.Date(2026, 10, 27, 12, 0, 0, 0, shanghai)
+	window := &dto.OffPeakPricing{Start: "00:00", End: "07:50"}
+
+	tests := []struct {
+		name        string
+		window      *dto.OffPeakPricing
+		at          time.Time
+		resolution  string
+		wantPrice   float64
+		wantOffPeak bool
+	}{
+		{"off-peak channel inside window", window, night, "", 0.04, true},
+		{"off-peak channel outside window", window, noon, "", 0.05, false},
+		{"channel without window", nil, night, "", 0.05, false},
+		{"tier without off-peak price", window, night, "768p", 0.08, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest("POST", "/v1/video/generations",
+				strings.NewReader(`{"model":"h3-turbo","prompt":"p","resolution":"`+tt.resolution+`"}`))
+			c.Request.Header.Set("Content-Type", "application/json")
+			c.Set("task_request", relaycommon.TaskSubmitReq{Model: "h3-turbo"})
+			info := &relaycommon.RelayInfo{
+				OriginModelName: "h3-turbo",
+				UsingGroup:      "default",
+				StartTime:       tt.at,
+				TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+				ChannelMeta: &relaycommon.ChannelMeta{
+					ChannelOtherSettings: dto.ChannelOtherSettings{OffPeakPricing: tt.window},
+				},
+			}
+
+			priceData, err := resolveTaskPriceData(c, info)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPrice, priceData.ModelPrice)
+			assert.Equal(t, tt.wantOffPeak, priceData.OffPeak)
+		})
+	}
+}
+
+// autodl 渠道按工作流的档位取价：「宽x高」按短边归档，与适配器发给上游的分辨率选项
+// 用同一套规则；不传分辨率时按默认档（上游按工作流默认档出片）。
+func TestResolveTaskPriceDataUsesAutoDLResolutionTier(t *testing.T) {
+	settings, ok := config.GlobalConfig.Get("video_billing").(*video_billing.VideoBillingSettings)
+	require.True(t, ok)
+	original := settings.PriceTables
+	settings.PriceTables = map[string]video_billing.ModelPriceTable{
+		"h3-turbo": {Unit: video_billing.UnitPerSecond, Tiers: []video_billing.PriceTier{
+			{Price: 0.05},
+			{Resolution: "480p", Price: 0.04},
+			{Resolution: "1088p", Price: 0.08},
+		}},
+	}
+	t.Cleanup(func() { settings.PriceTables = original })
+
+	tests := []struct {
+		name      string
+		body      string
+		wantPrice float64
+	}{
+		{"size by short edge", `{"model":"h3-turbo","prompt":"p","size":"864x480"}`, 0.04},
+		{"resolution label", `{"model":"h3-turbo","prompt":"p","resolution":"480P","ratio":"9:16"}`, 0.04},
+		{"tall size", `{"model":"h3-turbo","prompt":"p","size":"1088x1920"}`, 0.08},
+		{"no resolution uses default tier", `{"model":"h3-turbo","prompt":"p"}`, 0.05},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gin.SetMode(gin.TestMode)
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest("POST", "/v1/video/generations", strings.NewReader(tt.body))
+			c.Request.Header.Set("Content-Type", "application/json")
+			var req relaycommon.TaskSubmitReq
+			require.NoError(t, common.UnmarshalJsonStr(tt.body, &req))
+			c.Set("task_request", req)
+			info := &relaycommon.RelayInfo{
+				OriginModelName: "h3-turbo",
+				UsingGroup:      "default",
+				TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+				ChannelMeta:     &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeAutoDLComfyUI},
+			}
+
+			priceData, err := resolveTaskPriceData(c, info)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantPrice, priceData.ModelPrice)
 		})
 	}
 }

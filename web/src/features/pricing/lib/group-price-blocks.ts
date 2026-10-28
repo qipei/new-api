@@ -462,6 +462,20 @@ function buildMatrixBlocks(
   if (inputRows.length > 0) {
     blocks.push({ kind: 'list', title: t('Input price'), rows: inputRows })
   }
+  // 最低计费时长：上游单次有最低收费时，短请求按这个时长计费。
+  if (table.unit === 'per_second' && Number(table.min_seconds) > 0) {
+    blocks.push({
+      kind: 'list',
+      rows: [
+        {
+          label: t('Minimum billable duration'),
+          value: t('{{seconds}} seconds per request', {
+            seconds: Number(table.min_seconds),
+          }),
+        },
+      ],
+    })
+  }
   return blocks
 }
 

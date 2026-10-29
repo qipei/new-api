@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/constant"
@@ -95,6 +96,32 @@ func TestAdvancedCustomChannelRequiresModelListRouteOnlyWhenUpdateChecksEnabled(
 			}
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+// 对外说明按字符（rune）计长度：中文用法说明写满上限也能保存，超出一个字就拒绝。
+func TestChannelValidateSettingsPublicNoteLength(t *testing.T) {
+	tests := []struct {
+		name    string
+		note    string
+		wantErr bool
+	}{
+		{name: "chinese note at the limit is accepted", note: strings.Repeat("说", dto.MaxChannelPublicNoteRunes)},
+		{name: "one character over the limit is rejected", note: strings.Repeat("说", dto.MaxChannelPublicNoteRunes+1), wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			channel := &Channel{}
+			channel.SetOtherSettings(dto.ChannelOtherSettings{PublicNote: tt.note})
+			err := channel.ValidateSettings()
+			if !tt.wantErr {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "public_note")
 		})
 	}
 }

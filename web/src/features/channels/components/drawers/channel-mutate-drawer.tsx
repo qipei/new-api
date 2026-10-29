@@ -152,6 +152,7 @@ import {
 import { useChannelMutateForm } from '../../hooks/use-channel-mutate-form'
 import {
   CHANNEL_FORM_DEFAULT_VALUES,
+  CHANNEL_PUBLIC_NOTE_MAX_LENGTH,
   CHANNEL_TYPE_ADVANCED_CUSTOM,
   channelFormSchema,
   channelsQueryKeys,
@@ -3816,15 +3817,17 @@ export function ChannelMutateDrawer({
                                       placeholder={t(
                                         'e.g. Accelerated build, slightly lower quality than the official model'
                                       )}
-                                      rows={2}
-                                      maxLength={200}
+                                      rows={6}
+                                      maxLength={CHANNEL_PUBLIC_NOTE_MAX_LENGTH}
                                       {...field}
                                     />
                                   </FormControl>
                                   <FormDescription>
                                     {t(
-                                      'Shown to users in the Model Square on the group cards of the models this channel serves. Keep it to one or two sentences about what makes this route different.'
-                                    )}
+                                      'Shown to users in the Model Square below the prices on the group cards of the models this channel serves. Describe what makes this route different and how to use it; line breaks are kept.'
+                                    )}{' '}
+                                    {(field.value ?? '').length}/
+                                    {CHANNEL_PUBLIC_NOTE_MAX_LENGTH}
                                   </FormDescription>
                                   <FormMessage />
                                 </FormItem>

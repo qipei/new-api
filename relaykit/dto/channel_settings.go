@@ -91,8 +91,10 @@ type ChannelOtherSettings struct {
 	PublicNote string `json:"public_note,omitempty"`
 }
 
-// MaxChannelPublicNoteRunes 渠道对外说明的长度上限：模型广场的卡片只放得下一两句话。
-const MaxChannelPublicNoteRunes = 200
+// MaxChannelPublicNoteRunes 渠道对外说明的长度上限。说明展示在模型广场分组卡片的价格表下方，
+// 要容得下用法说明（例如多参考图、多段音频的对应关系和台词写法），同时它会随 /api/pricing
+// 按模型 × 分组重复下发，不宜无限放大。
+const MaxChannelPublicNoteRunes = 1000
 
 func (s *ChannelOtherSettings) IsOpenRouterEnterprise() bool {
 	if s == nil || s.OpenRouterEnterprise == nil {

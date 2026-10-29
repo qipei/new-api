@@ -85,7 +85,7 @@ const OFF_PEAK_DEFAULT_END = '07:50'
 const OFF_PEAK_DEFAULT_TZ = 'Asia/Shanghai'
 
 // CUSTOM: 渠道对外说明的长度上限，与后端 dto.MaxChannelPublicNoteRunes 一致。
-const CHANNEL_PUBLIC_NOTE_MAX_LENGTH = 200
+export const CHANNEL_PUBLIC_NOTE_MAX_LENGTH = 1000
 
 export function normalizeHttpProtocol(
   value: string | undefined | null
@@ -298,7 +298,7 @@ export const channelFormSchema = z
       .string()
       .max(
         CHANNEL_PUBLIC_NOTE_MAX_LENGTH,
-        'Public note must be 200 characters or fewer'
+        'Public note must be 1000 characters or fewer'
       )
       .optional(),
     // Upstream model update settings (stored in settings JSON)

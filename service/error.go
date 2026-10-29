@@ -225,10 +225,13 @@ func TaskErrorFromAPIError(apiErr *types.NewAPIError) *taskdto.TaskError {
 	if apiErr == nil {
 		return nil
 	}
+	// 预扣费失败（余额不足等）是本站的判断，不是上游返回：标成本地错误，原文给用户看，
+	// 不换渠道重试、不计渠道错误。
 	return &taskdto.TaskError{
 		Code:       string(apiErr.GetErrorCode()),
 		Message:    apiErr.Err.Error(),
 		StatusCode: apiErr.StatusCode,
+		LocalError: true,
 		Error:      apiErr.Err,
 	}
 }

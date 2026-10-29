@@ -366,14 +366,6 @@ function GroupPriceCard(props: { card: GroupCard }) {
                 {card.description}
               </div>
             )}
-            {card.channelNotes.map((note) => (
-              <p
-                key={note}
-                className='text-muted-foreground mt-1 text-xs leading-relaxed break-words'
-              >
-                {note}
-              </p>
-            ))}
           </div>
           <span
             className={cn(
@@ -492,6 +484,14 @@ function GroupPriceCard(props: { card: GroupCard }) {
             hideHeader={index === 0}
           />
         ))}
+        {/* 渠道备注往往较长，放在价格区下方跟价格表同宽，避免在左侧窄栏里折成很多行把卡片撑高 */}
+        {card.channelNotes.length > 0 && (
+          <div className='text-muted-foreground max-w-2xl space-y-1 border-t pt-3 text-xs leading-relaxed break-words whitespace-pre-line'>
+            {card.channelNotes.map((note) => (
+              <p key={note}>{note}</p>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )

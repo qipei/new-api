@@ -83,3 +83,19 @@ func TestUserFacingTaskError(t *testing.T) {
 	UserFacingTaskError(badRequest)
 	assert.Equal(t, "prompt rejected by ***.***.ai moderation", badRequest.Message)
 }
+
+// 任务预扣费时用户余额不足：用户要看到余额提示，不能被当成上游 403 换成「上游服务暂时不可用」。
+func TestTaskPreConsumeErrorKeepsBalanceMessage(t *testing.T) {
+	apiErr := types.NewErrorWithStatusCode(
+		errors.New("预扣费额度失败, 用户剩余额度: ¥1.369062, 需要预扣费额度: ¥4.207500"),
+		types.ErrorCodeInsufficientUserQuota, http.StatusForbidden,
+		types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+
+	taskErr := TaskErrorFromAPIError(apiErr)
+	require.NotNil(t, taskErr)
+	assert.True(t, taskErr.LocalError)
+
+	UserFacingTaskError(taskErr)
+	assert.Equal(t, http.StatusForbidden, taskErr.StatusCode)
+	assert.Equal(t, "预扣费额度失败, 用户剩余额度: ¥1.369062, 需要预扣费额度: ¥4.207500", taskErr.Message)
+}

@@ -51,6 +51,9 @@ func resolveRelayPriceData(c *gin.Context, info *relaycommon.RelayInfo, promptTo
 		mode = video_billing.ModeImageToImage
 	}
 
+	// 自动分组（auto、auto_price）要先换成本次选中的分组再取价：档位的不适用分组和分组价
+	// 都按实际分组判断。
+	groupRatioInfo := helper.HandleGroupRatio(c, info)
 	outputPrice, _, err := video_billing.GetPrice(info.OriginModelName, info.UsingGroup, mode, imageRequest.Size, "")
 	if errors.Is(err, video_billing.ErrTierExcludedForGroup) {
 		return hosttypes.PriceData{}, fmt.Errorf(
@@ -68,11 +71,11 @@ func resolveRelayPriceData(c *gin.Context, info *relaycommon.RelayInfo, promptTo
 		imageN = int(*imageRequest.N)
 	}
 
-	inputImagePrice, inputTokenPrice := table.AdditiveInputPrices()
+	// 输入图单价可以按分组单独配置，取价时已换成本次实际选中的分组。
+	inputImagePrice, inputTokenPrice := table.ForGroup(info.UsingGroup).AdditiveInputPrices()
 	extraCost := float64(table.BillableInputImages(inputImages))*inputImagePrice +
 		float64(promptTokens)/1_000_000*inputTokenPrice
 
-	groupRatioInfo := helper.HandleGroupRatio(c, info)
 	priceData := hosttypes.PriceData{
 		UsePrice:       true,
 		ModelPrice:     outputPrice,
@@ -122,6 +125,8 @@ func resolveAudioMatrixPriceData(c *gin.Context, info *relaycommon.RelayInfo, pr
 	if !ok || (table.Unit != video_billing.UnitPerSecond && table.Unit != video_billing.UnitPer10kChars) {
 		return helper.ModelPriceHelper(c, info, promptTokens, meta)
 	}
+	// 自动分组要先换成本次选中的分组再取价，见上。
+	groupRatioInfo := helper.HandleGroupRatio(c, info)
 	price, _, err := video_billing.GetPrice(info.OriginModelName, info.UsingGroup, "", "", "")
 	if errors.Is(err, video_billing.ErrTierExcludedForGroup) {
 		return hosttypes.PriceData{}, fmt.Errorf("model %s is not available in group %s", info.OriginModelName, info.UsingGroup)
@@ -131,7 +136,6 @@ func resolveAudioMatrixPriceData(c *gin.Context, info *relaycommon.RelayInfo, pr
 			"audio pricing for model %s has no default tier; add one in Video Pricing settings", info.OriginModelName)
 	}
 
-	groupRatioInfo := helper.HandleGroupRatio(c, info)
 	priceData := hosttypes.PriceData{
 		UsePrice:       true,
 		ModelPrice:     price,

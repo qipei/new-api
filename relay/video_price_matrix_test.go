@@ -11,6 +11,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/video_billing"
 
 	"github.com/gin-gonic/gin"
@@ -418,4 +419,164 @@ func TestResolveTaskPriceDataUsesAutoDLResolutionTier(t *testing.T) {
 			assert.Equal(t, tt.wantPrice, priceData.ModelPrice)
 		})
 	}
+}
+
+// WeNex 渠道按适配器发给上游的画质取价：不传为 768p，720p 按 768p，「宽x高」按短边归档；
+// 1080p 的档位名与工作流线路一致（1088p），两条线路挂在同一个模型下共用价格表。
+func TestResolveTaskPriceDataUsesWeNexQuality(t *testing.T) {
+	settings, ok := config.GlobalConfig.Get("video_billing").(*video_billing.VideoBillingSettings)
+	require.True(t, ok)
+	original := settings.PriceTables
+	settings.PriceTables = map[string]video_billing.ModelPriceTable{
+		"h3-wenex": {Unit: video_billing.UnitPerSecond, Tiers: []video_billing.PriceTier{
+			{Price: 0.08},
+			{Resolution: "480p", Price: 0.02},
+			{Resolution: "768p", Price: 0.03},
+			{Resolution: "1088p", Price: 0.045},
+		}},
+	}
+	t.Cleanup(func() { settings.PriceTables = original })
+
+	tests := []struct {
+		name      string
+		body      string
+		wantPrice float64
+	}{
+		{"no resolution is 768p", `{"model":"h3-wenex","prompt":"p"}`, 0.03},
+		{"720p is 768p", `{"model":"h3-wenex","prompt":"p","resolution":"720p"}`, 0.03},
+		{"1080p label", `{"model":"h3-wenex","prompt":"p","resolution":"1080P"}`, 0.045},
+		{"1080p size", `{"model":"h3-wenex","prompt":"p","size":"1920x1080"}`, 0.045},
+		{"workflow tier name", `{"model":"h3-wenex","prompt":"p","resolution":"1088p","ratio":"9:16"}`, 0.045},
+		{"768p size", `{"model":"h3-wenex","prompt":"p","size":"720x1280"}`, 0.03},
+		{"metadata quality", `{"model":"h3-wenex","prompt":"p","metadata":{"quality":"1080p"}}`, 0.045},
+	}
+	run := func(t *testing.T, model string, body string, wantPrice float64) {
+		gin.SetMode(gin.TestMode)
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest("POST", "/v1/video/generations", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		var req relaycommon.TaskSubmitReq
+		require.NoError(t, common.UnmarshalJsonStr(body, &req))
+		c.Set("task_request", req)
+		info := &relaycommon.RelayInfo{
+			OriginModelName: model,
+			UsingGroup:      "default",
+			TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+			ChannelMeta:     &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeWeNex},
+		}
+
+		priceData, err := resolveTaskPriceData(c, info)
+		require.NoError(t, err)
+		assert.InDelta(t, wantPrice, priceData.ModelPrice, 1e-9)
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) { run(t, "h3-wenex", tt.body, tt.wantPrice) })
+	}
+
+	// 挂在官方 H3 模型下时 1080p 这一档通常写作 1080p，不能落到兜底档。
+	settings.PriceTables["h3-official"] = video_billing.ModelPriceTable{Unit: video_billing.UnitPerSecond, Tiers: []video_billing.PriceTier{
+		{Price: 0.8},
+		{Resolution: "768p", Price: 0.5},
+		{Resolution: "1080p", Price: 0.6},
+	}}
+	t.Run("1080p tier named 1080p", func(t *testing.T) {
+		run(t, "h3-official", `{"model":"h3-official","prompt":"p","resolution":"1080p"}`, 0.6)
+	})
+	t.Run("1088p request uses the 1080p tier", func(t *testing.T) {
+		run(t, "h3-official", `{"model":"h3-official","prompt":"p","resolution":"1088p"}`, 0.6)
+	})
+	t.Run("768P label", func(t *testing.T) {
+		run(t, "h3-official", `{"model":"h3-official","prompt":"p","size":"768P"}`, 0.5)
+	})
+}
+
+// 比价路由按本次请求命中的档位取各分组的单价（含分组价）；价格表没配分组价、或选路时
+// 拿不到请求维度（remix）时返回 nil，比价只比倍率。
+func TestMatrixGroupTierPricer(t *testing.T) {
+	settings, ok := config.GlobalConfig.Get("video_billing").(*video_billing.VideoBillingSettings)
+	require.True(t, ok)
+	original := settings.PriceTables
+	settings.PriceTables = map[string]video_billing.ModelPriceTable{
+		"h3-fast": {Unit: video_billing.UnitPerSecond, Tiers: []video_billing.PriceTier{
+			{Price: 0.8},
+			{Resolution: "768p", Price: 0.6, GroupPrices: map[string]float64{"wenex": 0.04}},
+			{Resolution: "1088p", Price: 0.7, GroupPrices: map[string]float64{"wenex": 0.06}},
+			{Resolution: "1440p", Price: 0.8, ExcludedGroups: []string{"wenex"}},
+		}},
+		"plain": {Unit: video_billing.UnitPerSecond, Tiers: []video_billing.PriceTier{{Price: 0.5}}},
+	}
+	t.Cleanup(func() { settings.PriceTables = original })
+
+	newContext := func(path, body string) *gin.Context {
+		gin.SetMode(gin.TestMode)
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest("POST", path, strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		return c
+	}
+
+	pricer := MatrixGroupTierPricer(newContext("/v1/video/generations", `{"model":"h3-fast","prompt":"p","resolution":"1088p"}`), "h3-fast")
+	require.NotNil(t, pricer)
+	price, ok := pricer("wenex")
+	assert.True(t, ok)
+	assert.InDelta(t, 0.06, price, 1e-9)
+	price, ok = pricer("1折")
+	assert.True(t, ok)
+	assert.InDelta(t, 0.7, price, 1e-9)
+
+	pricer = MatrixGroupTierPricer(newContext("/v1/video/generations", `{"model":"h3-fast","prompt":"p","resolution":"1440p"}`), "h3-fast")
+	require.NotNil(t, pricer)
+	_, ok = pricer("wenex")
+	assert.False(t, ok, "档位排除了该分组时取不到价")
+
+	assert.Nil(t, MatrixGroupTierPricer(newContext("/v1/video/generations", `{"model":"plain","prompt":"p"}`), "plain"))
+	assert.Nil(t, MatrixGroupTierPricer(newContext("/v1/videos/abc/remix", `{"prompt":"p"}`), "h3-fast"))
+}
+
+// 自动分组（auto、auto_price）的请求要按本次选中的分组取价：分组价和不适用分组都看实际
+// 分组，而不是令牌上的 auto_price。否则选中了配分组价的分组却按原价扣费。
+func TestResolveTaskPriceDataUsesSelectedAutoGroup(t *testing.T) {
+	settings, ok := config.GlobalConfig.Get("video_billing").(*video_billing.VideoBillingSettings)
+	require.True(t, ok)
+	original := settings.PriceTables
+	settings.PriceTables = map[string]video_billing.ModelPriceTable{
+		"h3": {Unit: video_billing.UnitPerSecond, Tiers: []video_billing.PriceTier{
+			{Price: 0.8},
+			{Resolution: "768p", Price: 0.5, GroupPrices: map[string]float64{"wenex": 0.04}},
+			{Resolution: "2k", Price: 0.8, ExcludedGroups: []string{"wenex"}},
+		}},
+	}
+	t.Cleanup(func() { settings.PriceTables = original })
+	originalRatios := ratio_setting.GroupRatio2JSONString()
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"wenex":1}`))
+	t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(originalRatios)) })
+
+	newContext := func(body string) *gin.Context {
+		gin.SetMode(gin.TestMode)
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest("POST", "/v1/video/generations", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		var req relaycommon.TaskSubmitReq
+		require.NoError(t, common.UnmarshalJsonStr(body, &req))
+		c.Set("task_request", req)
+		c.Set("auto_group", "wenex")
+		return c
+	}
+	newInfo := func() *relaycommon.RelayInfo {
+		return &relaycommon.RelayInfo{
+			OriginModelName: "h3",
+			UsingGroup:      "auto_price",
+			TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+			ChannelMeta:     &relaycommon.ChannelMeta{},
+		}
+	}
+
+	info := newInfo()
+	priceData, err := resolveTaskPriceData(newContext(`{"model":"h3","prompt":"p","resolution":"768p"}`), info)
+	require.NoError(t, err)
+	assert.InDelta(t, 0.04, priceData.ModelPrice, 1e-9)
+	assert.Equal(t, "wenex", info.UsingGroup)
+
+	_, err = resolveTaskPriceData(newContext(`{"model":"h3","prompt":"p","resolution":"2k"}`), newInfo())
+	assert.ErrorIs(t, err, video_billing.ErrTierExcludedForGroup)
 }

@@ -62,9 +62,9 @@ export function VideoPriceSection(props: {
     : dimensionalTiers
   const hasInputImagePrice = Number(table.input_image_price) > 0
   const hasInputTokenPrice = Number(table.input_token_price) > 0
-  // 输入视频单价只在配置了时展示（0 为免费）：没配置时与输出同价，不另列一行。
-  const hasInputVideoPrice =
-    typeof table.input_video_price === 'number' && table.input_video_price >= 0
+  // 输入视频单价只在单独收费时展示：没配置时与输出同价，配置为 0 时不收费，都不另列一行
+  // （与输入图单价为 0 时一致）。
+  const hasInputVideoPrice = Number(table.input_video_price) > 0
   if (
     visibleTiers.length === 0 &&
     !hasInputImagePrice &&
@@ -193,9 +193,7 @@ export function VideoPriceSection(props: {
                       {row.unit}
                     </td>
                     <td className='py-1.5 text-right font-mono tabular-nums'>
-                      {row.price === 0
-                        ? t('Free of charge')
-                        : formatPrice(row.price)}
+                      {formatPrice(row.price)}
                     </td>
                   </tr>
                 ))}

@@ -48,6 +48,8 @@ func VideoMatrixQuotaOnComplete(task *model.Task, taskResult *relaycommon.TaskIn
 	if !ok {
 		return 0
 	}
+	// 输入图、输入视频单价可以按分组单独配置；task.Group 是本次实际选中的分组。
+	table = table.ForGroup(task.Group)
 	if table.Unit == video_billing.UnitPerSecond {
 		billingDuration := taskResult.BillingDuration
 		if billingDuration <= 0 {

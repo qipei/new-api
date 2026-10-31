@@ -32,6 +32,9 @@ export type VideoPriceTierPayload = {
   excluded_groups?: string[]
   // CUSTOM: 闲时价，渠道配置了闲时时段且请求落在时段内时按它计费（fork 扩展）
   off_peak_price?: number
+  // CUSTOM: 分组价，分组名 -> 单价；配了的分组按它代替 price（仍乘分组倍率），
+  // 不使用闲时价（fork 扩展）
+  group_prices?: Record<string, number>
 }
 
 export type VideoPriceTablePayload = {
@@ -46,6 +49,14 @@ export type VideoPriceTablePayload = {
   input_video_price?: number
   // CUSTOM: 最低计费时长（秒），仅按秒计费；上游单次有最低收费时用（fork 扩展）
   min_seconds?: number
+  // CUSTOM: 分组输入价，分组名 -> 该分组的输入图、输入视频单价，不填的项沿用上面的
+  // （fork 扩展）
+  group_input_prices?: Record<string, VideoGroupInputPricePayload>
+}
+
+export type VideoGroupInputPricePayload = {
+  input_image_price?: number
+  input_video_price?: number
 }
 
 export type VideoResolutionBucketPayload = {
@@ -63,6 +74,13 @@ export type EditableVideoTier = {
   price: string
   excludedGroups: string[]
   offPeakPrice: string
+  groupPrices: EditableGroupPrice[]
+}
+
+export type EditableGroupPrice = {
+  uid: string
+  group: string
+  price: string
 }
 
 export type EditableVideoTable = {
@@ -76,6 +94,14 @@ export type EditableVideoTable = {
   minSeconds: string
   resolutionTemplate?: string
   resolutionBuckets: EditableResolutionBucket[]
+  groupInputPrices: EditableGroupInputPrice[]
+}
+
+export type EditableGroupInputPrice = {
+  uid: string
+  group: string
+  inputImagePrice: string
+  inputVideoPrice: string
 }
 
 export type EditableResolutionBucket = {
@@ -102,6 +128,7 @@ export const MAX_MIN_SECONDS = 3600
 
 let editableTierSeq = 0
 let editableBucketSeq = 0
+let editableGroupPriceSeq = 0
 
 export function nextEditableTierUid(): string {
   editableTierSeq += 1
@@ -111,6 +138,16 @@ export function nextEditableTierUid(): string {
 export function nextEditableBucketUid(): string {
   editableBucketSeq += 1
   return `bucket-${editableBucketSeq}`
+}
+
+export function nextEditableGroupInputPriceUid(): string {
+  editableGroupPriceSeq += 1
+  return `group-input-price-${editableGroupPriceSeq}`
+}
+
+export function nextEditableGroupPriceUid(): string {
+  editableGroupPriceSeq += 1
+  return `group-price-${editableGroupPriceSeq}`
 }
 
 function normalizeConfiguredSize(size: string): string {
@@ -195,6 +232,20 @@ export function parseVideoPricingTables(raw: string): EditableVideoTable[] {
           : '',
       minSeconds:
         typeof table.min_seconds === 'number' ? String(table.min_seconds) : '',
+      groupInputPrices: Object.entries(table.group_input_prices ?? {})
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([group, prices]) => ({
+          uid: nextEditableGroupInputPriceUid(),
+          group,
+          inputImagePrice:
+            typeof prices?.input_image_price === 'number'
+              ? String(prices.input_image_price)
+              : '',
+          inputVideoPrice:
+            typeof prices?.input_video_price === 'number'
+              ? String(prices.input_video_price)
+              : '',
+        })),
       resolutionTemplate: '',
       resolutionBuckets: resolutionBuckets.map((bucket) => ({
         uid: nextEditableBucketUid(),
@@ -222,6 +273,14 @@ export function parseVideoPricingTables(raw: string): EditableVideoTable[] {
           typeof tier.off_peak_price === 'number'
             ? String(tier.off_peak_price)
             : '',
+        groupPrices: Object.entries(tier.group_prices ?? {})
+          .filter(([, price]) => typeof price === 'number')
+          .sort(([a], [b]) => a.localeCompare(b))
+          .map(([group, price]) => ({
+            uid: nextEditableGroupPriceUid(),
+            group,
+            price: String(price),
+          })),
       })),
     })
   }
@@ -270,6 +329,23 @@ export function parseVideoPricingJsonDraft(
     if (
       table.input_video_price !== undefined &&
       typeof table.input_video_price !== 'number'
+    ) {
+      return { tables: null, error: 'shape' }
+    }
+    if (
+      table.group_input_prices !== undefined &&
+      (table.group_input_prices === null ||
+        typeof table.group_input_prices !== 'object' ||
+        Array.isArray(table.group_input_prices) ||
+        Object.values(table.group_input_prices).some(
+          (prices) =>
+            prices === null ||
+            typeof prices !== 'object' ||
+            (prices.input_image_price !== undefined &&
+              typeof prices.input_image_price !== 'number') ||
+            (prices.input_video_price !== undefined &&
+              typeof prices.input_video_price !== 'number')
+        ))
     ) {
       return { tables: null, error: 'shape' }
     }
@@ -328,7 +404,14 @@ export function parseVideoPricingJsonDraft(
                 (group) => typeof group !== 'string'
               ))) ||
           (tier.off_peak_price !== undefined &&
-            typeof tier.off_peak_price !== 'number')
+            typeof tier.off_peak_price !== 'number') ||
+          (tier.group_prices !== undefined &&
+            (tier.group_prices === null ||
+              typeof tier.group_prices !== 'object' ||
+              Array.isArray(tier.group_prices) ||
+              Object.values(tier.group_prices).some(
+                (price) => typeof price !== 'number'
+              )))
       )
     ) {
       return { tables: null, error: 'shape' }
@@ -388,6 +471,42 @@ export function serializeVideoPricingTables(
         inputVideoPrice >= 0
       ) {
         entry.input_video_price = inputVideoPrice
+      }
+      // 分组输入价只对按秒、按张计费有意义；输入视频单价只对按秒计费有意义。
+      const groupInputPrices: Record<string, VideoGroupInputPricePayload> = {}
+      for (const row of [...table.groupInputPrices].sort((a, b) =>
+        a.group.trim().localeCompare(b.group.trim())
+      )) {
+        const group = row.group.trim()
+        if (
+          !group ||
+          (table.unit !== VIDEO_UNIT_PER_SECOND &&
+            table.unit !== VIDEO_UNIT_PER_IMAGE)
+        ) {
+          continue
+        }
+        const prices: VideoGroupInputPricePayload = {}
+        const imagePrice = Number(row.inputImagePrice)
+        if (
+          row.inputImagePrice.trim() &&
+          Number.isFinite(imagePrice) &&
+          imagePrice >= 0
+        ) {
+          prices.input_image_price = imagePrice
+        }
+        const videoPrice = Number(row.inputVideoPrice)
+        if (
+          table.unit === VIDEO_UNIT_PER_SECOND &&
+          row.inputVideoPrice.trim() &&
+          Number.isFinite(videoPrice) &&
+          videoPrice >= 0
+        ) {
+          prices.input_video_price = videoPrice
+        }
+        if (Object.keys(prices).length > 0) groupInputPrices[group] = prices
+      }
+      if (Object.keys(groupInputPrices).length > 0) {
+        entry.group_input_prices = groupInputPrices
       }
       const minSeconds = Number(table.minSeconds)
       if (
@@ -454,6 +573,19 @@ export function serializeVideoPricingTables(
       ) {
         payloadTier.off_peak_price = offPeakPrice
       }
+      const groupPrices: Record<string, number> = {}
+      for (const row of [...tier.groupPrices].sort((a, b) =>
+        a.group.trim().localeCompare(b.group.trim())
+      )) {
+        const group = row.group.trim()
+        const price = Number(row.price)
+        if (group && row.price.trim() && Number.isFinite(price) && price > 0) {
+          groupPrices[group] = price
+        }
+      }
+      if (Object.keys(groupPrices).length > 0) {
+        payloadTier.group_prices = groupPrices
+      }
       tiers.push(payloadTier)
     }
     if (tiers.length > 0) entry.tiers = tiers
@@ -473,6 +605,8 @@ export type VideoPricingIssue = {
     | 'free_input_images'
     | 'input_video_price'
     | 'off_peak_price'
+    | 'group_price'
+    | 'group_input_price'
     | 'min_seconds'
     | 'pixel_range'
     | 'resolution_bucket'
@@ -504,6 +638,23 @@ export function validateVideoPricingTables(
       if (!Number.isFinite(price) || price < 0) {
         issues.push({ model, reason: 'input_video_price' })
       }
+    }
+    const inputPricedGroups = new Set<string>()
+    for (const row of table.groupInputPrices) {
+      const group = row.group.trim()
+      const values = [row.inputImagePrice.trim(), row.inputVideoPrice.trim()]
+      if (
+        !group ||
+        inputPricedGroups.has(group) ||
+        values.every((value) => !value) ||
+        values.some(
+          (value) =>
+            value && (!Number.isFinite(Number(value)) || Number(value) < 0)
+        )
+      ) {
+        issues.push({ model, reason: 'group_input_price' })
+      }
+      inputPricedGroups.add(group)
     }
     if (table.unit === VIDEO_UNIT_PER_SECOND && table.minSeconds.trim()) {
       const minSeconds = Number(table.minSeconds)
@@ -557,6 +708,21 @@ export function validateVideoPricingTables(
         if (!Number.isFinite(offPeakPrice) || offPeakPrice <= 0) {
           issues.push({ model, reason: 'off_peak_price' })
         }
+      }
+      const pricedGroups = new Set<string>()
+      for (const row of tier.groupPrices) {
+        const group = row.group.trim()
+        const groupPrice = Number(row.price)
+        if (
+          !group ||
+          pricedGroups.has(group) ||
+          !row.price.trim() ||
+          !Number.isFinite(groupPrice) ||
+          groupPrice <= 0
+        ) {
+          issues.push({ model, reason: 'group_price' })
+        }
+        pricedGroups.add(group)
       }
       const resolution = tier.resolution.trim().toLowerCase()
       const audio = table.unit === VIDEO_UNIT_PER_IMAGE ? '' : tier.audio

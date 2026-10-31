@@ -188,6 +188,27 @@ describe('resolveDisplayGroup', () => {
     expect(displayGroupRatio(m)).toBe(0.5)
   })
 
+  // 价格表配了分组价：比的是该分组能用的最便宜一档 × 倍率。倍率为 1 但分组价便宜的
+  // 分组（0.04）比倍率 0.1、原价 0.6 的分组（0.06）便宜。
+  it('weighs matrix group prices against the group ratio', () => {
+    const m = model({
+      billing_mode: undefined,
+      billing_expr: undefined,
+      group_billing_expr: undefined,
+      enable_groups: ['1折', 'wenex'],
+      group_ratio: { '1折': 0.1, wenex: 1 },
+      matrix_price_table: {
+        unit: 'per_second',
+        tiers: [
+          { resolution: '480p', price: 0.5, excluded_groups: ['wenex'] },
+          { resolution: '768p', price: 0.6, group_prices: { wenex: 0.04 } },
+          { resolution: '1088p', price: 0.7, group_prices: { wenex: 0.06 } },
+        ],
+      },
+    })
+    expect(resolveDisplayGroup(m)).toBe('wenex')
+  })
+
   it('returns undefined when the model has no groups', () => {
     expect(resolveDisplayGroup(model({ enable_groups: [] }))).toBeUndefined()
   })

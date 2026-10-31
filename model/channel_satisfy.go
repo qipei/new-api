@@ -99,6 +99,61 @@ func GroupServesModel(group string, modelName string) bool {
 	return false
 }
 
+// GroupModelChannelTypes 返回该分组下提供这个模型的可用渠道的类型（去重）。自动选路据此
+// 判断分组里有没有渠道能处理本次请求。内存缓存关闭时查数据库。
+func GroupModelChannelTypes(group string, modelName string) []int {
+	if group == "" || modelName == "" {
+		return nil
+	}
+	if !common.MemoryCacheEnabled {
+		return groupModelChannelTypesDB(group, modelName)
+	}
+
+	channelSyncLock.RLock()
+	defer channelSyncLock.RUnlock()
+
+	ids := group2model2channels[group][modelName]
+	if len(ids) == 0 {
+		if normalized := ratio_setting.FormatMatchingModelName(modelName); normalized != "" && normalized != modelName {
+			ids = group2model2channels[group][normalized]
+		}
+	}
+	seen := make(map[int]bool, len(ids))
+	types := make([]int, 0, len(ids))
+	for _, id := range ids {
+		channel, ok := channelsIDM[id]
+		if !ok || seen[channel.Type] {
+			continue
+		}
+		seen[channel.Type] = true
+		types = append(types, channel.Type)
+	}
+	return types
+}
+
+func groupModelChannelTypesDB(group string, modelName string) []int {
+	var channelIDs []int
+	err := DB.Model(&Ability{}).
+		Where(commonGroupCol+" = ? AND model = ? AND enabled = "+commonTrueVal, group, modelName).
+		Pluck("channel_id", &channelIDs).Error
+	if err != nil || len(channelIDs) == 0 {
+		return nil
+	}
+	var channelTypes []int
+	if err := DB.Model(&Channel{}).Where("id IN ?", channelIDs).Pluck("type", &channelTypes).Error; err != nil {
+		return nil
+	}
+	seen := make(map[int]bool, len(channelTypes))
+	types := make([]int, 0, len(channelTypes))
+	for _, channelType := range channelTypes {
+		if !seen[channelType] {
+			seen[channelType] = true
+			types = append(types, channelType)
+		}
+	}
+	return types
+}
+
 func groupServesModelDB(group string, modelName string) bool {
 	var count int64
 	err := DB.Model(&Ability{}).

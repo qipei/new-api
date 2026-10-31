@@ -15,8 +15,10 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/task/autodl"
 	"github.com/QuantumNous/new-api/relay/channel/task/hailuo"
+	"github.com/QuantumNous/new-api/relay/channel/task/wenex"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/setting/video_billing"
@@ -65,14 +67,15 @@ func resolveTaskPriceData(c *gin.Context, info *relaycommon.RelayInfo) (hosttype
 	if table.Unit != video_billing.UnitPer10kChars {
 		mode, resolution, audio, seconds = taskVideoDims(c, info)
 	}
+	// 自动分组（auto、auto_price）要先换成本次选中的分组再取价：档位的不适用分组和分组价
+	// 都按实际分组判断。
+	groupRatioInfo := helper.HandleGroupRatio(c, info)
 	tier, unit, err := video_billing.GetTier(info.OriginModelName, info.UsingGroup, mode, resolution, audio)
 	if err != nil {
 		return hosttypes.PriceData{}, &videoPriceNotMatchedError{model: info.OriginModelName, group: info.UsingGroup, mode: mode, resolution: resolution, audio: audio, err: err}
 	}
 	// CUSTOM: 闲时价按当前选中渠道的时段判断（fork 扩展）。每次重试换渠道都会重新取价。
 	price, offPeak := tier.PriceAt(info.ChannelOtherSettings.OffPeakPricing.ActiveAt(info.StartTime))
-
-	groupRatioInfo := helper.HandleGroupRatio(c, info)
 
 	priceData := hosttypes.PriceData{
 		GroupRatioInfo: groupRatioInfo,
@@ -118,41 +121,99 @@ func MatrixTierExcludedForGroup(c *gin.Context, modelName string, group string) 
 	if !ok || !table.HasExcludedGroups() {
 		return false
 	}
-	path := c.Request.URL.Path
-	mode, resolution, audio := "", "", ""
-	switch {
-	case strings.Contains(path, "/remix"):
+	mode, resolution, audio, ok := routingRequestDims(c, table, modelName)
+	if !ok {
 		return false
-	case strings.HasPrefix(path, "/v1/audio/") || table.Unit == video_billing.UnitPer10kChars:
-		// 音频只有默认档，没有维度。
-	case table.Unit == video_billing.UnitPerImage:
-		storage, err := common.GetBodyStorage(c)
-		if err != nil {
-			return false
-		}
-		body, err := storage.Bytes()
-		if err != nil {
-			return false
-		}
-		mode = video_billing.ModeTextToImage
-		if strings.Contains(path, "/images/edits") || gjson.GetBytes(body, "image").Exists() || gjson.GetBytes(body, "images").Exists() {
-			mode = video_billing.ModeImageToImage
-		}
-		resolution = gjson.GetBytes(body, "size").String()
-	default:
-		// 选路发生在请求校验之前，任务请求还没放进上下文，这里自己解析一次（只读）。
-		var req relaycommon.TaskSubmitReq
-		if strings.Contains(c.GetHeader("Content-Type"), "multipart/form-data") {
-			return false
-		}
-		if err := common.UnmarshalBodyReusable(c, &req); err != nil {
-			return false
-		}
-		info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: modelName}}
-		mode, resolution, audio, _ = taskRequestVideoDims(c, info, req)
 	}
 	_, _, err := video_billing.GetPrice(modelName, group, mode, resolution, audio)
 	return errors.Is(err, video_billing.ErrTierExcludedForGroup)
+}
+
+// TaskRequestUnsupportedByGroup 报告该分组下提供这个模型的渠道是不是都处理不了本次任务请求
+// （它们的适配器都声明了支持范围、且都不支持，例如 WeNex 不支持参考视频）。自动分组选路
+// 据此跳过该分组，换到能处理的分组。分组里有没声明支持范围的渠道（视为都支持）、remix、
+// multipart 或请求体解析失败时不跳过，交给原有流程。
+func TaskRequestUnsupportedByGroup(c *gin.Context, modelName string, group string) bool {
+	var supporters []channel.TaskRequestSupporter
+	for _, channelType := range model.GroupModelChannelTypes(group, modelName) {
+		supporter, ok := GetTaskAdaptor(constant.TaskPlatform(strconv.Itoa(channelType))).(channel.TaskRequestSupporter)
+		if !ok {
+			return false
+		}
+		supporters = append(supporters, supporter)
+	}
+	if len(supporters) == 0 || strings.Contains(c.Request.URL.Path, "/remix") ||
+		strings.Contains(c.GetHeader("Content-Type"), "multipart/form-data") {
+		return false
+	}
+	var req relaycommon.TaskSubmitReq
+	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
+		return false
+	}
+	for _, supporter := range supporters {
+		if supporter.SupportsTaskRequest(req) {
+			return false
+		}
+	}
+	return true
+}
+
+// MatrixGroupTierPricer 返回按本次请求命中的档位给分组取单价的函数（含分组价，不含分组
+// 倍率），供比价路由使用：价格表配了分组价时，各分组的价差不再只是倍率。取不到价（档位
+// 排除了该分组、没有匹配档位）时第二个返回值为 false。价格表没配分组价，或这次请求的
+// 维度在选路时还拿不到（remix、multipart）时返回 nil，比价退回只比倍率。
+func MatrixGroupTierPricer(c *gin.Context, modelName string) func(group string) (float64, bool) {
+	table, ok := video_billing.GetPriceTable(modelName)
+	if !ok || !table.HasGroupPrices() {
+		return nil
+	}
+	mode, resolution, audio, ok := routingRequestDims(c, table, modelName)
+	if !ok {
+		return nil
+	}
+	return func(group string) (float64, bool) {
+		price, _, err := video_billing.GetPrice(modelName, group, mode, resolution, audio)
+		return price, err == nil
+	}
+}
+
+// routingRequestDims 选路时解析本次请求的价格维度（模式、分辨率、音轨）。选路发生在
+// 选渠道之前，取不到渠道相关的档位换算；remix、multipart 或请求体解析失败时第四个返回值
+// 为 false。
+func routingRequestDims(c *gin.Context, table video_billing.ModelPriceTable, modelName string) (string, string, string, bool) {
+	path := c.Request.URL.Path
+	switch {
+	case strings.Contains(path, "/remix"):
+		return "", "", "", false
+	case strings.HasPrefix(path, "/v1/audio/") || table.Unit == video_billing.UnitPer10kChars:
+		// 音频只有默认档，没有维度。
+		return "", "", "", true
+	case table.Unit == video_billing.UnitPerImage:
+		storage, err := common.GetBodyStorage(c)
+		if err != nil {
+			return "", "", "", false
+		}
+		body, err := storage.Bytes()
+		if err != nil {
+			return "", "", "", false
+		}
+		mode := video_billing.ModeTextToImage
+		if strings.Contains(path, "/images/edits") || gjson.GetBytes(body, "image").Exists() || gjson.GetBytes(body, "images").Exists() {
+			mode = video_billing.ModeImageToImage
+		}
+		return mode, gjson.GetBytes(body, "size").String(), "", true
+	}
+	// 选路发生在请求校验之前，任务请求还没放进上下文，这里自己解析一次（只读）。
+	var req relaycommon.TaskSubmitReq
+	if strings.Contains(c.GetHeader("Content-Type"), "multipart/form-data") {
+		return "", "", "", false
+	}
+	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
+		return "", "", "", false
+	}
+	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: modelName}}
+	mode, resolution, audio, _ := taskRequestVideoDims(c, info, req)
+	return mode, resolution, audio, true
 }
 
 type videoPriceNotMatchedError struct {
@@ -240,6 +301,12 @@ func taskRequestVideoDims(c *gin.Context, info *relaycommon.RelayInfo, req relay
 	// 取值顺序和归档；不传时上游按工作流默认档出片，按价格表默认档取价（fork 扩展）。
 	if info.ChannelMeta != nil && info.ChannelType == constant.ChannelTypeAutoDLComfyUI {
 		resolution = autodl.ResolutionTier(autodl.RequestResolution(req))
+	}
+	// CUSTOM: WeNex 的 H3 只有 768p/1080p 两档，适配器总是显式指定画质，按它发出的画质取价
+	// （不传时为 768p；1080p 按价格表写成 1080p 或 1088p）（fork 扩展）。
+	if info.ChannelMeta != nil && info.ChannelType == constant.ChannelTypeWeNex {
+		table, _ := video_billing.GetPriceTable(info.OriginModelName)
+		resolution = wenex.PriceTier(req, table)
 	}
 	if resolution == "" && (strings.HasPrefix(info.UpstreamModelName, "happyhorse-") ||
 		strings.HasPrefix(info.UpstreamModelName, "wan3.0-video")) {

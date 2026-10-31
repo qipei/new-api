@@ -95,7 +95,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		if newAPIError != nil {
 			model.MarkUserUsageFailure(c, newAPIError.StatusCode)
 			logger.LogError(c, fmt.Sprintf("relay error: %s", common.LocalLogPreview(newAPIError.Error())))
-			// CUSTOM: 渠道侧上游错误不把上游原文给用户（fork 扩展）。
+			// CUSTOM: 保留上游具体错误，仅脱敏域名等敏感信息（fork 扩展）。
 			newAPIError = service.UserFacingRelayError(newAPIError)
 			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
 			switch relayFormat {
@@ -420,10 +420,9 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		}
 		useTimeSeconds := int(time.Since(startTime).Seconds())
 		content := err.MaskSensitiveErrorWithStatusCode()
-		// CUSTOM: 用户能看到错误日志，渠道侧上游错误同样只给提示，原文只留给管理员（fork 扩展）。
-		if message := service.UpstreamErrorUserMessage(err); message != "" {
+		// CUSTOM: 用户日志保留脱敏后的具体错误，管理员额外保留原始错误（fork 扩展）。
+		if err.UpstreamStatusCode() != 0 || err.GetErrorCode() == types.ErrorCodeDoRequestFailed {
 			adminInfo["upstream_error"] = common.LocalLogPreview(err.ErrorWithStatusCode())
-			content = fmt.Sprintf("status_code=%d, %s", err.StatusCode, message)
 		}
 		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, content, tokenId, useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), userGroup, other)
 	}

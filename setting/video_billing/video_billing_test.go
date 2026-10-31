@@ -153,6 +153,65 @@ func TestPublicTablesHidesInvisibleExcludedGroups(t *testing.T) {
 	assert.Equal(t, []string{"cheap", "internal"}, videoBillingSettings.PriceTables["video"].Tiers[0].ExcludedGroups, "配置本身不能被改写")
 }
 
+// 分组价：配了的分组按它代替原价（仍由调用方乘分组倍率），并且不按闲时价计；其他分组
+// 不受影响；无效的分组价忽略，按原价收；分组价不能绕过不适用分组。
+func TestGetTierGroupPrices(t *testing.T) {
+	offPeak := 0.5
+	withTables(t, map[string]ModelPriceTable{
+		"video": {Unit: UnitPerSecond, Tiers: []PriceTier{
+			{Price: 0.8},
+			{Resolution: "768p", Price: 0.6, OffPeakPrice: &offPeak, GroupPrices: map[string]float64{"wenex": 0.04, "broken": math.NaN()}},
+			{Resolution: "1088p", Price: 0.7, GroupPrices: map[string]float64{"wenex": 0.06}},
+			{Resolution: "1440p", Price: 0.8, ExcludedGroups: []string{"wenex"}, GroupPrices: map[string]float64{"wenex": 0.01}},
+		}},
+	})
+
+	tests := []struct {
+		name        string
+		group       string
+		resolution  string
+		offPeak     bool
+		wantPrice   float64
+		wantOffPeak bool
+		wantErr     error
+	}{
+		{"group price replaces the tier price", "wenex", "768p", false, 0.04, false, nil},
+		{"each tier has its own group price", "wenex", "1088p", false, 0.06, false, nil},
+		{"group price ignores the off-peak price", "wenex", "768p", true, 0.04, false, nil},
+		{"other groups keep the tier and off-peak price", "default", "768p", true, 0.5, true, nil},
+		{"tier without group price for this group", "wenex", "", false, 0.8, false, nil},
+		{"invalid group price falls back to the tier price", "broken", "768p", false, 0.6, false, nil},
+		{"excluded tier stays excluded", "wenex", "1440p", false, 0, false, ErrTierExcludedForGroup},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tier, _, err := GetTier("video", tt.group, ModeTextToVideo, tt.resolution, "")
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, err, tt.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			price, offPeak := tier.PriceAt(tt.offPeak)
+			assert.InDelta(t, tt.wantPrice, price, 1e-9)
+			assert.Equal(t, tt.wantOffPeak, offPeak)
+		})
+	}
+}
+
+// 公开接口只下发查看者可见分组的分组价，不对外的分组名和价格不能泄露。
+func TestPublicTablesHidesInvisibleGroupPrices(t *testing.T) {
+	withTables(t, map[string]ModelPriceTable{
+		"video": {Unit: UnitPerSecond, Tiers: []PriceTier{
+			{Resolution: "768p", Price: 0.6, GroupPrices: map[string]float64{"wenex": 0.04, "internal": 0.01}},
+			{Resolution: "1088p", Price: 0.7, GroupPrices: map[string]float64{"internal": 0.02}},
+		}},
+	})
+	tables := PublicTables(map[string]string{"wenex": "WeNex", "default": "Default"})
+	assert.Equal(t, map[string]float64{"wenex": 0.04}, tables["video"].Tiers[0].GroupPrices)
+	assert.Nil(t, tables["video"].Tiers[1].GroupPrices)
+	assert.Len(t, videoBillingSettings.PriceTables["video"].Tiers[0].GroupPrices, 2, "配置本身不能被改写")
+}
+
 func TestNormalizeResolution(t *testing.T) {
 	tests := []struct {
 		in   string
@@ -359,6 +418,41 @@ func TestInputVideoSecondPrice(t *testing.T) {
 	assert.Equal(t, 0.3, ModelPriceTable{InputVideoPrice: price(0.3)}.InputVideoSecondPrice(0.5))
 	assert.Equal(t, 0.0, ModelPriceTable{InputVideoPrice: price(0)}.InputVideoSecondPrice(0.5))
 	assert.Equal(t, 0.5, ModelPriceTable{InputVideoPrice: price(-1)}.InputVideoSecondPrice(0.5))
+}
+
+// 分组输入价：配了的分组按它代替价格表的输入图、输入视频单价，没配的项沿用价格表的；
+// 无效值（负数、NaN）忽略；公开接口只下发查看者可见分组的分组输入价。
+func TestModelPriceTableForGroupInputPrices(t *testing.T) {
+	price := func(v float64) *float64 { return &v }
+	table := ModelPriceTable{
+		InputImagePrice: 0.02,
+		InputVideoPrice: price(0.8),
+		GroupInputPrices: map[string]GroupInputPrice{
+			"wenex":   {InputImagePrice: price(0), InputVideoPrice: price(0.1)},
+			"partial": {InputImagePrice: price(0.05)},
+			"broken":  {InputImagePrice: price(-1), InputVideoPrice: price(math.NaN())},
+		},
+	}
+
+	wenex := table.ForGroup("wenex")
+	assert.Equal(t, 0.0, wenex.InputImagePrice)
+	assert.Equal(t, 0.1, wenex.InputVideoSecondPrice(0.5))
+
+	partial := table.ForGroup("partial")
+	assert.Equal(t, 0.05, partial.InputImagePrice)
+	assert.Equal(t, 0.8, partial.InputVideoSecondPrice(0.5))
+
+	broken := table.ForGroup("broken")
+	assert.Equal(t, 0.02, broken.InputImagePrice)
+	assert.Equal(t, 0.8, broken.InputVideoSecondPrice(0.5))
+
+	assert.Equal(t, 0.02, table.ForGroup("default").InputImagePrice)
+	assert.Equal(t, 0.8, *table.InputVideoPrice, "配置本身不能被改写")
+
+	withTables(t, map[string]ModelPriceTable{"video": {Unit: UnitPerSecond, Tiers: []PriceTier{{Price: 0.5}}, GroupInputPrices: table.GroupInputPrices}})
+	public := PublicTables(map[string]string{"wenex": "WeNex"})
+	assert.Len(t, public["video"].GroupInputPrices, 1)
+	assert.Contains(t, public["video"].GroupInputPrices, "wenex")
 }
 
 // 闲时价只在渠道处于闲时时段时生效；无效的闲时价（非正数、NaN、Inf）按原价收，

@@ -154,6 +154,28 @@ describe('bestDiscount', () => {
     expect(result?.ratio).toBeCloseTo(0.44)
   })
 
+  // 价格表的分组价也是折扣：倍率为 1 的分组配了 0.04 的分组价（原价最便宜一档 0.5），
+  // 相当于 0.8 折，比倍率 0.16 的分组更便宜，卡片上的价格和标签才对得上。
+  it('counts matrix group prices as a discount', () => {
+    const result = bestDiscount({
+      enable_groups: ['1.6折', 'default_we'],
+      group_ratio: { '1.6折': 0.16, default_we: 1 },
+      matrix_price_table: {
+        unit: 'per_second',
+        tiers: [
+          {
+            resolution: '768p',
+            price: 0.5,
+            group_prices: { default_we: 0.04 },
+          },
+          { resolution: '2k', price: 0.8, excluded_groups: ['default_we'] },
+        ],
+      },
+    })
+    expect(result?.group).toBe('default_we')
+    expect(result?.ratio).toBeCloseTo(0.08)
+  })
+
   it.each([
     [
       '所有分组都不打折',

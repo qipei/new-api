@@ -166,8 +166,9 @@ describe('GroupPriceCards', () => {
     expect(withoutFree).not.toContain('free')
   })
 
-  // 输入视频单价只在配置了时列出：配置为 0 显示免费，没配置时与输出同价、不另列。
-  test('input video price is listed only when configured', () => {
+  // 输入视频单价只在单独收费时列出：配置为 0（不收费）和没配置（与输出同价）都不另列，
+  // 与输入图单价为 0 时一致。
+  test('input video price is listed only when charged separately', () => {
     const tiers = [{ price: 0.5 }]
     const priced = render(baseModel(), {
       matrixTable: { unit: 'per_second', tiers, input_video_price: 0.3 },
@@ -178,7 +179,7 @@ describe('GroupPriceCards', () => {
     const free = render(baseModel(), {
       matrixTable: { unit: 'per_second', tiers, input_video_price: 0 },
     })
-    expect(cardOf(free, 'default')).toContain('Free of charge')
+    expect(free).not.toContain('per second of input video')
 
     const unset = render(baseModel(), {
       matrixTable: { unit: 'per_second', tiers },

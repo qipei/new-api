@@ -174,3 +174,50 @@ func TestCacheGetRandomSatisfiedChannelSkipsGroupsExcludedByPriceTier(t *testing
 		})
 	}
 }
+
+// 分组里提供该模型的渠道都处理不了本次请求时（例如 WeNex 不支持参考视频），自动分组跳过它
+// 顺延到下一个；全部被跳过时保留原顺序，交给本地校验返回明确的原因。
+func TestCacheGetRandomSatisfiedChannelSkipsGroupsThatCannotServeTheRequest(t *testing.T) {
+	tests := []struct {
+		name        string
+		unsupported map[string]bool
+		wantID      int
+		wantGroup   string
+	}{
+		{"skip unsupported group", map[string]bool{"vip": true}, 2302, "default"},
+		{"all unsupported keeps original order", map[string]bool{"vip": true, "default": true}, 2301, "vip"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := setupChannelSelectAutoGroupsTest(t)
+			const modelName = "capability-model"
+			createChannelSelectAutoGroupsChannel(t, db, 2301, "vip", modelName)
+			createChannelSelectAutoGroupsChannel(t, db, 2302, "default", modelName)
+			model.InitChannelCache()
+
+			original := TaskRequestUnsupportedFunc
+			TaskRequestUnsupportedFunc = func(_ *gin.Context, name string, group string) bool {
+				return name == modelName && tt.unsupported[group]
+			}
+			t.Cleanup(func() { TaskRequestUnsupportedFunc = original })
+
+			gin.SetMode(gin.TestMode)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			common.SetContextKey(ctx, constant.ContextKeyUserGroup, "default")
+			common.SetContextKey(ctx, constant.ContextKeyTokenAutoGroups, []string{"vip", "default"})
+
+			retry := 0
+			channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+				Ctx:         ctx,
+				TokenGroup:  "auto",
+				ModelName:   modelName,
+				RequestPath: "/v1/video/generations",
+				Retry:       &retry,
+			})
+			require.NoError(t, err)
+			require.NotNil(t, channel)
+			assert.Equal(t, tt.wantID, channel.Id)
+			assert.Equal(t, tt.wantGroup, selectedGroup)
+		})
+	}
+}

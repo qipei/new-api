@@ -31,10 +31,15 @@ For commercial licensing, please contact support@quantumnous.com
 // 代价要说清楚：长度分档的表达式在这个口径下一律落到低档（len 记 1），两个分组的
 // 档位曲线如果交叉，长上下文请求的实际最优分组可能不是这里选出来的那个。所以这是
 // 排序口径，不承诺每一个请求都最优。
+//
+// 价格表配了分组价时，同一档在各分组的单价不同，比较的是该分组能用的最便宜一档的
+// 单价 × 有效倍率（与卡片上展示的单价口径一致，见 matrix-group-price）。后端选路按每次请求命中的档位比，
+// 请求的档位不是最便宜那一档时两边可能不同。
 import { FILTER_ALL } from '../constants'
 import type { PricingModel } from '../types'
 import { splitBillingExprAndRequestRules } from './billing-expr'
 import { resolveBillingExprForGroup } from './group-billing-expr'
+import { groupMatrixPriceFactor } from './matrix-group-price'
 import { getConfiguredGroupRatio } from './model-helpers'
 import { effectiveGroupRatio } from './model-promotion'
 import { evalExprLocally } from './tier-expr'
@@ -83,6 +88,9 @@ export function groupDisplayCost(model: PricingModel, group: string): number {
     getConfiguredGroupRatio(model.group_ratio || {}, group)
   )
   if (!Number.isFinite(ratio) || ratio < 0) return Number.POSITIVE_INFINITY
+
+  const matrixPriceFactor = groupMatrixPriceFactor(model, group)
+  if (matrixPriceFactor !== undefined) return matrixPriceFactor * ratio
 
   if (model.billing_mode !== 'tiered_expr') return ratio
 

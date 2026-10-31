@@ -35,8 +35,32 @@ func TestRankByPriceForRatioModel(t *testing.T) {
 	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"2.5折":0.25,"7折":0.7,"default":1,"8.8折":0.88}`))
 	require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{"m":2}`))
 
-	ranked := RankGroupsByPrice("m", "", []string{"default", "8.8折", "2.5折", "7折"}, time.Now(), nil)
+	ranked := RankGroupsByPrice("m", "", []string{"default", "8.8折", "2.5折", "7折"}, time.Now(), nil, nil)
 	assert.Equal(t, []string{"2.5折", "7折", "8.8折", "default"}, ranked)
+}
+
+// 价格表配了分组价时，排序看本次请求档位在各分组的单价 × 分组倍率：倍率为 1 但分组价
+// 便宜的分组排在倍率低、原价贵的分组前面；该档位取不到价的分组排到最后。
+func TestRankByPriceUsesMatrixGroupPrices(t *testing.T) {
+	prevMode := billing_setting.SwapBillingModeForTest(map[string]string{})
+	prevPromo := billing_setting.SwapPromotionsForTest(map[string][]billing_setting.ModelPromotion{})
+	t.Cleanup(func() {
+		billing_setting.SwapBillingModeForTest(prevMode)
+		billing_setting.SwapPromotionsForTest(prevPromo)
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"1折":0.1,"wenex":1,"excluded":0.05}`))
+
+	tierPrice := func(group string) (float64, bool) {
+		switch group {
+		case "wenex":
+			return 0.04, true
+		case "1折":
+			return 0.6, true
+		}
+		return 0, false
+	}
+	ranked := RankGroupsByPrice("m", "", []string{"1折", "excluded", "wenex"}, time.Now(), nil, tierPrice)
+	assert.Equal(t, []string{"wenex", "1折", "excluded"}, ranked)
 }
 
 // 分组各配各的表达式时，排序必须看表达式算出来的实际单价，而不是分组倍率——
@@ -68,11 +92,11 @@ func TestRankByPriceUsesTheGroupExpression(t *testing.T) {
 	assert.Greater(t, cheap, base)
 	// 表达式不同 → 必须求值。cheap-ratio 倍率低但表达式贵，总价反而更高。
 	assert.Equal(t, []string{"default", "cheap-ratio"},
-		RankGroupsByPrice("m", "", []string{"cheap-ratio", "default"}, time.Now(), testProbe))
+		RankGroupsByPrice("m", "", []string{"cheap-ratio", "default"}, time.Now(), testProbe, nil))
 
 	// probe 为 nil 时拿不到请求数据，退回只比倍率——不因为缺数据就整个失效。
 	assert.Equal(t, []string{"cheap-ratio", "default"},
-		RankGroupsByPrice("m", "", []string{"cheap-ratio", "default"}, time.Now(), nil))
+		RankGroupsByPrice("m", "", []string{"cheap-ratio", "default"}, time.Now(), nil, nil))
 }
 
 // 分时表达式：同一组分组在闲时和忙时的排序可以不同，这正是"当前时段最低价"的意义。
@@ -95,7 +119,7 @@ func TestRankByPriceFollowsTheCurrentTimeTier(t *testing.T) {
 	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"night":1,"default":1}`))
 
 	// 表达式里的 hour() 读的是真实时钟，所以这里只能断言"两者顺序取决于当前时段"。
-	ranked := RankGroupsByPrice("m", "", []string{"default", "night"}, time.Now(), testProbe)
+	ranked := RankGroupsByPrice("m", "", []string{"default", "night"}, time.Now(), testProbe, nil)
 	nightScore := groupScoreForTest(t, "m", "night")
 	flatScore := groupScoreForTest(t, "m", "default")
 	if nightScore < flatScore {
@@ -115,13 +139,13 @@ func TestRankByPriceAccountsForPromotions(t *testing.T) {
 
 	prevPromo := billing_setting.SwapPromotionsForTest(map[string][]billing_setting.ModelPromotion{})
 	t.Cleanup(func() { billing_setting.SwapPromotionsForTest(prevPromo) })
-	assert.Equal(t, []string{"7折", "8.8折"}, RankGroupsByPrice("m", "", []string{"8.8折", "7折"}, at, nil))
+	assert.Equal(t, []string{"7折", "8.8折"}, RankGroupsByPrice("m", "", []string{"8.8折", "7折"}, at, nil, nil))
 
 	// 8.8折 打五折 = 0.44，比 7折 便宜，排序必须跟着翻转
 	billing_setting.SwapPromotionsForTest(map[string][]billing_setting.ModelPromotion{
 		"m": {{Name: "开学季", Start: "2026-09-01", End: "2026-09-30", TZ: "Asia/Shanghai", Ratio: 0.5, Groups: []string{"8.8折"}}},
 	})
-	assert.Equal(t, []string{"8.8折", "7折"}, RankGroupsByPrice("m", "", []string{"8.8折", "7折"}, at, nil))
+	assert.Equal(t, []string{"8.8折", "7折"}, RankGroupsByPrice("m", "", []string{"8.8折", "7折"}, at, nil, nil))
 }
 
 // 同价时按名字排序，保证同一次配置下结果稳定，否则日志无从对账。
@@ -137,14 +161,14 @@ func TestRankByPriceIsStableForEqualPrices(t *testing.T) {
 
 	for range 5 {
 		assert.Equal(t, []string{"a", "b", "c"},
-			RankGroupsByPrice("m", "", []string{"c", "a", "b"}, time.Now(), nil))
+			RankGroupsByPrice("m", "", []string{"c", "a", "b"}, time.Now(), nil, nil))
 	}
 }
 
 // groupScoreForTest 用一个固定的请求向量给单个分组打分，供断言排序依据用。
 func groupScoreForTest(t *testing.T, modelName, group string) float64 {
 	t.Helper()
-	ranked := RankGroupsByPrice(modelName, "", []string{group}, time.Now(), testProbe)
+	ranked := RankGroupsByPrice(modelName, "", []string{group}, time.Now(), testProbe, nil)
 	_ = ranked
 	expr, _ := billing_setting.GetBillingExprForGroup(modelName, group)
 	ratio := EffectiveGroupRatio(modelName, "", group, time.Now())
@@ -205,5 +229,5 @@ func TestRankByPricePutsUnevaluableGroupsLast(t *testing.T) {
 	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"broken":0.1,"default":1}`))
 
 	assert.Equal(t, []string{"default", "broken"},
-		RankGroupsByPrice("m", "", []string{"broken", "default"}, time.Now(), testProbe))
+		RankGroupsByPrice("m", "", []string{"broken", "default"}, time.Now(), testProbe, nil))
 }

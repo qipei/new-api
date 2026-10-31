@@ -105,6 +105,7 @@ export function getChannelTypeIcon(type: number): string {
     54: 'Doubao', // DoubaoVideo
     56: 'Replicate', // Replicate
     61: 'ComfyUI', // AutoDL ComfyUI
+    62: 'Minimax', // WeNex AI (MiniMax H3)
 
     // Tools & Platforms
     37: 'Dify', // Dify

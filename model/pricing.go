@@ -50,8 +50,9 @@ type Pricing struct {
 	// CUSTOM: 分组名 -> 该分组下渠道配置的闲时时段（去重排序）。价格表的闲时价只在请求
 	// 落到这些渠道、且时刻在时段内时生效，模型广场据此展示闲时价（fork 扩展）。
 	GroupOffPeak map[string][]dto.OffPeakPricing `json:"group_off_peak,omitempty"`
-	// CUSTOM: 本模型只由 ComfyUI 工作流渠道（autodl）提供（fork 扩展）。工作流的参数与
-	// 同名官方模型不同，模型广场据此选用工作流的参数说明，对外模型名可以随意起。
+	// CUSTOM: 本模型只由 ComfyUI 工作流渠道（autodl）或沿用其请求写法的 WeNex 渠道提供
+	// （fork 扩展）。工作流的参数与同名官方模型不同，模型广场据此选用工作流的参数说明，
+	// 对外模型名可以随意起。
 	WorkflowAPI bool `json:"workflow_api,omitempty"`
 }
 
@@ -452,7 +453,7 @@ func updatePricing() {
 	channelInfo := loadPricingChannelInfo(enableAbilities)
 	workflowOnly := make(map[string]bool)
 	for _, ability := range enableAbilities {
-		isWorkflow := ability.ChannelType == constant.ChannelTypeAutoDLComfyUI
+		isWorkflow := ability.ChannelType == constant.ChannelTypeAutoDLComfyUI || ability.ChannelType == constant.ChannelTypeWeNex
 		if previous, seen := workflowOnly[ability.Model]; seen {
 			isWorkflow = previous && isWorkflow
 		}

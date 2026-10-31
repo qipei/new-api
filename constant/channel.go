@@ -60,7 +60,9 @@ const (
 	ChannelTypeNewAPI         = 60
 	// CUSTOM: autodl ComfyUI 工作流（fork 扩展）
 	ChannelTypeAutoDLComfyUI = 61
-	ChannelTypeDummy         // this one is only for count, do not add any channel after this
+	// CUSTOM: WeNex AI（ai.seekthex.com）的 MiniMax H3 视频生成（fork 扩展）
+	ChannelTypeWeNex = 62
+	ChannelTypeDummy // this one is only for count, do not add any channel after this
 
 )
 
@@ -127,6 +129,7 @@ var ChannelBaseURLs = []string{
 	"",                                          //59
 	"",                                          //60
 	"https://autodl.art",                        //61
+	"https://ai.seekthex.com",                   //62
 }
 
 var ChannelTypeNames = map[int]string{
@@ -188,6 +191,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeSub2API:        "Sub2API",
 	ChannelTypeNewAPI:         "New API",
 	ChannelTypeAutoDLComfyUI:  "AutoDL ComfyUI",
+	ChannelTypeWeNex:          "WeNex AI",
 }
 
 func GetChannelTypeName(channelType int) string {

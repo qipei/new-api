@@ -35,6 +35,7 @@ import type {
 } from '../types'
 import { getDynamicPriceEntries, getDynamicPricingTiers } from './dynamic-price'
 import { resolveBillingExprForGroup } from './group-billing-expr'
+import { tableForGroup, tierForGroup } from './matrix-group-price'
 import { isTokenBasedModel } from './model-helpers'
 import { formatFixedPrice, formatGroupPrice } from './price'
 
@@ -376,10 +377,12 @@ export function buildGroupPriceBlocks(
 }
 
 function buildMatrixBlocks(
-  table: VideoPriceTable,
+  matrixTable: VideoPriceTable,
   options: GroupPriceOptions
 ): GroupPriceBlock[] {
   const { t, ratio } = options
+  // 输入图、输入视频单价可以按分组单独配置，卡片展示该分组实际适用的。
+  const table = tableForGroup(matrixTable, options.group)
   const formatUSD = (usd: number, multiplier = ratio): string => {
     const value = options.showRechargePrice
       ? (usd * options.priceRate) / options.usdExchangeRate
@@ -391,7 +394,9 @@ function buildMatrixBlocks(
     })
   }
   const unit = matrixUnitLabel(table.unit, t)
-  const tiers = table.tiers ?? []
+  const tiers = (table.tiers ?? []).map((tier) =>
+    tierForGroup(tier, options.group)
+  )
   const dimensional = tiers.filter((tier) => !isDefaultMatrixTier(tier))
   const blocks: GroupPriceBlock[] = []
   // 本分组有渠道配了闲时时段、且价格表有闲时价时，价格分成高峰与空闲两列。
@@ -525,22 +530,15 @@ function buildMatrixBlocks(
       official: formatUSD(inputImagePrice, 1),
     })
   }
-  // 输入视频单价只在配置了时展示：没配置时与输出同价，不另列一行。
-  if (
-    typeof table.input_video_price === 'number' &&
-    table.input_video_price >= 0
-  ) {
+  // 输入视频单价只在单独收费时展示：没配置时与输出同价，配置为 0 时不收费，都不另列一行
+  // （与输入图单价为 0 时一致）。
+  const inputVideoPrice = Number(table.input_video_price)
+  if (inputVideoPrice > 0) {
     inputRows.push({
       label: t('Input video price'),
       unit: t('per second of input video'),
-      value:
-        table.input_video_price === 0
-          ? t('Free of charge')
-          : formatUSD(table.input_video_price),
-      official:
-        table.input_video_price === 0
-          ? t('Free of charge')
-          : formatUSD(table.input_video_price, 1),
+      value: formatUSD(inputVideoPrice),
+      official: formatUSD(inputVideoPrice, 1),
     })
   }
   const inputTokenPrice = Number(table.input_token_price)

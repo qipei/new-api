@@ -22,6 +22,7 @@ For commercial licensing, please contact support@quantumnous.com
 // 必须把它乘进展示用的倍率——否则页面显示原价、实际按活动价扣，两边对不上。
 
 import type { ModelPromotionInfo, PricingModel } from '../types'
+import { groupMatrixPriceFactor } from './matrix-group-price'
 
 /**
  * 该分组当前生效的活动。多条同时命中时取倍率最低的，和后端
@@ -79,7 +80,10 @@ export interface BestDiscount {
  * 最低能到几折"，用户不关心是靠哪种方式拿到的。
  */
 export function bestDiscount(
-  model: Pick<PricingModel, 'promotions' | 'enable_groups' | 'group_ratio'>
+  model: Pick<
+    PricingModel,
+    'promotions' | 'enable_groups' | 'group_ratio' | 'matrix_price_table'
+  >
 ): BestDiscount | null {
   const groups = Array.isArray(model.enable_groups) ? model.enable_groups : []
   const ratios = model.group_ratio || {}
@@ -89,7 +93,9 @@ export function bestDiscount(
     const base = ratios[group]
     if (!Number.isFinite(base) || base < 0) continue
     const promotion = activePromotionForGroup(model, group)
-    const ratio = promotion ? base * promotion.ratio : base
+    // 价格表配了分组价时，分组价本身也是折扣（相对原价），一起算进去。
+    const priceFactor = groupMatrixPriceFactor(model, group) ?? 1
+    const ratio = (promotion ? base * promotion.ratio : base) * priceFactor
     if (!Number.isFinite(ratio) || ratio < 0) continue
     if (!best || ratio < best.ratio) best = { ratio, group, promotion }
   }

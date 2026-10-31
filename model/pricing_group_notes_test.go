@@ -47,8 +47,8 @@ func TestPricingGroupNotesCollectChannelPublicNotes(t *testing.T) {
 	assert.Nil(t, byModel["h3-plain"])
 }
 
-// 只由 ComfyUI 工作流渠道提供的模型才标记 workflow_api：同时挂在官方渠道上的模型参数
-// 以官方为准，不能套用工作流的说明。
+// 只由 ComfyUI 工作流渠道（或沿用其写法的 WeNex 渠道）提供的模型才标记 workflow_api：
+// 同时挂在官方渠道上的模型参数以官方为准，不能套用工作流的说明。
 func TestPricingMarksWorkflowOnlyModels(t *testing.T) {
 	resetPricingEndpointTestTables(t)
 
@@ -61,10 +61,13 @@ func TestPricingMarksWorkflowOnlyModels(t *testing.T) {
 	insertChannel(301, constant.ChannelTypeAutoDLComfyUI)
 	insertChannel(302, constant.ChannelTypeAutoDLComfyUI)
 	insertChannel(303, constant.ChannelTypeMiniMax)
+	insertChannel(304, constant.ChannelTypeWeNex)
 	insertAbility(301, "MiniMax-H3-Turbo")
 	insertAbility(302, "MiniMax-H3-Turbo")
 	insertAbility(301, "MiniMax-H3")
 	insertAbility(303, "MiniMax-H3")
+	insertAbility(301, "MiniMax-H3-Fast")
+	insertAbility(304, "MiniMax-H3-Fast")
 
 	InitChannelCache()
 	byModel := make(map[string]bool)
@@ -73,6 +76,7 @@ func TestPricingMarksWorkflowOnlyModels(t *testing.T) {
 	}
 
 	assert.True(t, byModel["MiniMax-H3-Turbo"])
+	assert.True(t, byModel["MiniMax-H3-Fast"])
 	assert.False(t, byModel["MiniMax-H3"])
 }
 

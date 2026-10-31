@@ -15,6 +15,14 @@ import (
 // 价格档位排除了该分组时返回 true。自动分组选路时据此跳过不支持的分组。
 var MatrixTierExcludedFunc func(c *gin.Context, modelName string, group string) bool
 
+// TaskRequestUnsupportedFunc 由 main 包注入：该分组下提供这个模型的渠道都处理不了本次任务
+// 请求时返回 true（见 relay.TaskRequestUnsupportedByGroup），自动分组选路时跳过这个分组。
+var TaskRequestUnsupportedFunc func(c *gin.Context, modelName string, group string) bool
+
+// MatrixGroupTierPricerFunc 由 main 包注入：价格表配了分组价时，返回按本次请求的档位给分组
+// 取单价的函数（见 relay.MatrixGroupTierPricer），比价路由据此排序；返回 nil 时只比倍率。
+var MatrixGroupTierPricerFunc func(c *gin.Context, modelName string) func(group string) (float64, bool)
+
 type RetryParam struct {
 	Ctx          *gin.Context
 	TokenGroup   string
@@ -113,15 +121,20 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 		}
 
-		// CUSTOM: 价格表档位可以排除分组（fork 扩展）。跳过不支持本次请求档位的分组，
-		// 顺延到下一个；全部被排除时保留原列表，由取价环节返回明确的「该分组不支持」。
-		// 同一请求的请求体不变，每次重试过滤出的列表相同，AutoGroupIndex 仍然有效。
-		if MatrixTierExcludedFunc != nil {
+		// CUSTOM: 价格表档位可以排除分组，分组里的渠道也可能都处理不了本次请求（例如 WeNex
+		// 不支持参考视频）（fork 扩展）。跳过这些分组，顺延到下一个；全部被跳过时保留原列表，
+		// 由取价或本地校验返回明确的原因。同一请求的请求体不变，每次重试过滤出的列表相同，
+		// AutoGroupIndex 仍然有效。
+		if MatrixTierExcludedFunc != nil || TaskRequestUnsupportedFunc != nil {
 			supported := make([]string, 0, len(autoGroups))
 			for _, group := range autoGroups {
-				if !MatrixTierExcludedFunc(param.Ctx, param.ModelName, group) {
-					supported = append(supported, group)
+				if MatrixTierExcludedFunc != nil && MatrixTierExcludedFunc(param.Ctx, param.ModelName, group) {
+					continue
 				}
+				if TaskRequestUnsupportedFunc != nil && TaskRequestUnsupportedFunc(param.Ctx, param.ModelName, group) {
+					continue
+				}
+				supported = append(supported, group)
 			}
 			if len(supported) > 0 {
 				autoGroups = supported

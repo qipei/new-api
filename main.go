@@ -164,6 +164,10 @@ func main() {
 	// calls service.RunTaskPollingOnce, which needs this factory set.
 	// CUSTOM: 自动分组选路跳过价格档位不适用的分组（fork 扩展）
 	service.MatrixTierExcludedFunc = relay.MatrixTierExcludedForGroup
+	// CUSTOM: 价格表配了分组价时，比价路由按本次请求档位的分组价排序（fork 扩展）
+	service.MatrixGroupTierPricerFunc = relay.MatrixGroupTierPricer
+	// CUSTOM: 分组里的渠道都处理不了本次任务请求时（例如 WeNex 不支持参考视频），自动选路跳过该分组（fork 扩展）
+	service.TaskRequestUnsupportedFunc = relay.TaskRequestUnsupportedByGroup
 	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
 		a := relay.GetTaskAdaptor(platform)
 		if a == nil {

@@ -142,7 +142,7 @@ func TestAutoPriceCandidatesSkipGroupsWithoutTheModel(t *testing.T) {
 	})
 
 	assert.Equal(t, []string{"has-model"},
-		GetRequestPriceRankedGroups("default", modelName, time.Now(), nil),
+		GetRequestPriceRankedGroups("default", modelName, time.Now(), nil, nil),
 		"没有该模型渠道的分组不该进入候选，哪怕它更便宜")
 }
 

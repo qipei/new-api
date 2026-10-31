@@ -261,6 +261,47 @@ func TestVideoMatrixQuotaOnCompletePricesInputVideoSeconds(t *testing.T) {
 	}
 }
 
+// 分组输入价：任务所在分组配了输入图、输入视频单价时按它结算，其他分组沿用价格表的；
+// 只配了其中一项的分组，另一项沿用价格表的。
+func TestVideoMatrixQuotaOnCompleteUsesGroupInputPrices(t *testing.T) {
+	price := func(v float64) *float64 { return &v }
+	withTables(t, map[string]video_billing.ModelPriceTable{
+		"seedance-matrix": {
+			Unit:            video_billing.UnitPerSecond,
+			Tiers:           []video_billing.PriceTier{{Price: 0.5}},
+			InputImagePrice: 0.02,
+			FreeInputImages: 1,
+			InputVideoPrice: price(0.8),
+			GroupInputPrices: map[string]video_billing.GroupInputPrice{
+				"wenex":      {InputImagePrice: price(0), InputVideoPrice: price(0.1)},
+				"image-only": {InputImagePrice: price(0.05)},
+			},
+		},
+	})
+	tests := []struct {
+		group   string
+		wantUSD float64
+	}{
+		{"wenex", 5*0.5 + 8*0.1},
+		{"image-only", 5*0.5 + 8*0.8 + 2*0.05},
+		{"default", 5*0.5 + 8*0.8 + 2*0.02},
+	}
+	for _, tt := range tests {
+		t.Run(tt.group, func(t *testing.T) {
+			task := matrixTask(0.5, 1, true)
+			task.Group = tt.group
+			task.PrivateData.BillingContext.SettleOnComplete = true
+			images := 3
+			task.PrivateData.BillingContext.InputImages = &images
+			result := &relaycommon.TaskInfo{BillingDuration: 13, InputVideoSeconds: 8}
+
+			quota := VideoMatrixQuotaOnComplete(task, result)
+
+			assert.Equal(t, common.QuotaFromFloat(tt.wantUSD*common.QuotaPerUnit), quota)
+		})
+	}
+}
+
 // 上游单次有最低收费时，不足价格表最低计费时长的按最低时长结算，超过的按实际时长。
 func TestVideoMatrixQuotaOnCompleteAppliesMinSeconds(t *testing.T) {
 	withTables(t, map[string]video_billing.ModelPriceTable{

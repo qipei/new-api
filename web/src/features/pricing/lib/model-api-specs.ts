@@ -89,7 +89,8 @@ export type ModelApiSpec = {
   /** 命中该族的模型名（平台侧名称，大小写不敏感）。 */
   match: RegExp
   /**
-   * 只用于全部由 ComfyUI 工作流渠道（autodl）提供的模型（pricing 的 workflow_api）。
+   * 只用于全部由 ComfyUI 工作流渠道（autodl）或沿用其请求写法的 WeNex 渠道提供的模型
+   * （pricing 的 workflow_api）。
    * 工作流的参数与同名官方模型不同，按渠道区分后对外模型名可以随意起，
    * 例如 autodl 的 H3 也可以叫 MiniMax-H3-Turbo。
    */
@@ -2917,6 +2918,8 @@ const INDEXTTS2_TASK: ModelApiSpec = {
 // MiniMax-H3 加速版（autodl ComfyUI 工作流，按请求时长计费）
 // 依据：relay/channel/task/autodl/adaptor.go buildWorkflowParams。只用于全部由 autodl
 // 渠道提供的模型，对外名可以叫 MiniMax-H3-Turbo 等；官方 H3 见 MINIMAX_VIDEO。
+// WeNex 渠道（relay/channel/task/wenex）可以挂在同一个模型下，它接受这里的写法，
+// 能力差异（只有 768p/1088p、4~15 秒、动态优化参数）写在渠道对外说明里。
 // 每个模型映射到一个工作流，工作流只认自己的参数（文生 / 首尾帧 / 参考图音频）。
 // ---------------------------------------------------------------------------
 

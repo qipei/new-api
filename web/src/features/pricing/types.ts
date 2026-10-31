@@ -119,6 +119,8 @@ export type VideoPriceTier = {
   excluded_groups?: string[]
   /** 闲时价：请求落到配了闲时时段的渠道、且在时段内时按它计费 */
   off_peak_price?: number
+  /** 分组价（只含当前查看者可见的分组）：该分组按它代替 price，不使用闲时价 */
+  group_prices?: Record<string, number>
 }
 
 /** 渠道的闲时时段：每日 [start, end)，end 早于 start 表示跨零点 */
@@ -139,6 +141,11 @@ export type VideoPriceTable = {
   input_token_price?: number
   /** 最低计费时长（秒，按秒计费）；不足的请求按它计费 */
   min_seconds?: number
+  /** 分组输入价（只含当前查看者可见的分组）：该分组的输入图、输入视频单价，没填的沿用上面的 */
+  group_input_prices?: Record<
+    string,
+    { input_image_price?: number; input_video_price?: number }
+  >
 }
 
 export type PricingData = {

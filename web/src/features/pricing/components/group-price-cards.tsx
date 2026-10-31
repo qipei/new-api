@@ -45,6 +45,7 @@ import {
   recentAvgLatencyMs,
   type GroupRouteStatus,
 } from '../lib/group-route-stats'
+import { groupMatrixPriceFactor } from '../lib/matrix-group-price'
 import {
   getAvailableGroups,
   getConfiguredGroupRatio,
@@ -181,6 +182,9 @@ export function GroupPriceCards(props: {
           usdExchangeRate: props.usdExchangeRate,
           t,
         })
+        // 价格表配了分组价时，分组价本身也是相对官方价的折扣，节省比例要一起算。
+        const effectiveRatio =
+          ratio * (groupMatrixPriceFactor(props.model, group) ?? 1)
         return {
           group,
           description: props.usableGroup[group]?.desc ?? '',
@@ -195,8 +199,8 @@ export function GroupPriceCards(props: {
             : null,
           priceCost: groupDisplayCost(props.model, group),
           savingPercent:
-            ratio < 1 && Math.round((1 - ratio) * 100) > 0
-              ? Math.round((1 - ratio) * 100)
+            effectiveRatio < 1 && Math.round((1 - effectiveRatio) * 100) > 0
+              ? Math.round((1 - effectiveRatio) * 100)
               : null,
           limitNote,
           blocks,

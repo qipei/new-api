@@ -63,6 +63,8 @@ import {
 import {
   formatVideoPricingJson,
   nextEditableBucketUid,
+  nextEditableGroupInputPriceUid,
+  nextEditableGroupPriceUid,
   nextEditableTierUid,
   parseVideoPricingJsonDraft,
   parseVideoPricingTables,
@@ -113,6 +115,10 @@ const ISSUE_LABEL_KEYS: Record<string, string> = {
   input_video_price:
     'input video price must be 0 or greater when set; 0 means free',
   off_peak_price: 'off-peak price must be greater than 0 when set',
+  group_price:
+    'each group price needs a group used once per tier and a price greater than 0',
+  group_input_price:
+    'each group input price needs a group used once per model and at least one price of 0 or more',
   min_seconds: 'minimum billable seconds must be between 0 and 3600 when set',
   pixel_range: 'pixel limits must be positive integers in ascending order',
   resolution_bucket: 'resolution bucket names and sizes must be valid',
@@ -242,6 +248,7 @@ export function VideoPricingSection(props: {
         minSeconds: '',
         resolutionTemplate: '',
         resolutionBuckets: [],
+        groupInputPrices: [],
         tiers: [
           {
             uid: nextEditableTierUid(),
@@ -253,6 +260,7 @@ export function VideoPricingSection(props: {
             price: '',
             excludedGroups: [],
             offPeakPrice: '',
+            groupPrices: [],
           },
         ],
       },
@@ -278,6 +286,7 @@ export function VideoPricingSection(props: {
               price: '',
               excludedGroups: [],
               offPeakPrice: '',
+              groupPrices: [],
             },
           ],
         }
@@ -558,6 +567,149 @@ export function VideoPricingSection(props: {
                       </span>
                     </div>
                     <div className='space-y-2 rounded-md border p-3'>
+                      <div>
+                        <p className='text-sm font-medium'>
+                          {t('Group input prices')}
+                        </p>
+                        <p className='text-muted-foreground text-xs'>
+                          {t(
+                            'Override the input prices for specific groups whose upstream charges reference inputs differently; empty fields keep the prices above. Still multiplied by the group ratio.'
+                          )}
+                        </p>
+                      </div>
+                      {table.groupInputPrices.map((row) => (
+                        <div
+                          key={row.uid}
+                          className='flex flex-wrap items-center gap-2'
+                        >
+                          <Select
+                            value={row.group}
+                            onValueChange={(value) =>
+                              patchTable(tableIndex, {
+                                groupInputPrices: table.groupInputPrices.map(
+                                  (item) =>
+                                    item.uid === row.uid
+                                      ? { ...item, group: value ?? '' }
+                                      : item
+                                ),
+                              })
+                            }
+                            items={groupOptions}
+                          >
+                            <SelectTrigger
+                              className='w-36'
+                              aria-label={t('Group')}
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {groupOptions.map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <span className='text-muted-foreground text-sm'>
+                            {t('Input image price')}
+                          </span>
+                          <Input
+                            className='w-28'
+                            inputMode='decimal'
+                            placeholder={t('Inherit')}
+                            value={row.inputImagePrice}
+                            aria-label={`${row.group} ${t('Input image price')}`}
+                            onChange={(e) =>
+                              patchTable(tableIndex, {
+                                groupInputPrices: table.groupInputPrices.map(
+                                  (item) =>
+                                    item.uid === row.uid
+                                      ? {
+                                          ...item,
+                                          inputImagePrice: e.target.value,
+                                        }
+                                      : item
+                                ),
+                              })
+                            }
+                          />
+                          {table.unit === 'per_second' && (
+                            <>
+                              <span className='text-muted-foreground text-sm'>
+                                {t('Input video price')}
+                              </span>
+                              <Input
+                                className='w-28'
+                                inputMode='decimal'
+                                placeholder={t('Inherit')}
+                                value={row.inputVideoPrice}
+                                aria-label={`${row.group} ${t('Input video price')}`}
+                                onChange={(e) =>
+                                  patchTable(tableIndex, {
+                                    groupInputPrices:
+                                      table.groupInputPrices.map((item) =>
+                                        item.uid === row.uid
+                                          ? {
+                                              ...item,
+                                              inputVideoPrice: e.target.value,
+                                            }
+                                          : item
+                                      ),
+                                  })
+                                }
+                              />
+                            </>
+                          )}
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='icon'
+                            aria-label={t('Remove group input price')}
+                            onClick={() =>
+                              patchTable(tableIndex, {
+                                groupInputPrices: table.groupInputPrices.filter(
+                                  (item) => item.uid !== row.uid
+                                ),
+                              })
+                            }
+                          >
+                            <X className='size-4' />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='sm'
+                        disabled={groupOptions.length === 0}
+                        onClick={() => {
+                          const priced = new Set(
+                            table.groupInputPrices.map((item) => item.group)
+                          )
+                          patchTable(tableIndex, {
+                            groupInputPrices: [
+                              ...table.groupInputPrices,
+                              {
+                                uid: nextEditableGroupInputPriceUid(),
+                                group:
+                                  groupOptions.find(
+                                    (option) => !priced.has(option.value)
+                                  )?.value ?? '',
+                                inputImagePrice: '',
+                                inputVideoPrice: '',
+                              },
+                            ],
+                          })
+                        }}
+                      >
+                        <Plus className='mr-1 size-4' />
+                        {t('Add group input price')}
+                      </Button>
+                    </div>
+                    <div className='space-y-2 rounded-md border p-3'>
                       <div className='flex flex-wrap items-center gap-2'>
                         <div>
                           <p className='text-sm font-medium'>
@@ -700,8 +852,8 @@ export function VideoPricingSection(props: {
                   <table
                     className={
                       table.unit === 'per_image'
-                        ? 'w-full min-w-[1040px] text-sm'
-                        : 'w-full min-w-[920px] text-sm'
+                        ? 'w-full min-w-[1320px] text-sm'
+                        : 'w-full min-w-[1200px] text-sm'
                     }
                   >
                     <thead>
@@ -734,6 +886,9 @@ export function VideoPricingSection(props: {
                         )}
                         <th className='py-1 pr-3 font-normal'>
                           {t('Excluded groups')}
+                        </th>
+                        <th className='py-1 pr-3 font-normal'>
+                          {t('Group prices')}
                         </th>
                         <th className='w-10 py-1' />
                       </tr>
@@ -887,6 +1042,111 @@ export function VideoPricingSection(props: {
                               maxVisibleChips={2}
                             />
                           </td>
+                          <td className='py-1 pr-3'>
+                            <div className='flex w-64 flex-col gap-1'>
+                              {tier.groupPrices.map((row) => (
+                                <div
+                                  key={row.uid}
+                                  className='flex items-center gap-1'
+                                >
+                                  <Select
+                                    value={row.group}
+                                    onValueChange={(value) =>
+                                      patchTier(tableIndex, tierIndex, {
+                                        groupPrices: tier.groupPrices.map(
+                                          (item) =>
+                                            item.uid === row.uid
+                                              ? { ...item, group: value ?? '' }
+                                              : item
+                                        ),
+                                      })
+                                    }
+                                    items={groupOptions}
+                                  >
+                                    <SelectTrigger
+                                      className='w-32'
+                                      aria-label={t('Group')}
+                                    >
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {groupOptions.map((option) => (
+                                        <SelectItem
+                                          key={option.value}
+                                          value={option.value}
+                                        >
+                                          {option.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <Input
+                                    className='w-24'
+                                    inputMode='decimal'
+                                    value={row.price}
+                                    aria-label={t('Group price')}
+                                    onChange={(e) =>
+                                      patchTier(tableIndex, tierIndex, {
+                                        groupPrices: tier.groupPrices.map(
+                                          (item) =>
+                                            item.uid === row.uid
+                                              ? {
+                                                  ...item,
+                                                  price: e.target.value,
+                                                }
+                                              : item
+                                        ),
+                                      })
+                                    }
+                                  />
+                                  <Button
+                                    type='button'
+                                    variant='ghost'
+                                    size='icon'
+                                    aria-label={t('Remove group price')}
+                                    onClick={() =>
+                                      patchTier(tableIndex, tierIndex, {
+                                        groupPrices: tier.groupPrices.filter(
+                                          (item) => item.uid !== row.uid
+                                        ),
+                                      })
+                                    }
+                                  >
+                                    <X className='size-4' />
+                                  </Button>
+                                </div>
+                              ))}
+                              <Button
+                                type='button'
+                                variant='ghost'
+                                size='sm'
+                                className='w-fit'
+                                disabled={groupOptions.length === 0}
+                                onClick={() => {
+                                  const priced = new Set(
+                                    tier.groupPrices.map((item) => item.group)
+                                  )
+                                  const group =
+                                    groupOptions.find(
+                                      (option) => !priced.has(option.value)
+                                    )?.value ?? ''
+                                  patchTier(tableIndex, tierIndex, {
+                                    groupPrices: [
+                                      ...tier.groupPrices,
+                                      {
+                                        uid: nextEditableGroupPriceUid(),
+                                        group,
+                                        price: '',
+                                      },
+                                    ],
+                                  })
+                                }}
+                              >
+                                <Plus className='mr-1 size-4' />
+                                {t('Add group price')}
+                              </Button>
+                            </div>
+                          </td>
                           <td className='py-1'>
                             <Button
                               type='button'
@@ -921,6 +1181,11 @@ export function VideoPricingSection(props: {
                     )}
                   </p>
                 )}
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'A group price replaces the tier price for that group and is still multiplied by the group ratio; the off-peak price does not apply to it.'
+                  )}
+                </p>
                 <Button
                   type='button'
                   variant='outline'

@@ -71,6 +71,26 @@ type PriceTier struct {
 	// CUSTOM: 闲时价（fork 扩展）。请求在渠道配置的闲时时段内（见渠道设置
 	// off_peak_pricing）时按它计费；不填表示该档没有闲时价，始终按 Price 计费。
 	OffPeakPrice *float64 `json:"off_peak_price,omitempty"`
+	// CUSTOM: 分组价（fork 扩展），分组名 -> 单价。同一模型挂在不同分组的线路成本不同，
+	// 各档之间的价差也不同，只靠分组倍率没法让每一档都卖到目标价。配了的分组按它代替
+	// Price 计费（仍乘分组倍率），并且不使用闲时价。
+	GroupPrices map[string]float64 `json:"group_prices,omitempty"`
+}
+
+// forGroup 返回该分组实际适用的档位：配了有效分组价时用它代替原价，不再按闲时价计。
+// 分组价无效（非正数、NaN/Inf，改库或其他接口写入）时忽略，按原价收。
+func (tier PriceTier) forGroup(group string) PriceTier {
+	price, ok := tier.GroupPrices[group]
+	if !ok {
+		return tier
+	}
+	if price <= 0 || math.IsInf(price, 0) || math.IsNaN(price) {
+		common.SysError(fmt.Sprintf("invalid group_prices[%s] %v ignored", group, price))
+		return tier
+	}
+	tier.Price = price
+	tier.OffPeakPrice = nil
+	return tier
 }
 
 // PriceAt 返回档位单价以及是否按闲时价计。只有渠道处于闲时时段且该档配了有效的
@@ -128,6 +148,45 @@ type ModelPriceTable struct {
 	// （例如 autodl IndexTTS2 每次至少 ¥0.01），不足这个时长的请求按它计费，否则短
 	// 请求的收入会低于上游成本。预扣与完成结算都按它兜底。
 	MinSeconds float64 `json:"min_seconds,omitempty"`
+	// CUSTOM: 分组输入价（fork 扩展），分组名 -> 该分组的输入图、输入视频单价。同一模型挂在
+	// 不同分组的线路，上游对参考图、参考视频的收费规则不同（例如 WeNex 不按张收费），这里填
+	// 了的分组按它代替价格表的 InputImagePrice / InputVideoPrice（仍乘分组倍率）。
+	GroupInputPrices map[string]GroupInputPrice `json:"group_input_prices,omitempty"`
+}
+
+// GroupInputPrice 一个分组的输入价，不填的项沿用价格表的。
+type GroupInputPrice struct {
+	// InputImagePrice 每张输入图单价（USD），0 为不收费。免费张数沿用价格表的 FreeInputImages。
+	InputImagePrice *float64 `json:"input_image_price,omitempty"`
+	// InputVideoPrice 每秒输入视频单价（USD），0 为免费。仅 per_second。
+	InputVideoPrice *float64 `json:"input_video_price,omitempty"`
+}
+
+// ForGroup 返回该分组实际适用的价格表：配了分组输入价时用它代替价格表的输入图、输入视频
+// 单价。单价无效（负数、NaN/Inf，改库或其他接口写入）时忽略，沿用价格表的。
+func (table ModelPriceTable) ForGroup(group string) ModelPriceTable {
+	prices, ok := table.GroupInputPrices[group]
+	if !ok {
+		return table
+	}
+	valid := func(name string, price *float64) bool {
+		if price == nil {
+			return false
+		}
+		if *price < 0 || math.IsInf(*price, 0) || math.IsNaN(*price) {
+			common.SysError(fmt.Sprintf("invalid group_input_prices[%s].%s %v ignored", group, name, *price))
+			return false
+		}
+		return true
+	}
+	if valid("input_image_price", prices.InputImagePrice) {
+		table.InputImagePrice = *prices.InputImagePrice
+	}
+	if valid("input_video_price", prices.InputVideoPrice) {
+		price := *prices.InputVideoPrice
+		table.InputVideoPrice = &price
+	}
+	return table
 }
 
 // BillableSeconds 按最低计费时长兜底后的计费秒数。最低时长无效（负数、NaN/Inf、超过
@@ -242,6 +301,7 @@ func GetTier(modelName, group, mode, resolution, audio string) (PriceTier, strin
 	bestScore, excludedScore := -1, -1
 	var best PriceTier
 	for _, tier := range table.Tiers {
+		tier = tier.forGroup(group)
 		score := tierMatchScore(tier, mode, rawResolution, normResolution, audio, table)
 		if score < 0 || tier.Price <= 0 {
 			continue
@@ -262,6 +322,16 @@ func GetTier(modelName, group, mode, resolution, audio string) (PriceTier, strin
 		return PriceTier{}, "", ErrNoMatchingTier
 	}
 	return best, table.Unit, nil
+}
+
+// HasGroupPrices 价格表是否有档位配了分组价。没有时各分组的价差只有分组倍率。
+func (table ModelPriceTable) HasGroupPrices() bool {
+	for _, tier := range table.Tiers {
+		if len(tier.GroupPrices) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // HasExcludedGroups 价格表是否有档位排除了分组。没有时调用方可以跳过按请求解析维度。
@@ -461,28 +531,52 @@ func parseSize(res string) (int, int, bool) {
 	return w, h, true
 }
 
-// PublicTables 返回供定价接口对外展示的价格表。档位的不适用分组只保留查看者
-// 可见的分组：不对外的分组名不能出现在公开接口里，而且它们本来就与查看者无关。
+// PublicTables 返回供定价接口对外展示的价格表。档位的不适用分组、分组价和分组输入价只
+// 保留查看者可见的分组：不对外的分组名不能出现在公开接口里，而且它们本来就与查看者无关。
 func PublicTables(visibleGroups map[string]string) map[string]ModelPriceTable {
 	if len(videoBillingSettings.PriceTables) == 0 {
 		return nil
 	}
 	copied := make(map[string]ModelPriceTable, len(videoBillingSettings.PriceTables))
 	for name, table := range videoBillingSettings.PriceTables {
-		if table.HasExcludedGroups() {
-			tiers := make([]PriceTier, len(table.Tiers))
-			for i, tier := range table.Tiers {
-				var visible []string
-				for _, group := range tier.ExcludedGroups {
-					if _, ok := visibleGroups[group]; ok {
-						visible = append(visible, group)
+		if len(table.GroupInputPrices) > 0 {
+			var groupInputPrices map[string]GroupInputPrice
+			for group, prices := range table.GroupInputPrices {
+				if _, ok := visibleGroups[group]; ok {
+					if groupInputPrices == nil {
+						groupInputPrices = make(map[string]GroupInputPrice)
 					}
+					groupInputPrices[group] = prices
 				}
-				tier.ExcludedGroups = visible
-				tiers[i] = tier
 			}
-			table.Tiers = tiers
+			table.GroupInputPrices = groupInputPrices
 		}
+		if !table.HasExcludedGroups() && !table.HasGroupPrices() {
+			copied[name] = table
+			continue
+		}
+		tiers := make([]PriceTier, len(table.Tiers))
+		for i, tier := range table.Tiers {
+			var visible []string
+			for _, group := range tier.ExcludedGroups {
+				if _, ok := visibleGroups[group]; ok {
+					visible = append(visible, group)
+				}
+			}
+			tier.ExcludedGroups = visible
+			var groupPrices map[string]float64
+			for group, price := range tier.GroupPrices {
+				if _, ok := visibleGroups[group]; ok {
+					if groupPrices == nil {
+						groupPrices = make(map[string]float64)
+					}
+					groupPrices[group] = price
+				}
+			}
+			tier.GroupPrices = groupPrices
+			tiers[i] = tier
+		}
+		table.Tiers = tiers
 		copied[name] = table
 	}
 	return copied

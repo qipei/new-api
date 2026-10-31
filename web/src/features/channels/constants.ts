@@ -82,6 +82,7 @@ export const CHANNEL_TYPES = {
   59: 'Sub2API',
   60: 'New API',
   61: 'AutoDL ComfyUI',
+  62: 'WeNex AI',
 } as const
 
 // CUSTOM: autodl ComfyUI 工作流渠道（fork 扩展），模型映射把对外模型名映射到 workflow_id
@@ -90,7 +91,7 @@ export const CHANNEL_TYPE_AUTODL_COMFYUI = 61
 const CHANNEL_TYPE_DISPLAY_ORDER: number[] = [
   1, 14, 33, 24, 43, 3, 41, 48, 60, 58, 42, 34, 20, 4, 40, 27, 25, 17, 26, 15,
   46, 23, 18, 45, 31, 35, 49, 19, 47, 37, 38, 39, 11, 8, 57, 59, 22, 21, 44, 2,
-  5, 36, 50, 51, 52, 53, 54, 55, 56, 61,
+  5, 36, 50, 51, 52, 53, 54, 55, 56, 61, 62,
 ]
 
 export const CHANNEL_TYPE_OPTIONS: { value: number; label: string }[] = (() => {
@@ -438,4 +439,5 @@ export const CHANNEL_TYPE_WARNINGS: Record<number, string> = {
   8: 'If connecting to upstream One API or New API relay projects, use OpenAI type instead unless you know what you are doing',
   37: 'Dify channels only support chatflow and agent, and agent does not support images',
   61: 'Each AutoDL ComfyUI channel runs one workflow: map the public model name to the workflow_id in Model Mapping. Use a ComfyUI-group token from autodl as the key.',
+  62: 'WeNex AI only serves MiniMax H3 video: map the public model name to h3_video in Model Mapping. Price tiers are 768p and 1080p; result files are kept for 3 days.',
 }

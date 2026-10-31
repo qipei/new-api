@@ -163,6 +163,7 @@ describe('video pricing core', () => {
           inputVideoPrice: '',
           minSeconds: '',
           resolutionBuckets: [],
+          groupInputPrices: [],
           tiers: [
             {
               uid: 't1',
@@ -174,6 +175,7 @@ describe('video pricing core', () => {
               price: '0.5',
               excludedGroups: [],
               offPeakPrice: '',
+              groupPrices: [],
             },
           ],
         },
@@ -262,6 +264,7 @@ describe('video pricing core', () => {
         inputVideoPrice: '',
         minSeconds: '',
         resolutionBuckets: [],
+        groupInputPrices: [],
         tiers: [
           {
             uid: 't1',
@@ -273,6 +276,7 @@ describe('video pricing core', () => {
             price: '1',
             excludedGroups: [],
             offPeakPrice: '',
+            groupPrices: [],
           },
         ],
       },
@@ -285,6 +289,7 @@ describe('video pricing core', () => {
         inputVideoPrice: '',
         minSeconds: '',
         resolutionBuckets: [],
+        groupInputPrices: [],
         tiers: [
           {
             uid: 't2',
@@ -296,6 +301,7 @@ describe('video pricing core', () => {
             price: '-1',
             excludedGroups: [],
             offPeakPrice: '',
+            groupPrices: [],
           },
           {
             uid: 't3',
@@ -307,6 +313,7 @@ describe('video pricing core', () => {
             price: '5',
             excludedGroups: [],
             offPeakPrice: '',
+            groupPrices: [],
           },
           {
             uid: 't4',
@@ -318,6 +325,7 @@ describe('video pricing core', () => {
             price: '6',
             excludedGroups: [],
             offPeakPrice: '',
+            groupPrices: [],
           },
         ],
       },
@@ -344,6 +352,7 @@ describe('video pricing core', () => {
         inputVideoPrice: '',
         minSeconds: '',
         resolutionBuckets: [],
+        groupInputPrices: [],
         tiers: [
           {
             uid: 't5',
@@ -355,6 +364,7 @@ describe('video pricing core', () => {
             price: '6.3',
             excludedGroups: [],
             offPeakPrice: '',
+            groupPrices: [],
           },
           {
             uid: 't6',
@@ -366,6 +376,7 @@ describe('video pricing core', () => {
             price: '7',
             excludedGroups: [],
             offPeakPrice: '',
+            groupPrices: [],
           },
         ],
       },
@@ -384,6 +395,7 @@ describe('video pricing core', () => {
         inputVideoPrice: '',
         minSeconds: '',
         resolutionBuckets: [],
+        groupInputPrices: [],
         tiers: [
           {
             uid: 'default',
@@ -395,6 +407,7 @@ describe('video pricing core', () => {
             price: '0.6',
             excludedGroups: [],
             offPeakPrice: '',
+            groupPrices: [],
           },
           {
             uid: 'range',
@@ -406,6 +419,7 @@ describe('video pricing core', () => {
             price: '0.6',
             excludedGroups: [],
             offPeakPrice: '',
+            groupPrices: [],
           },
         ],
       },
@@ -454,6 +468,7 @@ describe('video pricing core', () => {
         freeInputImages: '',
         inputVideoPrice: '',
         minSeconds: '',
+        groupInputPrices: [],
         resolutionBuckets: [
           { uid: 'b1', name: '1k', sizes: '1024x1024, bad' },
           { uid: 'b2', name: '2k', sizes: '1024*1024' },
@@ -469,6 +484,7 @@ describe('video pricing core', () => {
             price: '0.5',
             excludedGroups: [],
             offPeakPrice: '',
+            groupPrices: [],
           },
         ],
       },
@@ -558,6 +574,168 @@ describe('off-peak price', () => {
       })
     )
     assert.equal(result.error, 'shape')
+  })
+})
+
+// 分组价：同一模型在不同分组的线路成本不同，各档按分组单独定价。序列化只保留填了分组
+// 和正数价格的行，按分组名排序；同一档里分组重复、价格无效时不让保存。
+describe('group prices', () => {
+  test('group prices round-trip sorted by group', () => {
+    const raw = JSON.stringify({
+      'MiniMax-H3-Fast': {
+        unit: 'per_second',
+        tiers: [
+          { price: 0.8 },
+          {
+            resolution: '768p',
+            price: 0.6,
+            group_prices: { wenex: 0.04, alpha: 0.05 },
+          },
+        ],
+      },
+    })
+    const tables = parseVideoPricingTables(raw)
+    assert.deepEqual(
+      tables[0].tiers[1].groupPrices.map(({ group, price }) => ({
+        group,
+        price,
+      })),
+      [
+        { group: 'alpha', price: '0.05' },
+        { group: 'wenex', price: '0.04' },
+      ]
+    )
+    assert.deepEqual(tables[0].tiers[0].groupPrices, [])
+
+    const serialized = JSON.parse(serializeVideoPricingTables(tables))
+    assert.deepEqual(serialized['MiniMax-H3-Fast'].tiers, [
+      { price: 0.8 },
+      {
+        price: 0.6,
+        resolution: '768p',
+        group_prices: { alpha: 0.05, wenex: 0.04 },
+      },
+    ])
+  })
+
+  test('rejects duplicate groups, missing groups and non-positive prices', () => {
+    const tables = parseVideoPricingTables(
+      JSON.stringify({
+        'MiniMax-H3-Fast': {
+          unit: 'per_second',
+          tiers: [{ price: 0.8, group_prices: { wenex: 0.04 } }],
+        },
+      })
+    )
+    const tier = tables[0].tiers[0]
+    assert.deepEqual(validateVideoPricingTables(tables), [])
+
+    tier.groupPrices = [
+      { uid: 'a', group: 'wenex', price: '0.04' },
+      { uid: 'b', group: 'wenex', price: '0.05' },
+    ]
+    assert.deepEqual(
+      validateVideoPricingTables(tables).map((issue) => issue.reason),
+      ['group_price']
+    )
+    tier.groupPrices = [{ uid: 'a', group: '', price: '0.04' }]
+    assert.deepEqual(
+      validateVideoPricingTables(tables).map((issue) => issue.reason),
+      ['group_price']
+    )
+    tier.groupPrices = [{ uid: 'a', group: 'wenex', price: '0' }]
+    assert.deepEqual(
+      validateVideoPricingTables(tables).map((issue) => issue.reason),
+      ['group_price']
+    )
+  })
+
+  test('JSON draft rejects non-numeric group prices', () => {
+    const result = parseVideoPricingJsonDraft(
+      JSON.stringify({
+        'MiniMax-H3-Fast': {
+          unit: 'per_second',
+          tiers: [{ price: 0.8, group_prices: { wenex: '0.04' } }],
+        },
+      })
+    )
+    assert.equal(result.error, 'shape')
+  })
+})
+
+// 分组输入价：只保留填了分组和至少一项单价的行，按分组名排序；输入视频单价只对按秒计费
+// 写入；0 是「不收费」，与不填（沿用价格表的）不同。
+describe('group input prices', () => {
+  test('group input prices round-trip and drop video prices for per-image tables', () => {
+    const raw = JSON.stringify({
+      'MiniMax-H3': {
+        unit: 'per_second',
+        tiers: [{ price: 0.5 }],
+        input_image_price: 0.02,
+        group_input_prices: {
+          wenex: { input_image_price: 0, input_video_price: 0.1 },
+          alpha: { input_video_price: 0 },
+        },
+      },
+      'image-model': {
+        unit: 'per_image',
+        tiers: [{ price: 0.1 }],
+        group_input_prices: {
+          wenex: { input_image_price: 0.01, input_video_price: 0.2 },
+        },
+      },
+    })
+    const tables = parseVideoPricingTables(raw)
+    assert.deepEqual(
+      tables[1].groupInputPrices.map(
+        ({ group, inputImagePrice, inputVideoPrice }) => ({
+          group,
+          inputImagePrice,
+          inputVideoPrice,
+        })
+      ),
+      [
+        { group: 'alpha', inputImagePrice: '', inputVideoPrice: '0' },
+        { group: 'wenex', inputImagePrice: '0', inputVideoPrice: '0.1' },
+      ]
+    )
+
+    const serialized = JSON.parse(serializeVideoPricingTables(tables))
+    assert.deepEqual(serialized['MiniMax-H3'].group_input_prices, {
+      alpha: { input_video_price: 0 },
+      wenex: { input_image_price: 0, input_video_price: 0.1 },
+    })
+    assert.deepEqual(serialized['image-model'].group_input_prices, {
+      wenex: { input_image_price: 0.01 },
+    })
+  })
+
+  test('rejects duplicate groups, empty rows and negative prices', () => {
+    const tables = parseVideoPricingTables(
+      JSON.stringify({
+        'MiniMax-H3': { unit: 'per_second', tiers: [{ price: 0.5 }] },
+      })
+    )
+    const table = tables[0]
+    const reasons = () =>
+      validateVideoPricingTables(tables).map((issue) => issue.reason)
+    table.groupInputPrices = [
+      { uid: 'a', group: 'wenex', inputImagePrice: '0', inputVideoPrice: '' },
+    ]
+    assert.deepEqual(reasons(), [])
+    table.groupInputPrices = [
+      { uid: 'a', group: 'wenex', inputImagePrice: '0', inputVideoPrice: '' },
+      { uid: 'b', group: 'wenex', inputImagePrice: '', inputVideoPrice: '0.1' },
+    ]
+    assert.deepEqual(reasons(), ['group_input_price'])
+    table.groupInputPrices = [
+      { uid: 'a', group: 'wenex', inputImagePrice: '', inputVideoPrice: '' },
+    ]
+    assert.deepEqual(reasons(), ['group_input_price'])
+    table.groupInputPrices = [
+      { uid: 'a', group: 'wenex', inputImagePrice: '-1', inputVideoPrice: '' },
+    ]
+    assert.deepEqual(reasons(), ['group_input_price'])
   })
 })
 

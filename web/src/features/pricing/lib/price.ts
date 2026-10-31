@@ -21,6 +21,7 @@ import { formatCurrencyFromUSD } from '@/lib/currency'
 import { QUOTA_TYPE_VALUES, TOKEN_UNIT_DIVISORS } from '../constants'
 import type { PricingModel, TokenUnit, PriceType } from '../types'
 import { displayGroupRatio, resolveDisplayGroup } from './group-price-rank'
+import { tierForGroup } from './matrix-group-price'
 import { getConfiguredGroupRatio } from './model-helpers'
 
 // ----------------------------------------------------------------------------
@@ -165,10 +166,12 @@ export function getMatrixTokenPriceSummary(
   }
 
   const groupRatio = displayGroupRatio(model, selectedGroup)
+  const group = resolveDisplayGroup(model, selectedGroup)
   let minimum = Number.POSITIVE_INFINITY
   let maximum = Number.NEGATIVE_INFINITY
 
-  for (const tier of table.tiers ?? []) {
+  for (const matrixTier of table.tiers ?? []) {
+    const tier = group ? tierForGroup(matrixTier, group) : matrixTier
     const isDefaultTier =
       !tier.mode &&
       !tier.resolution &&
@@ -244,9 +247,9 @@ export function getMatrixUnitPriceSummary(
     return null
   }
   const group = resolveDisplayGroup(model, selectedGroup)
-  const candidates = (table?.tiers ?? []).filter(
-    (tier) => !(group && tier.excluded_groups?.includes(group))
-  )
+  const candidates = (table?.tiers ?? [])
+    .filter((tier) => !(group && tier.excluded_groups?.includes(group)))
+    .map((tier) => (group ? tierForGroup(tier, group) : tier))
 
   let minimum = Number.POSITIVE_INFINITY
   for (const tier of candidates) {

@@ -10,6 +10,9 @@
 // 同一份。所以只要各分组的表达式一致，比价就严格等价于比较「有效分组倍率」，
 // 而且这个结论对每 1M token、每秒、每张、每次**所有计价单位**都成立——模型级的
 // 那部分是公因子，在分组之间的比较里直接约掉了。
+//
+// 例外是价格表的分组价：配了以后同一档在各分组的单价不同，不再是公因子。这时按本次
+// 请求命中的档位取各分组的单价，比较「单价 × 有效分组倍率」。
 package service
 
 import (
@@ -130,7 +133,10 @@ func exprUnitCost(expr string, params billingexpr.TokenParams, input billingexpr
 // probe 可以为 nil：那样各分组表达式不一致时会退回只比倍率，不会因为拿不到请求
 // 数据就整个失效。请求路径上一定会给（unitPriceProbe），nil 只留给不涉及请求的
 // 调用方，例如后台校验。
-func RankGroupsByPrice(modelName string, userGroup string, groups []string, at time.Time, probe ExprProbe) []string {
+//
+// tierPrice 是价格表配了分组价时按本次请求档位给分组取单价的函数，nil 表示各分组同价
+// （只比倍率或表达式）。取不到价的分组排到最后：它在取价环节会被拒绝。
+func RankGroupsByPrice(modelName string, userGroup string, groups []string, at time.Time, probe ExprProbe, tierPrice func(group string) (float64, bool)) []string {
 	if len(groups) <= 1 {
 		return groups
 	}
@@ -155,6 +161,16 @@ func RankGroupsByPrice(modelName string, userGroup string, groups []string, at t
 				continue
 			}
 			scores[group] = cost * EffectiveGroupRatio(modelName, userGroup, group, at)
+		}
+	}
+	if tierPrice != nil {
+		for _, group := range groups {
+			price, ok := tierPrice(group)
+			if !ok {
+				scores[group] = math.Inf(1)
+				continue
+			}
+			scores[group] *= price
 		}
 	}
 
@@ -189,7 +205,7 @@ func PriceRoutingCandidateGroups(userGroup string) []string {
 
 // GetRequestPriceRankedGroups 是比价路由的候选列表：用户能用的分组，按当前价格从
 // 低到高。和 auto 不同，这里不看管理员编排的 auto 列表——不需要编排正是它的卖点。
-func GetRequestPriceRankedGroups(userGroup string, modelName string, at time.Time, probe ExprProbe) []string {
+func GetRequestPriceRankedGroups(userGroup string, modelName string, at time.Time, probe ExprProbe, tierPrice func(group string) (float64, bool)) []string {
 	candidates := make([]string, 0)
 	for _, group := range PriceRoutingCandidateGroups(userGroup) {
 		// 先筛掉没有这个模型的分组：站点分组可能有几十个，单个模型往往只在其中
@@ -199,7 +215,7 @@ func GetRequestPriceRankedGroups(userGroup string, modelName string, at time.Tim
 		}
 		candidates = append(candidates, group)
 	}
-	return RankGroupsByPrice(modelName, userGroup, candidates, at, probe)
+	return RankGroupsByPrice(modelName, userGroup, candidates, at, probe, tierPrice)
 }
 
 // IsAutoRoutingGroup 报告这个分组名是不是一种自动路由，而不是真实分组。
@@ -227,7 +243,11 @@ func RequestAutoRoutingGroups(c *gin.Context, tokenGroup string, userGroup strin
 			return groups
 		}
 	}
-	groups := GetRequestPriceRankedGroups(userGroup, modelName, time.Now(), unitPriceProbe(c))
+	var tierPrice func(group string) (float64, bool)
+	if MatrixGroupTierPricerFunc != nil {
+		tierPrice = MatrixGroupTierPricerFunc(c, modelName)
+	}
+	groups := GetRequestPriceRankedGroups(userGroup, modelName, time.Now(), unitPriceProbe(c), tierPrice)
 	common.SetContextKey(c, constant.ContextKeyPriceRankedGroups, groups)
 	return groups
 }

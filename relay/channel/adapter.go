@@ -79,6 +79,13 @@ type TaskAdaptor interface {
 	ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error)
 }
 
+// TaskRequestSupporter 由只支持部分请求写法的任务适配器实现（fork 扩展），例如 WeNex 不支持
+// 参考视频。自动分组（auto、auto_price）选路时，分组里提供该模型的渠道都不支持本次请求，
+// 就跳过这个分组换下一个，而不是选中之后在本地校验时失败。
+type TaskRequestSupporter interface {
+	SupportsTaskRequest(req relaycommon.TaskSubmitReq) bool
+}
+
 type OpenAIVideoConverter interface {
 	ConvertToOpenAIVideo(originTask *model.Task) ([]byte, error)
 }

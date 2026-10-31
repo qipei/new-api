@@ -120,7 +120,7 @@ func TestUploadImageRequiresBalance(t *testing.T) {
 		status int
 		body   string
 	}{
-		{"no balance", func(int) (bool, error) { return false, nil }, http.StatusForbidden, "insufficient_user_quota"},
+		{"no balance", func(int) (bool, error) { return false, nil }, http.StatusForbidden, "账户没有余额"},
 		{"balance lookup failed", func(int) (bool, error) { return false, fmt.Errorf("db down") }, http.StatusServiceUnavailable, "server_error"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -142,6 +142,9 @@ func TestUploadImageRequiresBalance(t *testing.T) {
 			r.ServeHTTP(w, req)
 			assert.Equal(t, tc.status, w.Code)
 			assert.Contains(t, w.Body.String(), tc.body)
+			if tc.status == http.StatusForbidden {
+				assert.Contains(t, w.Body.String(), "insufficient_user_quota")
+			}
 		})
 	}
 }

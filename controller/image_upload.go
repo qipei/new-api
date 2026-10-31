@@ -189,7 +189,7 @@ func UploadImage(c *gin.Context) {
 		return
 	}
 	if !hasBalance {
-		imageUploadError(c, http.StatusForbidden, "image uploads require a positive account balance or an active subscription; please top up and try again")
+		imageUploadError(c, http.StatusForbidden, "账户没有余额，图片上传需要账户余额大于 0 或有生效中的订阅，请充值后再试")
 		return
 	}
 	code, err := reserveImageUploadRequest(c.Request.Context(), c.GetInt("id"), cfg)

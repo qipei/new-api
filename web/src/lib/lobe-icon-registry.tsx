@@ -20,6 +20,9 @@ For commercial licensing, please contact support@quantumnous.com
  * LobeHub Icon Loader
  * Dynamically load and render icons from @lobehub/icons
  *
+ * CUSTOM: 这里静态引用整个 @lobehub/icons（约 1 MB，压缩后），只由 lobe-icon.tsx 按需
+ * 加载，页面不要直接引用本模块（fork 扩展）。
+ *
  * Supports:
  * - Basic: "OpenAI", "OpenAI.Color"
  * - Chained properties: "OpenAI.Avatar.type={'platform'}"
@@ -75,11 +78,11 @@ function parseValue(raw: string | undefined | null): string | number | boolean {
  * @returns Icon component or fallback
  *
  * @example
- * getLobeIcon("OpenAI", 24)
- * getLobeIcon("OpenAI.Color", 20)
- * getLobeIcon("Claude.Avatar.type={'platform'}", 32)
+ * renderLobeIcon("OpenAI", 24)
+ * renderLobeIcon("OpenAI.Color", 20)
+ * renderLobeIcon("Claude.Avatar.type={'platform'}", 32)
  */
-export function getLobeIcon(
+export function renderLobeIcon(
   iconName: string | undefined | null,
   size: number = 20
 ): React.ReactNode {

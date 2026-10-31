@@ -34,6 +34,23 @@ export async function getHomePageContent(): Promise<HomePageContentResponse> {
   return res.data
 }
 
+// CUSTOM: 首页路由的 loader 先发起请求，和首页组件的脚本并行下载（fork 扩展）；组件
+// 挂载后取走这个请求复用，不再等脚本加载完才开始请求。
+let prefetchedHomePageContent: Promise<HomePageContentResponse> | null = null
+
+export function prefetchHomePageContent(): void {
+  if (prefetchedHomePageContent) return
+  prefetchedHomePageContent = getHomePageContent()
+  // 失败交给组件里复用请求时处理，这里不能留下未处理的 rejection。
+  prefetchedHomePageContent.catch(() => {})
+}
+
+export function takeHomePageContent(): Promise<HomePageContentResponse> {
+  const request = prefetchedHomePageContent ?? getHomePageContent()
+  prefetchedHomePageContent = null
+  return request
+}
+
 export async function getHomeRankings(period: RankingPeriod): Promise<{
   success: boolean
   message?: string

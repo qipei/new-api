@@ -19,7 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 import { createFileRoute } from '@tanstack/react-router'
 
 import { Home } from '@/features/home'
+import { prefetchHomePageContent } from '@/features/home/api'
 
 export const Route = createFileRoute('/')({
+  // 不等待：只是让首页内容请求和首页组件的脚本同时开始下载。
+  loader: () => prefetchHomePageContent(),
   component: Home,
 })

@@ -40,7 +40,7 @@ import { SITE_SEO_TITLE } from '@/lib/site-seo'
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
 import { ThemeProvider } from './context/theme-provider'
-import './i18n/config'
+import { i18nReady } from './i18n/config'
 // Generated Routes
 import { routeTree } from './routeTree.gen'
 
@@ -165,7 +165,10 @@ if (!rootElement) {
     /* empty */
   }
 })()
-if (!rootElement.innerHTML) {
+// CUSTOM: 当前语言包按需加载，加载完再挂载，避免首屏闪出未翻译的文案（fork 扩展）。
+// 语言包加载失败时照常挂载，界面退回显示英文原文。
+const renderApp = () => {
+  if (rootElement.innerHTML) return
   const root = ReactDOM.createRoot(rootElement)
   root.render(
     <StrictMode>
@@ -181,3 +184,5 @@ if (!rootElement.innerHTML) {
     </StrictMode>
   )
 }
+
+void i18nReady.catch(() => undefined).finally(renderApp)

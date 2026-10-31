@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, HeartPulse, Timer } from 'lucide-react'
-import { useMemo } from 'react'
+import { lazy, Suspense, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -36,10 +36,22 @@ import {
 import type { PerformanceGroup } from '@/features/performance-metrics/types'
 import { cn } from '@/lib/utils'
 
-import { type UptimeDayPoint } from '../lib/mock-stats'
+import type { UptimeDayPoint } from '../lib/mock-stats'
 import type { PricingModel } from '../types'
-import { LatencyTrendChart, UptimeTrendChart } from './model-details-charts'
 import { UptimeSparkline } from './model-details-uptime-sparkline'
+
+// CUSTOM: 趋势图依赖 VisActor 图表库（约 2 MB，压缩后约 550 KB），只在打开模型详情的性能
+// 标签时才需要，按需加载，模型广场列表页不再因为它变慢（fork 扩展）。
+const LatencyTrendChart = lazy(() =>
+  import('./model-details-charts').then((module) => ({
+    default: module.LatencyTrendChart,
+  }))
+)
+const UptimeTrendChart = lazy(() =>
+  import('./model-details-charts').then((module) => ({
+    default: module.UptimeTrendChart,
+  }))
+)
 
 function StatCard(props: {
   icon: React.ComponentType<{ className?: string }>
@@ -97,7 +109,7 @@ function toLatencySeries(groups: PerformanceGroup[]) {
     }
   }
 
-  return Array.from(byTs.entries())
+  return [...byTs.entries()]
     .sort(([a], [b]) => a - b)
     .map(([ts, values]) => ({
       timestamp: new Date(ts * 1000).toISOString(),
@@ -121,7 +133,7 @@ function toUptimeSeries(groups: PerformanceGroup[]): UptimeDayPoint[] {
       byTs.set(point.ts, current)
     }
   }
-  return Array.from(byTs.entries())
+  return [...byTs.entries()]
     .sort(([a], [b]) => a - b)
     .map(([ts, value]) => {
       const uptime =
@@ -311,7 +323,9 @@ export function ModelDetailsPerformance(props: { model: PricingModel }) {
           title={t('Latency trend (last 24h)')}
           description={t('Average TTFT')}
         />
-        <LatencyTrendChart series={latencySeries} />
+        <Suspense fallback={<div className='h-64 sm:h-72' />}>
+          <LatencyTrendChart series={latencySeries} />
+        </Suspense>
       </section>
 
       <section>
@@ -339,7 +353,9 @@ export function ModelDetailsPerformance(props: { model: PricingModel }) {
             ) : null
           }
         />
-        <UptimeTrendChart series={uptimeSeries} />
+        <Suspense fallback={<div className='h-64 sm:h-72' />}>
+          <UptimeTrendChart series={uptimeSeries} />
+        </Suspense>
       </section>
     </div>
   )

@@ -43,11 +43,13 @@ func imageUploadFixture(t *testing.T) object_storage.Config {
 	common.OptionMap[object_storage.OptionKey] = string(encoded)
 	common.OptionMapRWMutex.Unlock()
 	upload, reserve, record := uploadImageObject, reserveImageUpload, recordImageUpload
-	requestBudget := reserveImageUploadRequest
+	requestBudget, hasBalance := reserveImageUploadRequest, imageUploadUserHasBalance
+	imageUploadUserHasBalance = func(int) (bool, error) { return true, nil }
 	reserveImageUploadRequest = func(context.Context, int, object_storage.Config) (int, error) { return 0, nil }
 	reserveImageUpload = func(context.Context, int, int64, object_storage.Config) (int, error) { return 0, nil }
 	recordImageUpload = func(*gin.Context, string, int64) {}
 	t.Cleanup(func() {
+		imageUploadUserHasBalance = hasBalance
 		reserveImageUploadRequest = requestBudget
 		uploadImageObject = upload
 		reserveImageUpload = reserve
@@ -107,6 +109,41 @@ func TestUploadImageContract(t *testing.T) {
 	assert.Equal(t, float64(data.Len()), response["bytes"])
 	assert.NotEmpty(t, response["url"])
 	assert.Greater(t, response["created_at"].(float64), float64(0))
+}
+
+// 上传不扣额度，只对付费用户开放：没有余额也没有订阅的账号在占用上传次数之前就被拒，
+// 不写临时文件、不调用 OSS；查不到余额时按服务不可用处理，不放行。
+func TestUploadImageRequiresBalance(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		check  func(int) (bool, error)
+		status int
+		body   string
+	}{
+		{"no balance", func(int) (bool, error) { return false, nil }, http.StatusForbidden, "insufficient_user_quota"},
+		{"balance lookup failed", func(int) (bool, error) { return false, fmt.Errorf("db down") }, http.StatusServiceUnavailable, "server_error"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			imageUploadFixture(t)
+			imageUploadUserHasBalance = tc.check
+			reserveImageUploadRequest = func(context.Context, int, object_storage.Config) (int, error) {
+				t.Fatal("upload request budget must not be reserved")
+				return 0, nil
+			}
+			uploadImageObject = func(context.Context, object_storage.Config, string, string, io.Reader, int64) (string, error) {
+				t.Fatal("OSS must not be called")
+				return "", nil
+			}
+			var data bytes.Buffer
+			require.NoError(t, png.Encode(&data, image.NewRGBA(image.Rect(0, 0, 1, 1))))
+			req, w := imageUploadRequest(t, "file", data.Bytes())
+			r := gin.New()
+			r.POST("/v1/uploads/images", func(c *gin.Context) { c.Set("id", 42) }, UploadImage)
+			r.ServeHTTP(w, req)
+			assert.Equal(t, tc.status, w.Code)
+			assert.Contains(t, w.Body.String(), tc.body)
+		})
+	}
 }
 
 func TestUploadImageRejectsWithoutCallingOSS(t *testing.T) {

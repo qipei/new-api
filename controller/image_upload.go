@@ -127,6 +127,19 @@ var uploadImageObject = func(ctx context.Context, cfg object_storage.Config, key
 }
 var reserveImageUpload = service.ReserveImageUploadBytes
 var reserveImageUploadRequest = service.ReserveImageUploadRequest
+
+// imageUploadUserHasBalance 只有付费用户能上传：钱包余额大于 0，或有生效中的订阅。
+// 上传本身不扣额度，没有这道门槛时零余额的新账号也能把接口当免费图床用。
+var imageUploadUserHasBalance = func(userID int) (bool, error) {
+	quota, err := model.GetUserQuota(userID, false)
+	if err != nil {
+		return false, err
+	}
+	if quota > 0 {
+		return true, nil
+	}
+	return model.HasActiveUserSubscription(userID)
+}
 var recordImageUpload = func(c *gin.Context, key string, size int64) {
 	model.RecordLogWithAdminInfo(c.GetInt("id"), model.LogTypeSystem, "上传临时图片", map[string]interface{}{"object_key": key, "bytes": size, "token_id": common.GetContextKeyInt(c, constant.ContextKeyTokenId)})
 }
@@ -149,6 +162,9 @@ func imageUploadError(c *gin.Context, status int, message string) {
 		detail["code"] = 429
 		c.Header("Retry-After", "60")
 	}
+	if status == http.StatusForbidden {
+		detail["code"] = "insufficient_user_quota"
+	}
 	c.JSON(status, gin.H{"error": detail})
 }
 
@@ -164,6 +180,16 @@ func UploadImage(c *gin.Context) {
 	}
 	if err = cfg.Validate(); err != nil {
 		imageUploadError(c, 503, "image upload storage is not configured")
+		return
+	}
+	// 在占用每分钟上传次数之前检查，没有余额的账号被拒不消耗次数。
+	hasBalance, err := imageUploadUserHasBalance(c.GetInt("id"))
+	if err != nil {
+		imageUploadError(c, 503, "image uploads are unavailable")
+		return
+	}
+	if !hasBalance {
+		imageUploadError(c, http.StatusForbidden, "image uploads require a positive account balance or an active subscription; please top up and try again")
 		return
 	}
 	code, err := reserveImageUploadRequest(c.Request.Context(), c.GetInt("id"), cfg)

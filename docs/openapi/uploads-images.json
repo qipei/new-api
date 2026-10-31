@@ -213,7 +213,7 @@
             }
           },
           "403": {
-            "description": "IP 或用户/分组权限限制",
+            "description": "IP 或用户/分组权限限制；账户余额为 0 且没有生效中的订阅时也返回 403（code 为 insufficient_user_quota）",
             "content": {
               "application/json": {
                 "schema": {

@@ -4,6 +4,7 @@ module github.com/QuantumNous/new-api
 go 1.25.1
 
 require (
+	github.com/aliyun/alibabacloud-oss-go-sdk-v2 v1.4.0
 	github.com/Calcium-Ion/go-epay v0.0.4
 	github.com/abema/go-mp4 v1.4.1
 	github.com/andybalholm/brotli v1.1.1
@@ -95,6 +96,7 @@ require (
 	github.com/yuin/gopher-lua v1.1.1 // indirect
 	go.opentelemetry.io/otel v1.34.0 // indirect
 	go.opentelemetry.io/otel/trace v1.34.0 // indirect
+	golang.org/x/time v0.4.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
 

@@ -1,0 +1,483 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Token01 图片上传接口",
+    "version": "2026-11-01",
+    "description": "图片上传接入文档。新增接口，不修改已有资源。"
+  },
+  "servers": [
+    {
+      "url": "https://www.token01.net",
+      "description": "生产环境（上传接口待部署确认）"
+    }
+  ],
+  "tags": [
+    {
+      "name": "模型调用接口/素材上传",
+      "description": "上传临时图片素材，用于后续模型请求。"
+    }
+  ],
+  "paths": {
+    "/v1/uploads/images": {
+      "post": {
+        "summary": "上传图片（临时素材 URL）",
+        "operationId": "uploadImage",
+        "tags": [
+          "模型调用接口/素材上传"
+        ],
+        "description": "上传本地图片，返回可用于图像/视频生成参考图参数的临时下载 URL。请求和成功响应兼容 APIMart 图片上传接口。\n\n## 发布状态\n本接口已完成本地真实 OSS 联调；生产环境需部署对应版本并启用图片上传后才能使用。当前页面作为接入预告，线上可用性以站点公告和实际部署为准。\n\n## 请求方式与鉴权\n- POST `/v1/uploads/images`，`Authorization: Bearer YOUR_API_KEY`。\n- 使用站点 API Key，不是面板登录凭据，也不是 OSS AccessKey。\n- Body 必须是 `multipart/form-data`，唯一字段为 `file`，类型是二进制文件。\n- cURL 使用 `-F`，浏览器使用 `FormData`；让客户端自动生成包含 boundary 的 Content-Type，勿手工写死。\n- 不接收 JSON、图片 URL、Base64 字符串、视频或音频。每次请求只上传一张图，不传 model/prompt。\n\n## 文件限制\n- 支持 JPEG/JPG、PNG、GIF、WebP。以实际图片格式识别，不能靠更改扩展名绕过。\n- 默认单张最大 20 MiB（20 × 1024 × 1024 字节），管理员可以调低；最大 1 亿像素。\n- 原图上传，不进行缩放、转码；客户端提供的文件名作为响应显示名，不决定最终对象路径。\n\n## 限流与计费\n- 上传不调用生成模型，不扣模型调用额度；API Key 仍须通过现有状态、有效期、令牌额度、IP 白名单及用户权限检查。\n- 默认同一用户所有 Key 合计 10 次/分钟、1024 MiB/UTC 自然日（北京时间 08:00 重置）。实际阈值由管理员配置。\n- 请求次数在读取文件前计入，非法文件请求也可能消耗次数；通过校验后预留字节，OSS 失败不返还该次预留。\n- 每实例另有共享并发上限，默认 2、可配置 1–30；满额立即返回 429，不排队。它独立于模型 RPM/并发限额，但上传与模型请求仍共享物理服务器资源。\n- 429 可读取 Retry-After（当前返回 60 秒），采用退避重试；日额度耗尽需等下个 UTC 自然日或联系管理员调整。\n\n## URL 使用与有效期\n- 成功后 HTTP 200，顶层直接返回 url/filename/content_type/bytes/created_at，没有 success/data 包装。\n- URL 默认有效 24 小时，可由管理员配置；实际对象存在时间还受 OSS 生命周期和管理员删除影响。签名 URL 到期后需重新上传，目前没有公开续签接口。\n- 上传的文件已配置 3 天过期删除规则，由 OSS 自动清理。清理为异步执行，不保证恰好在上传满 72 小时的时刻删除。请及时保存需要长期保留的文件；下载链接的签名有效期独立计算，默认 24 小时。\n- 将完整 URL 原样传给后续模型，保留全部查询签名参数。不要把 `&` 写成 `\\&`，不要改路径、签名参数或截断 URL。\n- 持有完整链接的人可在有效期内下载该图片；请勿公开用户私密素材链接。链接只授权这张图的下载，不授予上传、删除或列举 Bucket 权限。\n- 上传成功不代表任意模型都支持引用该图片；参考图数量、字段名、分辨率和模型额外费用，以对应生成接口文档为准。H3 可使用 `reference_images: [url]`，但须选择支持该输入方式的渠道。\n\n## cURL\n```sh\ncurl --request POST 'https://www.token01.net/v1/uploads/images' \\\n  --header 'Authorization: Bearer YOUR_API_KEY' \\\n  --form 'file=@/absolute/path/photo.png'\n```\n\n## Python\n```python\nimport requests\nwith open('photo.png', 'rb') as image:\n    response = requests.post(\n        'https://www.token01.net/v1/uploads/images',\n        headers={'Authorization': 'Bearer YOUR_API_KEY'},\n        files={'file': ('photo.png', image, 'image/png')},\n        timeout=120,\n    )\nresponse.raise_for_status()\nimage_url = response.json()['url']\n```\n\n## 浏览器 JavaScript\n```javascript\nconst body = new FormData();\nbody.append('file', fileInput.files[0]);\nconst response = await fetch('https://www.token01.net/v1/uploads/images', {\n  method: 'POST',\n  headers: { Authorization: 'Bearer YOUR_API_KEY' },\n  body,\n});\nconst result = await response.json();\nif (!response.ok) throw new Error(result.error?.message || 'Upload failed');\nconst imageUrl = result.url;\n```\n生产应用不要将站点 API Key 硬编码在公开网页中；该示例仅演示请求格式。\n\n## 错误处理\n- 400：缺少 file、不是 multipart、格式不支持/损坏、超过像素上限，或传入压缩的请求体。\n- 401：API Key 缺失、无效、停用、过期或令牌额度耗尽等鉴权失败。\n- 403：用户被禁用、IP 白名单或分组权限限制。\n- 413：文件大小或请求体超过限制；可降低图片体积后重试。\n- 429：用户请求频率、每日上传总量或实例上传并发超过限制；不等同于模型限流。\n- 500：OSS 上传/签名等处理失败。\n- 503：管理员关闭上传、存储未配置、临时磁盘不可用或限流服务不可用；联系管理员，勿无限重试。\n不同错误分支的 error 对象可能含 code；鉴权错误沿用站点通用格式，不能假设所有错误的 type/code 完全相同。\n",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "multipart/form-data 文件表单，每次上传一张图片。无需 model/prompt 等生成参数。",
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "必填，本地图片文件二进制。支持 JPEG/JPG、PNG、GIF、WebP；默认不超过 20 MiB，最大 1 亿像素，实际大小上限由管理员配置。不接受 URL、Base64 或 JSON。每次请求一张图，字段名称必须为 file。"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "图片上传成功。仅返回临时素材地址，不创建生成任务、不调用模型。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "url",
+                    "filename",
+                    "content_type",
+                    "bytes",
+                    "created_at"
+                  ],
+                  "properties": {
+                    "url": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "临时图片下载地址。默认签名有效期 24 小时，具体由管理员配置；必须保留完整查询参数。公开完整链接会让持有者在有效期内访问这张图。不能作为永久文件地址。",
+                      "example": "https://files.example.com/uploads/images/2026/11/01/example.png?x-oss-signature=EXAMPLE"
+                    },
+                    "filename": {
+                      "type": "string",
+                      "description": "上传文件的原始显示文件名（会去除目录部分）。不是 OSS 对象路径，不保证与 URL 最后一段一致。",
+                      "example": "photo.png"
+                    },
+                    "content_type": {
+                      "type": "string",
+                      "enum": [
+                        "image/jpeg",
+                        "image/png",
+                        "image/gif",
+                        "image/webp"
+                      ],
+                      "description": "服务端检测得到的图片 MIME 类型，不直接信任文件扩展名或请求中声明的类型。",
+                      "example": "image/png"
+                    },
+                    "bytes": {
+                      "type": "integer",
+                      "format": "int64",
+                      "minimum": 1,
+                      "description": "实际上传的文件大小，单位字节，不是图片像素数、KB 或计费 token 数。",
+                      "example": 235680
+                    },
+                    "created_at": {
+                      "type": "integer",
+                      "format": "int64",
+                      "description": "服务端处理本次上传时的 Unix 时间戳，单位秒（不是毫秒），可转换为客户端所在时区显示。",
+                      "example": 1793465604
+                    }
+                  }
+                },
+                "example": {
+                  "url": "https://files.example.com/uploads/images/2026/11/01/example.png?x-oss-signature=EXAMPLE",
+                  "filename": "photo.png",
+                  "content_type": "image/png",
+                  "bytes": 235680,
+                  "created_at": 1793465604
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求或图片格式无效",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "message",
+                        "type"
+                      ],
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "description": "可读的错误原因；请根据 HTTP 状态码和错误原因决定修正输入或退避重试。"
+                        },
+                        "type": {
+                          "type": "string",
+                          "description": "上传错误通常为 invalid_request_error、rate_limit_error 或 server_error；鉴权错误可能为 new_api_error。"
+                        },
+                        "code": {
+                          "description": "可选错误码，可能是数字或字符串；限流分支通常返回数字 429。",
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "error": {
+                    "message": "unsupported or invalid image, allowed: jpeg, png, gif, webp",
+                    "type": "invalid_request_error"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "API Key 鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "message",
+                        "type"
+                      ],
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "description": "可读的错误原因；请根据 HTTP 状态码和错误原因决定修正输入或退避重试。"
+                        },
+                        "type": {
+                          "type": "string",
+                          "description": "上传错误通常为 invalid_request_error、rate_limit_error 或 server_error；鉴权错误可能为 new_api_error。"
+                        },
+                        "code": {
+                          "description": "可选错误码，可能是数字或字符串；限流分支通常返回数字 429。",
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "error": {
+                    "message": "Invalid token",
+                    "type": "new_api_error"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "IP 或用户/分组权限限制",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "message",
+                        "type"
+                      ],
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "description": "可读的错误原因；请根据 HTTP 状态码和错误原因决定修正输入或退避重试。"
+                        },
+                        "type": {
+                          "type": "string",
+                          "description": "上传错误通常为 invalid_request_error、rate_limit_error 或 server_error；鉴权错误可能为 new_api_error。"
+                        },
+                        "code": {
+                          "description": "可选错误码，可能是数字或字符串；限流分支通常返回数字 429。",
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "error": {
+                    "message": "您的 IP 不在令牌允许访问的列表中",
+                    "type": "new_api_error"
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "超过文件大小限制",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "message",
+                        "type"
+                      ],
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "description": "可读的错误原因；请根据 HTTP 状态码和错误原因决定修正输入或退避重试。"
+                        },
+                        "type": {
+                          "type": "string",
+                          "description": "上传错误通常为 invalid_request_error、rate_limit_error 或 server_error；鉴权错误可能为 new_api_error。"
+                        },
+                        "code": {
+                          "description": "可选错误码，可能是数字或字符串；限流分支通常返回数字 429。",
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "error": {
+                    "message": "file exceeds maximum 20971520 bytes",
+                    "type": "invalid_request_error"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "频率、日上传量或实例并发超过限制",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "message",
+                        "type"
+                      ],
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "description": "可读的错误原因；请根据 HTTP 状态码和错误原因决定修正输入或退避重试。"
+                        },
+                        "type": {
+                          "type": "string",
+                          "description": "上传错误通常为 invalid_request_error、rate_limit_error 或 server_error；鉴权错误可能为 new_api_error。"
+                        },
+                        "code": {
+                          "description": "可选错误码，可能是数字或字符串；限流分支通常返回数字 429。",
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "error": {
+                    "message": "Rate limit exceeded. Please try again later",
+                    "type": "rate_limit_error",
+                    "code": 429
+                  }
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "description": "当前实现为 60 秒；日额度耗尽可能需等待至次日 UTC 00:00。",
+                "schema": {
+                  "type": "integer",
+                  "example": 60
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "上传处理失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "message",
+                        "type"
+                      ],
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "description": "可读的错误原因；请根据 HTTP 状态码和错误原因决定修正输入或退避重试。"
+                        },
+                        "type": {
+                          "type": "string",
+                          "description": "上传错误通常为 invalid_request_error、rate_limit_error 或 server_error；鉴权错误可能为 new_api_error。"
+                        },
+                        "code": {
+                          "description": "可选错误码，可能是数字或字符串；限流分支通常返回数字 429。",
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "error": {
+                    "message": "failed to upload image",
+                    "type": "server_error"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "上传功能关闭或相关服务不可用",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "required": [
+                        "message",
+                        "type"
+                      ],
+                      "properties": {
+                        "message": {
+                          "type": "string",
+                          "description": "可读的错误原因；请根据 HTTP 状态码和错误原因决定修正输入或退避重试。"
+                        },
+                        "type": {
+                          "type": "string",
+                          "description": "上传错误通常为 invalid_request_error、rate_limit_error 或 server_error；鉴权错误可能为 new_api_error。"
+                        },
+                        "code": {
+                          "description": "可选错误码，可能是数字或字符串；限流分支通常返回数字 429。",
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  }
+                },
+                "example": {
+                  "error": {
+                    "message": "image uploads are disabled",
+                    "type": "server_error"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "站点 API Key，Authorization: Bearer YOUR_API_KEY。不要填写 OSS AK/SK 或面板登录凭据。"
+      }
+    }
+  }
+}

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { createJSONStorage, persist } from 'zustand/middleware'
 
 interface NotificationState {
   // Last read Notice content signature (full trimmed message)
@@ -78,6 +78,29 @@ export const useNotificationStore = create<NotificationState>()(
     }),
     {
       name: 'notification-storage',
+      storage: createJSONStorage(() => ({
+        getItem: (name) => {
+          try {
+            return localStorage.getItem(name)
+          } catch {
+            return null
+          }
+        },
+        setItem: (name, value) => {
+          try {
+            localStorage.setItem(name, value)
+          } catch {
+            // Keep read state in memory when persistence is unavailable.
+          }
+        },
+        removeItem: (name) => {
+          try {
+            localStorage.removeItem(name)
+          } catch {
+            // Storage may be disabled by the browser.
+          }
+        },
+      })),
       partialize: (state) => ({
         lastReadNotice: state.lastReadNotice,
         readAnnouncementKeys: state.readAnnouncementKeys,

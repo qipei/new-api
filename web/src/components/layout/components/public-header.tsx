@@ -24,6 +24,7 @@ import { Dialog } from '@/components/dialog'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationPopover } from '@/components/notification-popover'
 import { ProfileDropdown } from '@/components/profile-dropdown'
+import { RichContent } from '@/components/rich-content'
 import { ThemeSwitch } from '@/components/theme-switch'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -84,9 +85,9 @@ export function PublicHeader(props: PublicHeaderProps) {
   const { auth } = useAuthStore()
   const { logo: systemLogo, loading, logoLoaded } = useSystemConfig()
   const dynamicLinks = useTopNavLinks()
-  const notifications = useNotifications()
   const routerState = useRouterState()
   const pathname = routerState.location.pathname
+  const notifications = useNotifications(pathname === '/')
 
   const user = auth.user
   const isAuthenticated = !!user
@@ -405,6 +406,27 @@ export function PublicHeader(props: PublicHeaderProps) {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={
+          notifications.noticeDialogOpen && !mobileOpen && !authPromptTarget
+        }
+        onOpenChange={(open) => {
+          if (!open) notifications.closeNoticeDialog()
+        }}
+        title={t('System Announcements')}
+        description={t('Latest platform updates and notices')}
+        footer={
+          <Button
+            className='h-[46px] rounded-[14px] bg-[#ffc800] px-3.5 text-base font-bold text-[#141414] hover:bg-[#f0bd00] focus-visible:border-[#b58c00] focus-visible:ring-[#b58c00]/50'
+            onClick={notifications.closeNoticeDialog}
+          >
+            {t('Close')}
+          </Button>
+        }
+      >
+        <RichContent breaks content={notifications.notice} />
+      </Dialog>
 
       <Dialog
         open={!!authPromptTarget}

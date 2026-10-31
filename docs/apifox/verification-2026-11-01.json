@@ -1,0 +1,163 @@
+{
+  "date": "2026-11-01",
+  "project_id": 4123664,
+  "before_interfaces": 172,
+  "after_interfaces": 172,
+  "modified_model_interfaces": 24,
+  "added": 0,
+  "removed": 0,
+  "other_interfaces_unchanged": 148,
+  "markdown_documents_unchanged": true,
+  "auth_components_unchanged": true,
+  "environments_unchanged": true,
+  "shared_schemas_unchanged": true,
+  "all_api_auth_unchanged": true,
+  "description_and_schema_verified": true,
+  "source_sha256": "225366ffede41cb7fbbbd321fdb40231fa376b3ddad3e804c6993b1cc763563b",
+  "updated_apis": [
+    {
+      "id": "530538207",
+      "operationId": "listModels",
+      "name": "获取模型列表",
+      "url": "https://token01.apifox.cn/api-530538207"
+    },
+    {
+      "id": "530538208",
+      "operationId": "createChatCompletion",
+      "name": "对话补全（OpenAI Chat 格式）",
+      "url": "https://token01.apifox.cn/api-530538208"
+    },
+    {
+      "id": "530538209",
+      "operationId": "createResponse",
+      "name": "创建响应（OpenAI Responses 格式）",
+      "url": "https://token01.apifox.cn/api-530538209"
+    },
+    {
+      "id": "530538210",
+      "operationId": "createMessage",
+      "name": "对话（Claude Messages 格式）",
+      "url": "https://token01.apifox.cn/api-530538210"
+    },
+    {
+      "id": "530538211",
+      "operationId": "getVideoTask",
+      "name": "查询视频任务",
+      "url": "https://token01.apifox.cn/api-530538211"
+    },
+    {
+      "id": "530538212",
+      "operationId": "getOpenAIVideo",
+      "name": "查询视频任务（OpenAI 视频格式）",
+      "url": "https://token01.apifox.cn/api-530538212"
+    },
+    {
+      "id": "530538213",
+      "operationId": "getVideoContent",
+      "name": "下载视频",
+      "url": "https://token01.apifox.cn/api-530538213"
+    },
+    {
+      "id": "530538214",
+      "operationId": "submit_minimax_video",
+      "name": "MiniMax 海螺 H3 视频",
+      "url": "https://token01.apifox.cn/api-530538214"
+    },
+    {
+      "id": "530551030",
+      "operationId": "submit_kling_video",
+      "name": "可灵 3.0 视频",
+      "url": "https://token01.apifox.cn/api-530551030"
+    },
+    {
+      "id": "530551459",
+      "operationId": "submit_seedance_video",
+      "name": "豆包 Seedance 视频",
+      "url": "https://token01.apifox.cn/api-530551459"
+    },
+    {
+      "id": "530553225",
+      "operationId": "submit_wan3_video",
+      "name": "万相 3.0 视频",
+      "url": "https://token01.apifox.cn/api-530553225"
+    },
+    {
+      "id": "530553310",
+      "operationId": "submit_happyhorse_video",
+      "name": "HappyHorse 视频",
+      "url": "https://token01.apifox.cn/api-530553310"
+    },
+    {
+      "id": "530553488",
+      "operationId": "submit_vidu_reference",
+      "name": "Vidu 参考生视频",
+      "url": "https://token01.apifox.cn/api-530553488"
+    },
+    {
+      "id": "530553550",
+      "operationId": "submit_vidu_img2video",
+      "name": "Vidu 图生视频",
+      "url": "https://token01.apifox.cn/api-530553550"
+    },
+    {
+      "id": "530561524",
+      "operationId": "submit_autodl_h3_video",
+      "name": "MiniMax-H3-Fast 视频（工作流版）",
+      "url": "https://token01.apifox.cn/api-530561524"
+    },
+    {
+      "id": "530538215",
+      "operationId": "getSpeechTask",
+      "name": "查询语音合成任务",
+      "url": "https://token01.apifox.cn/api-530538215"
+    },
+    {
+      "id": "530538216",
+      "operationId": "submit_seed_audio",
+      "name": "豆包 Seed Audio 语音生成",
+      "url": "https://token01.apifox.cn/api-530538216"
+    },
+    {
+      "id": "530538217",
+      "operationId": "submit_seed_tts_task",
+      "name": "豆包语音合成 2.0（异步长文本）",
+      "url": "https://token01.apifox.cn/api-530538217"
+    },
+    {
+      "id": "530549367",
+      "operationId": "submit_qwen_audio_tts",
+      "name": "千问语音合成（flash / plus）",
+      "url": "https://token01.apifox.cn/api-530549367"
+    },
+    {
+      "id": "530551031",
+      "operationId": "submit_qwen_audio_next",
+      "name": "千问语音合成 Next",
+      "url": "https://token01.apifox.cn/api-530551031"
+    },
+    {
+      "id": "530561521",
+      "operationId": "createSpeech",
+      "name": "OpenAI 兼容语音合成",
+      "url": "https://token01.apifox.cn/api-530561521"
+    },
+    {
+      "id": "530561522",
+      "operationId": "submit_autodl_indextts2",
+      "name": "IndexTTS-2 情感语音（异步任务）",
+      "url": "https://token01.apifox.cn/api-530561522"
+    },
+    {
+      "id": "530561523",
+      "operationId": "submit_minimax_speech",
+      "name": "MiniMax 语音合成",
+      "url": "https://token01.apifox.cn/api-530561523"
+    },
+    {
+      "id": "530538219",
+      "operationId": "submit_image_generation",
+      "name": "图片生成",
+      "url": "https://token01.apifox.cn/api-530538219"
+    }
+  ]
+}

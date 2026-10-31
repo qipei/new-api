@@ -25,8 +25,10 @@ import { PerformanceSection } from '../maintenance/performance-section'
 import { UpdateCheckerSection } from '../maintenance/update-checker-section'
 import type { OperationsSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { StorageSection } from './storage-section'
 
 const OPERATIONS_SECTIONS = [
+  { id: 'storage', titleKey: 'File Storage', build: () => <StorageSection /> },
   {
     id: 'behavior',
     titleKey: 'System Behavior',

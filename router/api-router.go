@@ -232,6 +232,11 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			optionRoute.GET("/rewarded-ad", controller.GetRewardedAdSettings)
 			optionRoute.PUT("/rewarded-ad", controller.SaveRewardedAdSettings)
+			optionRoute.GET("/object-storage", controller.GetObjectStorageSettings)
+			optionRoute.PUT("/object-storage", controller.SaveObjectStorageSettings)
+			optionRoute.POST("/object-storage/cleanup", middleware.CriticalRateLimit(), controller.CleanupObjectStorageTemp)
+			optionRoute.POST("/object-storage/test", middleware.CriticalRateLimit(), controller.TestObjectStorage)
+			optionRoute.POST("/object-storage/lifecycle", middleware.CriticalRateLimit(), controller.CheckObjectStorageLifecycle)
 			optionRoute.GET("/", controller.GetOptions)
 			optionRoute.GET("/miniapp-qr-code", controller.GetMiniAppQRCode)
 			optionRoute.PUT("/miniapp-qr-code", controller.SaveMiniAppQRCodeSettings)

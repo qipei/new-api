@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/console_setting"
 	"github.com/QuantumNous/new-api/setting/model_setting"
+	"github.com/QuantumNous/new-api/setting/object_storage"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
@@ -92,7 +93,7 @@ func GetOptions(c *gin.Context) {
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
-		if k == "theme.frontend" || k == customerServiceOption || k == miniAppQRCodeOption || k == operation_setting.RewardedAdOptionKey {
+		if k == object_storage.OptionKey || k == "theme.frontend" || k == customerServiceOption || k == miniAppQRCodeOption || k == operation_setting.RewardedAdOptionKey {
 			continue
 		}
 		value := common.Interface2String(v)
@@ -142,6 +143,10 @@ func UpdateOption(c *gin.Context) {
 			"success": false,
 			"message": "无效的参数",
 		})
+		return
+	}
+	if option.Key == object_storage.OptionKey {
+		common.ApiErrorMsg(c, "请使用专用文件存储配置接口")
 		return
 	}
 	if option.Key == operation_setting.RewardedAdOptionKey {

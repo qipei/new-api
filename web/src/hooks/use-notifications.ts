@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 
 import { useStatus } from '@/hooks/use-status'
 import { getNotice } from '@/lib/api'
@@ -62,7 +62,8 @@ function getAnnouncementKey(item: Record<string, unknown>): string {
  * Hook to manage notifications (Notice + Announcements)
  * Provides unread counts and read status management
  */
-export function useNotifications() {
+export function useNotifications(autoShowNotice = false) {
+  const [noticeValidated, setNoticeValidated] = useState(false)
   const [popoverOpen, setPopoverOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'notice' | 'announcements'>(
     'notice'
@@ -73,19 +74,41 @@ export function useNotifications() {
     data: noticeResponse,
     isLoading: noticeLoading,
     refetch: refetchNotice,
+    isFetching: noticeFetching,
+    isError: noticeError,
   } = useQuery({
     queryKey: ['notice'],
     queryFn: getNotice,
     staleTime: 1000 * 60 * 5, // 5 minutes
   })
 
+  // Revalidate on each home entry; reuse any request already started by the bell.
+  useEffect(() => {
+    let active = true
+    setNoticeValidated(false)
+    if (autoShowNotice) {
+      void refetchNotice({ cancelRefetch: false }).then((result) => {
+        if (active) setNoticeValidated(result.isSuccess)
+      })
+    }
+    return () => {
+      active = false
+    }
+  }, [autoShowNotice, refetchNotice])
+
   // Fetch Announcements from status
   const { status, loading: statusLoading } = useStatus()
   const announcementsEnabled = status?.announcements_enabled ?? false
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const announcements: Record<string, unknown>[] = announcementsEnabled
-    ? ((status?.announcements || []) as Record<string, unknown>[]).slice(0, 20)
-    : []
+  const announcements = useMemo<Record<string, unknown>[]>(
+    () =>
+      announcementsEnabled
+        ? ((status?.announcements || []) as Record<string, unknown>[]).slice(
+            0,
+            20
+          )
+        : [],
+    [announcementsEnabled, status?.announcements]
+  )
 
   // Notification store
   const {
@@ -150,6 +173,9 @@ export function useNotifications() {
       return
     }
 
+    if (popoverOpen && noticeContent && activeTab === 'notice') {
+      markNoticeRead(noticeContent)
+    }
     setPopoverOpen(false)
   }
 
@@ -172,6 +198,16 @@ export function useNotifications() {
     unreadCount: unreadCounts.total,
     unreadNoticeCount: unreadCounts.notice,
     unreadAnnouncementsCount: unreadCounts.announcements,
+
+    noticeDialogOpen:
+      autoShowNotice &&
+      noticeValidated &&
+      !noticeFetching &&
+      !noticeError &&
+      !!noticeContent &&
+      noticeContent !== lastReadNotice &&
+      !popoverOpen,
+    closeNoticeDialog: () => markNoticeRead(noticeContent),
 
     // Popover state
     popoverOpen,

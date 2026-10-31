@@ -396,6 +396,7 @@ func InitResources() error {
 	}
 
 	service.StartAuthArtifactCleanup()
+	service.StartImageUploadCleanup()
 
 	return nil
 }

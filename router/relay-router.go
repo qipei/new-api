@@ -11,12 +11,19 @@ import (
 )
 
 func SetRelayRouter(router *gin.Engine) {
+	// Register before model middleware: uploads do not decompress bodies, track model usage,
+	// or contribute to model admission statistics. They have their own resource budget.
+	uploadsRouter := router.Group("/v1/uploads")
+	uploadsRouter.Use(middleware.RouteTag("upload"), middleware.CORS(), middleware.TokenAuth())
+	uploadsRouter.POST("/images", controller.UploadImage)
+
 	router.Use(middleware.UserUsageTracking())
 	router.Use(middleware.CORS())
 	router.Use(middleware.DecompressRequestMiddleware())
 	router.Use(middleware.BodyStorageCleanup()) // 清理请求体存储
 	router.Use(middleware.StatsMiddleware())
 	// https://platform.openai.com/docs/api-reference/introduction
+
 	modelsRouter := router.Group("/v1/models")
 	modelsRouter.Use(middleware.RouteTag("relay"))
 	modelsRouter.Use(middleware.TokenAuth())

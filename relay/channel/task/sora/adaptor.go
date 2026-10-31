@@ -253,6 +253,10 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 				writer.WriteField(key, v)
 			}
 		}
+		// CUSTOM: MiniMax-H3 的平台只认 duration，只给了 seconds 时补上（见 supplementPlatformFields）（fork 扩展）。
+		if seconds := formData.Value["seconds"]; hailuo.IsV2Model(info.UpstreamModelName) && len(seconds) > 0 && len(formData.Value["duration"]) == 0 {
+			writer.WriteField("duration", strings.TrimSpace(seconds[0]))
+		}
 		for fieldName, fileHeaders := range formData.File {
 			for _, fh := range fileHeaders {
 				f, err := fh.Open()
@@ -300,6 +304,8 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 //     推断分辨率的规则也与网关计费不同（1920x1080 会被当成 768P）。按网关计费所用的档位写明
 //     resolution；宽高比从 metadata.parameters.ratio 补到顶层，文生视频未指定时按 16:9
 //     （平台要求文生视频必须给出非 adaptive 的比例，与直连官方的默认一致）。
+//   - MiniMax-H3 的时长：平台只认 duration，OpenAI 视频格式的 seconds 会被忽略、按默认 5 秒
+//     出片，完成时又按实际 5 秒结算（请求 4 秒却多收 1 秒）。只给了 seconds 时补上 duration。
 //
 // 调用方给了原生 content 时按官方格式透传，不做任何补充。
 func supplementPlatformFields(bodyMap map[string]interface{}, req relaycommon.TaskSubmitReq, upstreamModel string) {
@@ -311,6 +317,11 @@ func supplementPlatformFields(bodyMap map[string]interface{}, req relaycommon.Ta
 	parameters, _ := metadata["parameters"].(map[string]interface{})
 	isMiniMax := hailuo.IsV2Model(upstreamModel)
 	if isMiniMax {
+		if _, ok := bodyMap["duration"]; !ok {
+			if seconds, err := strconv.Atoi(strings.TrimSpace(req.Seconds)); err == nil && seconds > 0 {
+				bodyMap["duration"] = seconds
+			}
+		}
 		if _, ok := bodyMap["resolution"]; !ok {
 			size := req.Size
 			for _, value := range []any{metadata["resolution"], parameters["resolution"]} {

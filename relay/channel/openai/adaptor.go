@@ -570,6 +570,12 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		return &requestBody, nil
 
 	default:
+		// CUSTOM: 百炼原生的「宽*高」写法换成 OpenAI 规范的「宽x高」（fork 扩展）。同一个模型
+		// 有的线路是百炼直连（认 *），有的是 OpenAI 兼容的中转（只认 x，收到 * 会报计费档位
+		// 匹配失败），比价路由在两类线路之间切换时请求要都能用。
+		if width, height, ok := strings.Cut(request.Size, "*"); ok && !strings.Contains(height, "*") {
+			request.Size = width + "x" + height
+		}
 		return request, nil
 	}
 }

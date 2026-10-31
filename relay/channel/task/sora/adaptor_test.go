@@ -131,6 +131,24 @@ func TestSupplementPlatformFields(t *testing.T) {
 			want:  map[string]any{},
 		},
 		{
+			name:  "minimax seconds becomes duration, the only field the platform honours",
+			model: "MiniMax-H3",
+			body:  `{"prompt":"p","seconds":"4","resolution":"768P","metadata":{"ratio":"16:9"}}`,
+			want:  map[string]any{"duration": 4},
+		},
+		{
+			name:  "minimax caller duration untouched",
+			model: "MiniMax-H3",
+			body:  `{"prompt":"p","seconds":"4","duration":6,"resolution":"768P","metadata":{"ratio":"16:9"}}`,
+			want:  map[string]any{},
+		},
+		{
+			name:  "non-minimax seconds untouched",
+			model: "seedance2.5",
+			body:  `{"prompt":"p","seconds":"4"}`,
+			want:  map[string]any{},
+		},
+		{
 			name:  "caller images untouched",
 			model: "seedance2.5",
 			body:  `{"prompt":"p","images":["i"],"metadata":{"audio_urls":["a"]}}`,
